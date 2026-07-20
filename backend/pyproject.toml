@@ -35,3 +35,7 @@ target-version = "py312"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["presidio_analyzer.*", "presidio_anonymizer.*", "spacy.*"]
+ignore_missing_imports = true
