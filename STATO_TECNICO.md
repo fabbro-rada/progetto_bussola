@@ -134,7 +134,7 @@ La sicurezza è la **priorità n.1**. Ogni garanzia del nucleo (`CLAUDE.md` §9)
 - **Guardrail (in ingresso e in uscita):**
   - **Controllo dell'ambito:** il sistema risponde solo su lavoro/formazione/orientamento; ogni richiesta fuori tema è rifiutata con garbo, sia in input sia in output.
   - **Resistenza a manipolazione (prompt injection) ed estrazione dati:** system prompt blindato, azioni consentite solo tra quelle previste, controlli indipendenti dal «buon comportamento» del modello.
-  - **Filtro PII in uscita:** **Presidio** come difesa in profondità sui testi liberi, prima di mostrare o salvare.
+  - **Filtro PII in uscita:** **Presidio** (MIT) come difesa in profondità sui testi liberi, prima di mostrare o salvare. Riconoscitori a **pattern** (email, telefono, IBAN, carta, IP) indipendenti dalla lingua e deterministici; **NER inglese** via `en_core_web_lg` (**MIT**). *Vincolo licenze (§3):* il modello NER italiano `it_core_news_lg` è **CC BY-NC-SA 3.0** (non-commerciale + copyleft), quindi **escluso**; l'italiano usa un tokenizer `spacy.blank("it")` (MIT) + i pattern. Il **NER multilingua** (nomi/luoghi per it/fr/es/ar) è un **follow-up** con un modello a licenza permissiva da verificare. La whitelist resta comunque la garanzia primaria.
   - **Garanzia strutturale primaria:** lo **schema-whitelist** del profilo (§7): per costruzione non può contenere reati, salute, dati familiari o punteggi sulla persona.
 - **Postazione blindata (kiosk).** Chromium `--kiosk` sotto un utente Linux dedicato senza privilegi, scorciatoie disabilitate, nessuna navigazione libera.
 
@@ -198,7 +198,26 @@ progetto_bussola/
 
 ## 11. Comandi
 
-> **Sezione viva:** si popola man mano che l'implementazione procede (setup ambiente, avvio servizi, esecuzione test, download modelli). Vuota per scelta finché non c'è codice da eseguire.
+> **Sezione viva:** cresce con l'implementazione. Stato attuale = backend del Sottosistema 1.
+
+**Setup del backend** (da `backend/`):
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+python -m spacy download en_core_web_lg   # NER inglese, MIT — unico modello NER scaricato
+```
+
+> **Nota licenze/riproducibilità (§3, §10):** si scarica **solo** `en_core_web_lg` (MIT). Il modello italiano `it_core_news_lg` è **CC BY-NC-SA** e **non** va installato/usato: l'italiano è coperto dai riconoscitori a pattern + tokenizer `spacy.blank("it")`.
+
+**Esecuzione (gate di qualità)** (da `backend/`, con `.venv` attivo):
+
+```bash
+pytest -q          # test (guardrail e sicurezza per primi)
+ruff check .       # lint
+mypy src           # type-check (strict)
+```
 
 ---
 
@@ -222,3 +241,4 @@ Lo stack non cambia; cambiano solo le taglie:
 | 2026-07-20 | Database = PostgreSQL (Docker) | Segregazione a ruoli e audit append-only imposti dal DB |
 | 2026-07-20 | Frontend = React + Vite + TS | i18n/RTL maturi, accessibilità, ecosistema |
 | 2026-07-20 | Flusso: spec di design **per sottosistema** prima di ogni piano | Design rivedibile a granularità di sottosistema, separato dai passi eseguibili |
+| 2026-07-20 | Filtro PII: rimosso `it_core_news_lg` (CC BY-NC-SA); IT a pattern + tokenizer blank, NER EN via `en_core_web_lg` (MIT); NER multilingua permissivo = follow-up | §3: solo licenze permissive; §10: donabile e replicabile |

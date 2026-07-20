@@ -879,3 +879,12 @@ git commit -m "feat(guardrails): sanitize_profile applica il filtro PII al profi
 | TDD, solo dati sintetici (§9) | Tutti i task |
 | Open source, locale, budget zero (§3) | Task 1 (dipendenze) |
 | Codice in inglese (§11) | Tutti i task |
+
+## Emendamenti applicati in esecuzione (revisione task-per-task)
+
+Registrati per trasparenza (il codice inline sopra riflette i primi due; il terzo è una modifica di design emersa in revisione):
+
+1. **§11 — codice in inglese** (commit `591ecba`): la docstring del package e la `description` del pyproject erano in italiano nel piano originale; tradotte in inglese per rispettare `CLAUDE.md` §11 (deciso con l'utente). Snippet del piano allineati.
+2. **ruff F401** (commit `0757a89`): rimosso l'import inutilizzato `Availability` in `test_models.py` (commit lint-clean). Snippet del piano allineato.
+3. **Integrità della redazione** (commit `a99d567`): la redazione PII può allungare un campo oltre `max_length`. Deciso con l'utente di rendere l'output di `sanitize_profile` sempre valido → introdotto `_FREE_TEXT_MAX_LENGTH = 200` sui quattro campi liberi redatti (`Skill.name`, `WorkExperience.role/sector`, `DesiredTraining.topic`) e `sanitize_profile` ora ritorna `WorkProfile.model_validate(clean.model_dump())`, con test al limite. (Gli snippet inline dei Task 2/5 mostrano l'approccio originale; questa nota è la fonte per lo stato finale.)
+4. **Conformità licenza + copertura (final review)** (commit `25702e0`): il modello NER italiano `it_core_news_lg` (Task 4) è **CC BY-NC-SA 3.0** → non permissivo, viola §3. Deciso con l'utente: **rimosso**. Il filtro PII usa un `_ItEnNlpEngine` custom (NER inglese `en_core_web_lg` MIT + tokenizer `spacy.blank("it")`); l'italiano resta coperto dai riconoscitori a pattern; il NER multilingua permissivo è un follow-up. Quindi il Task 4 scarica **solo** `en_core_web_lg`, non `it_core_news_lg`. Aggiunti i test richiesti dal final review: redazione di `aspiration.fields_of_interest`/`desired_training.topic`, NER inglese, whitelist transitiva (campo vietato annidato); rafforzata l'asserzione del test telefono; documentato che `sanitize_profile` può sollevare `ValidationError`.
