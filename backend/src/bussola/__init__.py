@@ -1,3 +1,3 @@
-"""Bussola backend — assistente per la profilazione lavorativa."""
+"""Bussola backend — work profiling assistant."""
 
 __version__ = "0.1.0"
