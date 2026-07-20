@@ -21,6 +21,14 @@ from bussola.profile.enums import (
 # Shared strict config: unknown fields are rejected; strings are trimmed.
 _STRICT = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
+# Max length for the free-text fields that `sanitize_profile`
+# (bussola.guardrails.pii) redacts in place. Presidio replaces a detected
+# PII span with a placeholder token (e.g. `<EMAIL_ADDRESS>`, `<PHONE_NUMBER>`)
+# that can be longer than the original span, so these fields need headroom
+# beyond the plain input bound to still validate after redaction, while
+# staying capped so free-text input remains bounded.
+_FREE_TEXT_MAX_LENGTH = 200
+
 
 class LanguageKnown(BaseModel):
     model_config = _STRICT
@@ -32,7 +40,7 @@ class LanguageKnown(BaseModel):
 class Skill(BaseModel):
     model_config = _STRICT
 
-    name: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=_FREE_TEXT_MAX_LENGTH)
     kind: SkillKind
     evidence: EvidenceGrade
 
@@ -40,8 +48,8 @@ class Skill(BaseModel):
 class WorkExperience(BaseModel):
     model_config = _STRICT
 
-    role: str = Field(min_length=1, max_length=80)
-    sector: str = Field(min_length=1, max_length=80)
+    role: str = Field(min_length=1, max_length=_FREE_TEXT_MAX_LENGTH)
+    sector: str = Field(min_length=1, max_length=_FREE_TEXT_MAX_LENGTH)
     duration_months: int = Field(ge=0, le=720)  # 0..60 years
 
 
@@ -56,7 +64,7 @@ class Aspiration(BaseModel):
 class DesiredTraining(BaseModel):
     model_config = _STRICT
 
-    topic: str = Field(min_length=1, max_length=80)
+    topic: str = Field(min_length=1, max_length=_FREE_TEXT_MAX_LENGTH)
 
 
 class WorkProfile(BaseModel):
