@@ -57,3 +57,22 @@ def test_operational_notes_reject_free_text():
     # Only predefined categories are allowed; free text must be rejected.
     with pytest.raises(ValidationError):
         WorkProfile(pseudonym_id="P-004", operational_notes=["condannato per furto"])
+
+
+def test_whitelist_is_transitive_into_nested_leaf_models():
+    # The whitelist guarantee must not stop at the top-level WorkProfile:
+    # an unknown field nested inside a leaf model (here `Skill`) has to be
+    # rejected too, otherwise arbitrary data could slip in through any
+    # nested list/model field.
+    with pytest.raises(ValidationError):
+        WorkProfile(
+            pseudonym_id="P-005",
+            skills=[
+                {
+                    "name": "x",
+                    "kind": "soft",
+                    "evidence": "stated",
+                    "secret": "y",
+                }
+            ],
+        )
