@@ -18,11 +18,16 @@ def test_redacts_email(redactor):
 def test_redacts_phone_number(redactor):
     out = redactor.redact("il mio numero e' +39 333 123 4567", language="it")
     assert "333 123 4567" not in out
+    assert "<PHONE_NUMBER>" in out
 
 
-def test_redacts_person_name_italian(redactor):
-    out = redactor.redact("ho lavorato con Marco Rossi in cucina", language="it")
+def test_redacts_person_name_english(redactor):
+    # Italian has no NER model (it_core_news_lg is CC BY-NC-SA, not
+    # permissive, and has been removed — see pii.py docstring). English
+    # NER (en_core_web_lg, MIT) is exercised here instead.
+    out = redactor.redact("I worked with Marco Rossi in the kitchen", language="en")
     assert "Marco Rossi" not in out
+    assert "<PERSON>" in out
 
 
 def test_text_without_pii_is_unchanged(redactor):

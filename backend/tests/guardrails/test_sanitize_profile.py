@@ -2,7 +2,13 @@ import pytest
 
 from bussola.guardrails.pii import PiiRedactor, sanitize_profile
 from bussola.profile.enums import EvidenceGrade, SkillKind
-from bussola.profile.models import Skill, WorkExperience, WorkProfile
+from bussola.profile.models import (
+    Aspiration,
+    DesiredTraining,
+    Skill,
+    WorkExperience,
+    WorkProfile,
+)
 
 
 @pytest.fixture(scope="session")
@@ -11,11 +17,13 @@ def redactor() -> PiiRedactor:
 
 
 def test_sanitize_redacts_pii_in_free_text(redactor):
+    # Italian redaction is pattern-based only (no NER model, see pii.py
+    # docstring), so the embedded PII here is an email, not a person name.
     profile = WorkProfile(
         pseudonym_id="P-010",
         skills=[
             Skill(
-                name="assistente di Marco Rossi",
+                name="assistente, contatto marco.rossi@example.com",
                 kind=SkillKind.SOFT,
                 evidence=EvidenceGrade.STATED,
             )
@@ -26,7 +34,8 @@ def test_sanitize_redacts_pii_in_free_text(redactor):
     )
     clean = sanitize_profile(profile, redactor, language="it")
 
-    assert "Marco Rossi" not in clean.skills[0].name
+    assert "marco.rossi@example.com" not in clean.skills[0].name
+    assert "<EMAIL_ADDRESS>" in clean.skills[0].name
     # Non-free-text data is preserved unchanged.
     assert clean.experiences[0].duration_months == 12
     assert clean.pseudonym_id == "P-010"
@@ -74,3 +83,25 @@ def test_sanitize_handles_redaction_that_expands_field_length(redactor):
     # The redacted copy must always re-validate against the schema, even
     # when redaction expanded the field beyond its original length.
     assert WorkProfile.model_validate(clean.model_dump())
+
+
+def test_sanitize_redacts_pii_in_aspiration_and_desired_training(redactor):
+    """`aspiration.fields_of_interest` and `desired_training` are redacted
+    too. Uses pattern-based PII (email) so it works under `language="it"`
+    with no NER model."""
+    profile = WorkProfile(
+        pseudonym_id="P-013",
+        aspiration=Aspiration(
+            fields_of_interest=["contattami a mario@example.com per proposte"]
+        ),
+        desired_training=[
+            DesiredTraining(topic="corso richiesto, scrivere a laura@example.com")
+        ],
+    )
+
+    clean = sanitize_profile(profile, redactor, language="it")
+
+    assert "mario@example.com" not in clean.aspiration.fields_of_interest[0]
+    assert "<EMAIL_ADDRESS>" in clean.aspiration.fields_of_interest[0]
+    assert "laura@example.com" not in clean.desired_training[0].topic
+    assert "<EMAIL_ADDRESS>" in clean.desired_training[0].topic
