@@ -10,8 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from bussola.profile.enums import (
     Availability,
+    DigitalLiteracy,
     EvidenceGrade,
     LanguageLevel,
+    OperationalNoteCategory,
     SkillKind,
     WorkConstraint,
 )
@@ -55,3 +57,23 @@ class DesiredTraining(BaseModel):
     model_config = _STRICT
 
     topic: str = Field(min_length=1, max_length=80)
+
+
+class WorkProfile(BaseModel):
+    """Work-only profile.
+
+    By construction it cannot hold crimes, juridical position, health,
+    family data, or any judgement/score about the person: there is simply
+    no field for them, and unknown fields are rejected (`extra="forbid"`).
+    """
+
+    model_config = _STRICT
+
+    pseudonym_id: str = Field(min_length=1, max_length=64)
+    languages: list[LanguageKnown] = Field(default_factory=list)
+    digital_literacy: DigitalLiteracy | None = None
+    skills: list[Skill] = Field(default_factory=list)
+    experiences: list[WorkExperience] = Field(default_factory=list)
+    aspiration: Aspiration | None = None
+    desired_training: list[DesiredTraining] = Field(default_factory=list)
+    operational_notes: list[OperationalNoteCategory] = Field(default_factory=list)
