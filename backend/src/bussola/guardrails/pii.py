@@ -73,8 +73,15 @@ class PiiRedactor:
 def sanitize_profile(
     profile: WorkProfile, redactor: PiiRedactor, language: str = "it"
 ) -> WorkProfile:
-    """Return a deep copy of the profile with PII redacted from every
-    free-text field. The original profile is left untouched."""
+    """Return a re-validated deep copy of the profile with PII redacted from
+    every free-text field. The original profile is left untouched.
+
+    Redaction replaces a detected PII span with a placeholder token (e.g.
+    `<EMAIL_ADDRESS>`) that can be longer than the original span, so the
+    redacted copy is re-validated through `WorkProfile.model_validate`
+    before being returned: the caller can never receive a profile that
+    silently violates its own schema.
+    """
     clean = profile.model_copy(deep=True)
 
     for skill in clean.skills:
@@ -93,4 +100,4 @@ def sanitize_profile(
     for training in clean.desired_training:
         training.topic = redactor.redact(training.topic, language)
 
-    return clean
+    return WorkProfile.model_validate(clean.model_dump())
