@@ -204,7 +204,6 @@ import pytest
 from pydantic import ValidationError
 
 from bussola.profile.enums import (
-    Availability,
     EvidenceGrade,
     LanguageLevel,
     SkillKind,
