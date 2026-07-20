@@ -10,6 +10,7 @@ Questo è il **documento tecnico vivo** previsto da `CLAUDE.md` §12. Contiene i
 
 - **Non è protetto.** Può evolvere liberamente man mano che il progetto avanza.
 - **Non ridefinisce il cosa e il perché.** Missione, linee rosse, principi, modello del profilo, ruoli, funzionalità e criteri di successo vivono in `CLAUDE.md` (nucleo protetto, §1–§11). Se un'esigenza tecnica qui sembra contraddire il nucleo, **si applica la Regola del blocco** (§0 di `CLAUDE.md`): fermarsi, spiegare, chiedere conferma, aggiornare il nucleo solo dopo approvazione.
+- **Flusso di sviluppo.** Ogni sottosistema segue: brainstorming → **spec di design** (`docs/superpowers/specs/`) → **piano di implementazione** (`docs/superpowers/plans/`) → **TDD**. La spec fissa *cosa* costruisce il sottosistema e *perché* (motivazioni delle scelte); il piano lo scompone in passi eseguibili con codice e comandi.
 
 ---
 
@@ -180,14 +181,17 @@ Strumenti: `pytest` (backend, guardrail e AI), `Vitest` + `Playwright` (frontend
 
 ```
 progetto_bussola/
-├── CLAUDE.md              # nucleo protetto (cosa/perché)
-├── STATO_TECNICO.md       # questo documento (come)
-├── docs/                  # spec e piani di implementazione
-├── backend/               # FastAPI, guardrail, estrazione, matching, dati
-├── frontend/              # React (kiosk persona + portale operatore)
-├── models/                # modelli GGUF/whisper/piper (non versionati)
-├── tests/                 # test (guardrail e sicurezza per primi)
-└── docker-compose.yml     # PostgreSQL + servizi
+├── CLAUDE.md                    # nucleo protetto (cosa/perché)
+├── STATO_TECNICO.md             # questo documento (come)
+├── docs/superpowers/
+│   ├── specs/                   # spec di design, una per sottosistema
+│   └── plans/                   # piani di implementazione (TDD), uno per sottosistema
+├── backend/                     # package `bussola`: profilo, guardrail, estrazione, matching, dati
+│   ├── src/bussola/
+│   └── tests/                   # test (guardrail e sicurezza per primi)
+├── frontend/                    # React (kiosk persona + portale operatore)
+├── models/                      # modelli GGUF/whisper/piper (non versionati)
+└── docker-compose.yml           # PostgreSQL + servizi
 ```
 
 ---
@@ -217,3 +221,4 @@ Lo stack non cambia; cambiano solo le taglie:
 | 2026-07-20 | Voce su CPU: faster-whisper (STT) + Piper (TTS) | Nessuna contesa di VRAM; arabo con ripiego a testo |
 | 2026-07-20 | Database = PostgreSQL (Docker) | Segregazione a ruoli e audit append-only imposti dal DB |
 | 2026-07-20 | Frontend = React + Vite + TS | i18n/RTL maturi, accessibilità, ecosistema |
+| 2026-07-20 | Flusso: spec di design **per sottosistema** prima di ogni piano | Design rivedibile a granularità di sottosistema, separato dai passi eseguibili |
