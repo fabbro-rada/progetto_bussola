@@ -1,7 +1,7 @@
 [project]
 name = "bussola"
 version = "0.1.0"
-description = "Assistente per la profilazione lavorativa - backend"
+description = "Work profiling assistant - backend"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.9,<3",

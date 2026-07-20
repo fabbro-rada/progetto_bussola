@@ -84,7 +84,7 @@ File `backend/pyproject.toml`:
 [project]
 name = "bussola"
 version = "0.1.0"
-description = "Assistente per la profilazione lavorativa - backend"
+description = "Work profiling assistant - backend"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.9,<3",
@@ -122,7 +122,7 @@ strict = true
 File `backend/src/bussola/__init__.py`:
 
 ```python
-"""Bussola backend — assistente per la profilazione lavorativa."""
+"""Bussola backend — work profiling assistant."""
 
 __version__ = "0.1.0"
 ```
