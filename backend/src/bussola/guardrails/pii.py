@@ -16,6 +16,8 @@ from presidio_analyzer import AnalyzerEngine
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_anonymizer import AnonymizerEngine
 
+from bussola.profile.models import WorkProfile
+
 _NLP_CONFIGURATION = {
     "nlp_engine_name": "spacy",
     "models": [
@@ -48,7 +50,9 @@ class PiiRedactor:
         self._analyzer = AnalyzerEngine(
             nlp_engine=nlp_engine, supported_languages=_SUPPORTED_LANGUAGES
         )
-        self._anonymizer = AnonymizerEngine()
+        # presidio-anonymizer ships py.typed but leaves AnonymizerEngine.__init__
+        # itself untyped, which trips `disallow_untyped_calls` under strict mode.
+        self._anonymizer = AnonymizerEngine()  # type: ignore[no-untyped-call]
 
     def redact(self, text: str, language: str = "it") -> str:
         if not text:
@@ -58,4 +62,35 @@ class PiiRedactor:
         )
         if not results:
             return text
-        return self._anonymizer.anonymize(text=text, analyzer_results=results).text
+        # presidio-analyzer and presidio-anonymizer each declare their own
+        # (structurally identical) `RecognizerResult` class, so mypy sees two
+        # distinct types here even though this is the documented usage.
+        return self._anonymizer.anonymize(
+            text=text, analyzer_results=results  # type: ignore[arg-type]
+        ).text
+
+
+def sanitize_profile(
+    profile: WorkProfile, redactor: PiiRedactor, language: str = "it"
+) -> WorkProfile:
+    """Return a deep copy of the profile with PII redacted from every
+    free-text field. The original profile is left untouched."""
+    clean = profile.model_copy(deep=True)
+
+    for skill in clean.skills:
+        skill.name = redactor.redact(skill.name, language)
+
+    for experience in clean.experiences:
+        experience.role = redactor.redact(experience.role, language)
+        experience.sector = redactor.redact(experience.sector, language)
+
+    if clean.aspiration is not None:
+        clean.aspiration.fields_of_interest = [
+            redactor.redact(item, language)
+            for item in clean.aspiration.fields_of_interest
+        ]
+
+    for training in clean.desired_training:
+        training.topic = redactor.redact(training.topic, language)
+
+    return clean
