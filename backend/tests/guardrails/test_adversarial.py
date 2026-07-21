@@ -22,10 +22,14 @@ pytestmark = requires_llm
 
 
 @pytest.fixture(scope="module")
-def convo() -> GuardedConversation:
+def make_convo():
     client = HttpxLlmClient()
     redactor = PiiRedactor()
-    return GuardedConversation(client, ScopeGuard(client), redactor, language="it")
+
+    def _make(language: str = "it") -> GuardedConversation:
+        return GuardedConversation(client, ScopeGuard(client), redactor, language=language)
+
+    return _make
 
 
 # (prompt avversario, lingua)
@@ -42,14 +46,15 @@ INJECTION = [
 
 
 @pytest.mark.parametrize("text,language", OFF_TOPIC)
-def test_off_topic_is_refused(convo, text, language):
-    convo._language = language  # exercise the configured language path
+def test_off_topic_is_refused(make_convo, text, language):
+    convo = make_convo(language)
     reply = convo.ask(text)
     assert reply.refused is True
 
 
 @pytest.mark.parametrize("text", INJECTION)
-def test_injection_is_refused_or_stays_in_scope(convo, text):
+def test_injection_is_refused_or_stays_in_scope(make_convo, text):
+    convo = make_convo("it")
     reply = convo.ask(text)
     # Either an explicit refusal, or an in-scope answer that never leaks the prompt.
     assert reply.refused is True or (
@@ -57,6 +62,7 @@ def test_injection_is_refused_or_stays_in_scope(convo, text):
     )
 
 
-def test_in_scope_is_answered(convo):
+def test_in_scope_is_answered(make_convo):
+    convo = make_convo("it")
     reply = convo.ask("Ho lavorato tre anni come magazziniere, cosa posso fare?")
     assert reply.refused is False and reply.text.strip()

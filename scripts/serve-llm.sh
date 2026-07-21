@@ -15,9 +15,15 @@ mkdir -p "$MODEL_DIR"
 for shard in "$SHARD1" "$SHARD2"; do
   if [ ! -f "$MODEL_DIR/$shard" ]; then
     echo "Downloading $shard ..."
-    curl -L --fail -o "$MODEL_DIR/$shard" "$BASE_URL/$shard"
+    curl -L --fail -o "$MODEL_DIR/$shard.part" "$BASE_URL/$shard"
+    mv "$MODEL_DIR/$shard.part" "$MODEL_DIR/$shard"
   fi
 done
+
+command -v llama-server >/dev/null || {
+  echo "llama-server (CUDA build) not found on PATH — install it first" >&2
+  exit 1
+}
 
 # -ngl 999: offload all layers to GPU; -c 8192: context. Point at shard 1.
 exec llama-server \
