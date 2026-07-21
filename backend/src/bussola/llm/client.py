@@ -55,7 +55,7 @@ class HttpxLlmClient:
         try:
             response = self._client.post("/v1/chat/completions", json=payload)
             response.raise_for_status()
-        except (httpx.TimeoutException, httpx.TransportError) as exc:
+        except httpx.TransportError as exc:
             raise LlmUnavailable(str(exc)) from exc
         data = response.json()
         content: str = data["choices"][0]["message"]["content"]

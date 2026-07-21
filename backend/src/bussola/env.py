@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 def _find_dotenv(start: Path | None = None) -> Path | None:
+    """Walk up from `start` (or the current directory) looking for a `.env`."""
     directory = start or Path.cwd()
     for candidate in (directory, *directory.parents):
         dotenv = candidate / ".env"
@@ -36,6 +37,8 @@ def load_project_dotenv(start: Path | None = None) -> None:
             continue
         key, _, value = line.partition("=")
         key = key.strip()
-        value = value.strip().strip("'").strip('"')
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
         if key and key not in os.environ:
             os.environ[key] = value
