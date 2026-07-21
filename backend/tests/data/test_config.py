@@ -59,10 +59,19 @@ def test_ignores_comments_and_blank_lines(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.delenv("BUSSOLA_TEST_KEY", raising=False)
 
 
-def test_missing_file_is_a_noop(tmp_path: Path) -> None:
-    missing = tmp_path / "does-not-exist" / ".env"
+def test_missing_file_is_a_noop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When no `.env` is found anywhere up the tree, loading changes nothing.
 
-    load_project_dotenv(missing)  # must not raise
+    Forces the "not found" branch deterministically (rather than relying on
+    the ambient assumption that no ancestor of `tmp_path` has a `.env`) by
+    monkeypatching `_find_dotenv` itself.
+    """
+    monkeypatch.delenv("BUSSOLA_TEST_NOOP_SENTINEL", raising=False)
+    monkeypatch.setattr("bussola.env._find_dotenv", lambda start=None: None)
+
+    load_project_dotenv()  # must not raise
+
+    assert "BUSSOLA_TEST_NOOP_SENTINEL" not in os.environ
 
 
 def test_strips_surrounding_quotes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -73,6 +82,25 @@ def test_strips_surrounding_quotes(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     load_project_dotenv(env_file)
 
     assert os.environ.get("BUSSOLA_TEST_KEY") == "quoted value"
+    monkeypatch.delenv("BUSSOLA_TEST_KEY", raising=False)
+
+
+def test_asymmetric_quote_is_kept_literally(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only a single matching leading/trailing quote pair is stripped.
+
+    A lone trailing quote with no matching leading quote is not a pair, so it
+    must be kept as part of the literal value (matches the original
+    `data/config.py._load_dotenv` behavior).
+    """
+    monkeypatch.delenv("BUSSOLA_TEST_KEY", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("BUSSOLA_TEST_KEY=hello'\n")
+
+    load_project_dotenv(env_file)
+
+    assert os.environ.get("BUSSOLA_TEST_KEY") == "hello'"
     monkeypatch.delenv("BUSSOLA_TEST_KEY", raising=False)
 
 
