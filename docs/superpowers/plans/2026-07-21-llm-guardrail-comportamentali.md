@@ -646,6 +646,8 @@ git commit -m "feat(guardrails): ScopeGuard classificatore LLM con fail-safe ver
 - Consumes: `LlmClient`, `ScopeGuard`, `PiiRedactor` (Sott. 1), prompts, refusal.
 - Produces: `Reply(refused: bool, text: str, category: RefusalCategory | None)`; `GuardedConversation(client, scope_guard, redactor, *, language="it")` con `ask(user_text: str) -> Reply`.
 
+**Requisito aggiuntivo — degrado elegante (§3.7) + finding Task 3.** `ask` deve avvolgere l'intero flusso (guard di input, chiamata di merito, guard di output) in `try/except LlmUnavailable` e, in quel caso, ritornare un `Reply` controllato «temporaneamente non disponibile» (mai propagare l'eccezione, mai lasciar passare contenuto). Aggiungere a `refusal.py` una `unavailable_message(language) -> str` con template localizzati nelle 5 lingue (non giudicanti). Il `Reply` di indisponibilità: `refused=True`, `text=unavailable_message(language)`, `category=None`. Aggiungere un test: un `FakeLlmClient` che solleva `LlmUnavailable` → `ask` ritorna il reply di indisponibilità (refused, nessuna eccezione propagata).
+
 - [ ] **Step 1: Scrivere i test (falliscono)**
 
 File `backend/tests/guardrails/test_pipeline.py`:
