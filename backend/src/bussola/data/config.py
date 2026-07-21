@@ -16,6 +16,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from psycopg.conninfo import make_conninfo
+
 
 def _load_dotenv(path: Path) -> None:
     """Load ``KEY=VALUE`` pairs from `path` into ``os.environ``.
@@ -44,8 +46,15 @@ def _load_dotenv(path: Path) -> None:
             os.environ[key] = value
 
 
-def _find_dotenv(start: Path) -> Path | None:
-    """Return the first ``.env`` file found walking up from `start` to the root."""
+def _find_dotenv(start: Path | None = None) -> Path | None:
+    """Return the first ``.env`` file found walking up from `start` to the root.
+
+    `start` defaults to the current working directory (the behavior used at
+    import time below); an explicit `start` is accepted so this walk is
+    testable against a temporary directory tree.
+    """
+    if start is None:
+        start = Path.cwd()
     for directory in (start, *start.parents):
         candidate = directory / ".env"
         if candidate.is_file():
@@ -53,7 +62,7 @@ def _find_dotenv(start: Path) -> Path | None:
     return None
 
 
-_dotenv_path = _find_dotenv(Path.cwd())
+_dotenv_path = _find_dotenv()
 if _dotenv_path is not None:
     _load_dotenv(_dotenv_path)
 
@@ -71,10 +80,15 @@ _ROLES = {
 
 
 def dsn(role: str, dbname: str | None = None) -> str:
-    """Build a libpq connection string for the given role."""
+    """Build a libpq connection string for the given role.
+
+    Uses psycopg's ``make_conninfo`` rather than raw string interpolation so
+    values containing spaces or quotes (e.g. a real production password) are
+    quoted/escaped correctly instead of producing a malformed DSN.
+    """
     if role not in _ROLES:
         raise ValueError(f"unknown role: {role!r}")
     user, env_key, default = _ROLES[role]
     password = os.environ.get(env_key, default)
     database = dbname or _DBNAME
-    return f"host={_HOST} port={_PORT} dbname={database} user={user} password={password}"
+    return make_conninfo(host=_HOST, port=_PORT, dbname=database, user=user, password=password)
