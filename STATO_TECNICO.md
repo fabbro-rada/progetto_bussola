@@ -132,7 +132,7 @@ La sicurezza è la **priorità n.1**. Ogni garanzia del nucleo (`CLAUDE.md` §9)
 - **Audit immutabile.** Tabella di audit **append-only**: `UPDATE`/`DELETE` negati al ruolo applicativo (default-deny) **e** vietati da un trigger a tutti tranne l'owner. In aggiunta, **hash-chaining** (ogni record include l'hash del precedente) per rendere evidente ogni manomissione. Cintura + bretelle. *Proprietà e limiti:* è **tamper-evident** (rileva modifiche/cancellazioni post-hoc), **non tamper-proof** contro un writer `app` compromesso che inserisca una catena falsa auto-consistente → HMAC con chiave / ancoraggio esterno = **Fase 2**. Il campo `details` dell'audit è un dict libero **non** filtrato dal PII e finisce in un log non-scrubbabile: va **vincolato/sanitizzato al confine** quando gli operatori guideranno gli eventi (sottosistema Auth & portale).
 - **Cifratura a riposo e in transito.** A riposo: **LUKS full-disk** sulla macchina (passo di *deployment*). In transito: tutto su `127.0.0.1` (nessun dato in rete); se in futuro si va in LAN, TLS interno. (`pgcrypto` non serve: nessun dato di identità.)
 - **Guardrail (in ingresso e in uscita):**
-  - **Controllo dell'ambito:** il sistema risponde solo su lavoro/formazione/orientamento; ogni richiesta fuori tema è rifiutata con garbo, sia in input sia in output.
+  - **Controllo dell'ambito:** il sistema risponde solo su lavoro/formazione/orientamento; ogni richiesta fuori tema è rifiutata con garbo, sia in input sia in output. Realizzato (Sott. 3) con un **guard layer indipendente**: guard di **input** = classificatore LLM strutturato (`{allow, category, reason}`, temp 0) + validazioni deterministiche; guard di **output** = ri-check di ambito via LLM **sempre attivo** (§2 «in uscita») + filtro PII + controlli anti-fuga. Rifiuti **strutturati** con messaggio localizzato non giudicante. Serving: **`llama-server` nativo** (CUDA), client httpx sull'endpoint OpenAI-compatibile.
   - **Resistenza a manipolazione (prompt injection) ed estrazione dati:** system prompt blindato, azioni consentite solo tra quelle previste, controlli indipendenti dal «buon comportamento» del modello.
   - **Filtro PII in uscita:** **Presidio** (MIT) come difesa in profondità sui testi liberi, prima di mostrare o salvare. Riconoscitori a **pattern** (email, telefono, IBAN, carta, IP) indipendenti dalla lingua e deterministici; **NER inglese** via `en_core_web_lg` (**MIT**). *Vincolo licenze (§3):* il modello NER italiano `it_core_news_lg` è **CC BY-NC-SA 3.0** (non-commerciale + copyleft), quindi **escluso**; l'italiano usa un tokenizer `spacy.blank("it")` (MIT) + i pattern. Il **NER multilingua** (nomi/luoghi per it/fr/es/ar) è un **follow-up** con un modello a licenza permissiva da verificare. La whitelist resta comunque la garanzia primaria.
   - **Garanzia strutturale primaria:** lo **schema-whitelist** del profilo (§7): per costruzione non può contenere reati, salute, dati familiari o punteggi sulla persona.
@@ -259,3 +259,12 @@ Registrati dalle revisioni (nessuno bloccante; da affrontare al momento giusto):
 - **`db-init/00-roles.sh`**: le password sono interpolate come literal SQL (init una-tantum, input del deployer) → avvertenza «niente apici singoli» o binding.
 - **Test aggiuntivi (hardening):** idempotenza del runner di migrazioni (`[]` alla 2ª esecuzione); percorso fail-closed di `ProfileRepository.save` end-to-end; `details` con payload non banale per la hash-chain (normalizzazione numeri JSON).
 - **`_CHAIN_LOCK_KEY`**: documentare uno schema di namespacing per gli advisory-lock (sono cluster-wide).
+
+---
+
+## 15. Registro delle decisioni (segue)
+
+| Data | Decisione | Motivo |
+|---|---|---|
+| 2026-07-21 | Sott. 3: guard layer **indipendente** (guard input = classificatore LLM strutturato temp 0; guard output = ri-check ambito LLM **sempre attivo** + filtro PII) | §2 ambito in ingresso **e in uscita**; §7.3 controlli indipendenti dal buon comportamento del modello |
+| 2026-07-21 | Sott. 3: serving `llama-server` **nativo** (CUDA), client **httpx** verso endpoint OpenAI-compatibile; modello Qwen2.5-7B GGUF Q4 (Apache 2.0) | Toolkit GPU per Docker assente → GPU nativa più semplice; dipendenze minime; nessuna API esterna |
