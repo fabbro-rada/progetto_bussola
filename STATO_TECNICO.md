@@ -219,6 +219,20 @@ ruff check .       # lint
 mypy src           # type-check (strict)
 ```
 
+**Serving LLM (llama-server, OpenAI-compatibile).**
+
+Prerequisito: un binario `llama-server` con supporto CUDA (release prebuilt pinnata o build da
+sorgente) raggiungibile sul `PATH`.
+
+```bash
+bash scripts/serve-llm.sh   # scarica il modello (una tantum, ~4.7 GB) e avvia il server su :8080
+```
+
+Lo script scarica i due shard del Q4_K_M ufficiale di Qwen2.5-7B-Instruct-GGUF in `models/`
+(se non già presenti) e avvia `llama-server` puntato sul primo shard, con tutti i layer offloadati
+su GPU (`-ngl 999`) e contesto 8192. `models/` è in `.gitignore`: i pesi del modello non vengono
+mai versionati.
+
 ---
 
 ## 12. Percorso di upgrade in produzione
