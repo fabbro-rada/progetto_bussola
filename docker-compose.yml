@@ -8,7 +8,7 @@ services:
       BUSSOLA_APP_PASSWORD: ${BUSSOLA_APP_PASSWORD:-app_dev}
       BUSSOLA_AUDITOR_PASSWORD: ${BUSSOLA_AUDITOR_PASSWORD:-auditor_dev}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${BUSSOLA_DB_PORT:-5432}:5432"
     volumes:
       - ./db-init:/docker-entrypoint-initdb.d:ro
       - bussola_pgdata:/var/lib/postgresql/data
