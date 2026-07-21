@@ -127,10 +127,10 @@ In produzione, spostando il desktop sull'**iGPU Radeon 890M** si libera quasi tu
 
 La sicurezza è la **priorità n.1**. Ogni garanzia del nucleo (`CLAUDE.md` §9) ha qui una realizzazione concreta.
 
-- **Segregazione dei dati.** Schemi PostgreSQL separati con **ruoli DB a privilegio minimo** che rispecchiano i ruoli del §6: la mappa **pseudonimo↔anagrafica** è isolata dagli altri dati; i **profili** sono separati dai **log di conversazione**.
-- **Pseudonimizzazione.** Identificativo interno pseudonimo come chiave dei profili; l'anagrafica (se mai presente) vive in una tabella separata, cifrata a livello di colonna con **`pgcrypto`**, accessibile solo a un ruolo dedicato.
-- **Audit immutabile.** Tabella di audit **append-only**: `UPDATE`/`DELETE` **revocati** al ruolo applicativo. In aggiunta, **hash-chaining** (ogni record include l'hash del precedente) per rendere evidente ogni manomissione. Cintura + bretelle.
-- **Cifratura a riposo e in transito.** A riposo: **LUKS full-disk** sulla macchina + `pgcrypto` sulla mappatura sensibile. In transito: tutto su `127.0.0.1` (nessun dato in rete); se in futuro si va in LAN, TLS interno.
+- **Segregazione dei dati.** Schemi PostgreSQL separati (`profiles`, `audit`; futuro `conversations`) con **ruoli DB a privilegio minimo**: `bussola_owner` (DDL/migrazioni), `bussola_app` (RW profili, **solo-INSERT** audit), `bussola_auditor` (**solo-lettura** audit). Le distinzioni tra ruoli del §6 (operatore/supervisore/amministratore) sono **RBAC applicativo** (sottosistema «Auth & operatori»), non ruoli DB.
+- **Pseudonimizzazione (minimizzazione massima).** Lo **pseudonimo è l'unico identificatore** dei profili. Il sistema **non memorizza alcun dato anagrafico né la mappa pseudonimo↔persona**: quel legame vive in un **registro esterno** dell'istituto. Niente tabella di mappatura, niente `pgcrypto` per l'identità (non c'è nulla di identità da cifrare).
+- **Audit immutabile.** Tabella di audit **append-only**: `UPDATE`/`DELETE` negati al ruolo applicativo (default-deny) **e** vietati da un trigger a tutti tranne l'owner. In aggiunta, **hash-chaining** (ogni record include l'hash del precedente) per rendere evidente ogni manomissione. Cintura + bretelle. *Proprietà e limiti:* è **tamper-evident** (rileva modifiche/cancellazioni post-hoc), **non tamper-proof** contro un writer `app` compromesso che inserisca una catena falsa auto-consistente → HMAC con chiave / ancoraggio esterno = **Fase 2**. Il campo `details` dell'audit è un dict libero **non** filtrato dal PII e finisce in un log non-scrubbabile: va **vincolato/sanitizzato al confine** quando gli operatori guideranno gli eventi (sottosistema Auth & portale).
+- **Cifratura a riposo e in transito.** A riposo: **LUKS full-disk** sulla macchina (passo di *deployment*). In transito: tutto su `127.0.0.1` (nessun dato in rete); se in futuro si va in LAN, TLS interno. (`pgcrypto` non serve: nessun dato di identità.)
 - **Guardrail (in ingresso e in uscita):**
   - **Controllo dell'ambito:** il sistema risponde solo su lavoro/formazione/orientamento; ogni richiesta fuori tema è rifiutata con garbo, sia in input sia in output.
   - **Resistenza a manipolazione (prompt injection) ed estrazione dati:** system prompt blindato, azioni consentite solo tra quelle previste, controlli indipendenti dal «buon comportamento» del modello.
@@ -242,3 +242,20 @@ Lo stack non cambia; cambiano solo le taglie:
 | 2026-07-20 | Frontend = React + Vite + TS | i18n/RTL maturi, accessibilità, ecosistema |
 | 2026-07-20 | Flusso: spec di design **per sottosistema** prima di ogni piano | Design rivedibile a granularità di sottosistema, separato dai passi eseguibili |
 | 2026-07-20 | Filtro PII: rimosso `it_core_news_lg` (CC BY-NC-SA); IT a pattern + tokenizer blank, NER EN via `en_core_web_lg` (MIT); NER multilingua permissivo = follow-up | §3: solo licenze permissive; §10: donabile e replicabile |
+| 2026-07-21 | Sott. 2: nessun dato identità nel sistema (mappa pseudonimo↔persona esterna); psycopg3 + migrazioni SQL; ruoli DB coarse (owner/app/auditor) + RBAC app; profilo JSONB; sanitize al salvataggio | Minimizzazione (§4/§5); trasparenza del DDL di sicurezza (§9); filtro in uscita (§7.3) |
+| 2026-07-21 | Inserito sottosistema «Auth & operatori» (account, autenticazione, RBAC) prima del portale operatore | Operatore = principal autenticato; persona detenuta = solo pseudonimo, senza account |
+| 2026-07-21 | Driver DB = `psycopg3` (LGPL-3.0), accettato come interpretazione larga di §3 | LGPL a link dinamico: nessun obbligo sul nostro codice, donation/commercial-friendly. Restano ESCLUSI copyleft forte (GPL) e non-commerciale (es. CC BY-NC). |
+
+---
+
+## 14. Debito tecnico e follow-up noti
+
+Registrati dalle revisioni (nessuno bloccante; da affrontare al momento giusto):
+
+- **Audit `details` → vincolare/sanitizzare** al confine degli eventi operatore (sottosistema Auth & portale): oggi è un dict libero non filtrato in un log immutabile.
+- **Hash-chain → HMAC con chiave / ancoraggio esterno** (Fase 2) per resistere a un writer compromesso (oggi tamper-evident, non tamper-proof).
+- **Transazione unità-di-lavoro** per il portale: oggi `ProfileRepository` e `append_audit` committano separatamente; per «nessuna azione senza il suo record di audit» servirà una transazione condivisa.
+- **`ruff format --check` nel gate** + riformattare 2 file pre-esistenti del Sott. 1 (`pii.py`, `test_sanitize_profile.py`) in un commit di housekeeping.
+- **`db-init/00-roles.sh`**: le password sono interpolate come literal SQL (init una-tantum, input del deployer) → avvertenza «niente apici singoli» o binding.
+- **Test aggiuntivi (hardening):** idempotenza del runner di migrazioni (`[]` alla 2ª esecuzione); percorso fail-closed di `ProfileRepository.save` end-to-end; `details` con payload non banale per la hash-chain (normalizzazione numeri JSON).
+- **`_CHAIN_LOCK_KEY`**: documentare uno schema di namespacing per gli advisory-lock (sono cluster-wide).

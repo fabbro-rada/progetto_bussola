@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: bussola
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres_dev}
+      BUSSOLA_OWNER_PASSWORD: ${BUSSOLA_OWNER_PASSWORD:-owner_dev}
+      BUSSOLA_APP_PASSWORD: ${BUSSOLA_APP_PASSWORD:-app_dev}
+      BUSSOLA_AUDITOR_PASSWORD: ${BUSSOLA_AUDITOR_PASSWORD:-auditor_dev}
+    ports:
+      - "127.0.0.1:${BUSSOLA_DB_PORT:-5432}:5432"
+    volumes:
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+      - bussola_pgdata:/var/lib/postgresql/data
+
+volumes:
+  bussola_pgdata:
