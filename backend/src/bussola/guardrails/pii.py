@@ -6,21 +6,27 @@ and redacts personal data that might slip into free-text fields before they
 are stored or shown.
 
 Pattern-based recognizers (email, phone, IBAN, credit card, IP address) are
-language-agnostic: they work for every supported language, including
-Italian, with no NLP model at all.
+language-agnostic: they work for every supported language — all five of
+`it`, `en`, `fr`, `es`, `ar` (CLAUDE.md §8) — with no NLP model at all. They
+only need the language to be *registered* with some spaCy pipeline so that
+Presidio can tokenize the text; the pipeline itself can be empty.
 
-Name/location detection (NER) additionally needs a language model. English
-NER is provided by `en_core_web_lg`, which is MIT-licensed. NER for Italian
-(and any other non-English language) is DEFERRED: the readily available
-Italian spaCy NER model is licensed CC BY-NC-SA 3.0 (NonCommercial +
-copyleft), which is not a permissive license and cannot be used here
-(CLAUDE.md §3). Until a permissive multilingual NER model is adopted,
-Italian is registered as a blank spaCy pipeline (`spacy.blank("it")`):
-tokenizer only, no downloaded model data, ships with the MIT-licensed
-`spacy` library itself. This keeps pattern-based redaction fully working
-for Italian text; only NER-derived entities (PERSON, LOCATION) are
-unavailable for it. The whitelist remains the primary guarantee, so this
-is acceptable defense-in-depth degradation, not a security gap.
+Name/location detection (NER) additionally needs a trained language model.
+English NER is provided by `en_core_web_lg`, which is MIT-licensed. NER for
+Italian, French, Spanish and Arabic is DEFERRED: the readily available
+Italian spaCy NER model, for instance, is licensed CC BY-NC-SA 3.0
+(NonCommercial + copyleft), which is not a permissive license and cannot be
+used here (CLAUDE.md §3); no permissive multilingual NER model has been
+adopted yet. Until one is, `it`, `fr`, `es` and `ar` are each registered as a
+**blank** spaCy pipeline (`spacy.blank(lang)`): tokenizer only, no downloaded
+model data, ships with the MIT-licensed `spacy` library itself. This keeps
+pattern-based redaction fully working for all five languages; only
+NER-derived entities (PERSON, LOCATION) are unavailable outside English. The
+whitelist remains the primary guarantee, so this is acceptable
+defense-in-depth degradation, not a security gap — but it does mean a crash
+on redaction (`ValueError: No matching recognizers were found`) is not an
+acceptable failure mode for any of the five supported languages: every one
+of them must be registered.
 """
 
 from __future__ import annotations
@@ -32,7 +38,12 @@ from presidio_anonymizer import AnonymizerEngine
 
 from bussola.profile.models import WorkProfile
 
-_SUPPORTED_LANGUAGES = ["it", "en"]
+# CLAUDE.md §8: the five supported languages, full stop. English gets full
+# (MIT) NER; the rest get pattern-only (blank pipeline) redaction — see the
+# module docstring. Every one of the five MUST be registered: an unhandled
+# language would make `redact()` raise instead of degrading gracefully.
+_SUPPORTED_LANGUAGES = ["it", "en", "fr", "es", "ar"]
+_BLANK_PIPELINE_LANGUAGES = ["it", "fr", "es", "ar"]
 _ENTITIES = [
     "PERSON",
     "EMAIL_ADDRESS",
@@ -44,13 +55,13 @@ _ENTITIES = [
 ]
 
 
-class _ItEnNlpEngine(SpacyNlpEngine):
-    """spaCy engine: full (MIT) NER for English, patterns-only for Italian.
+class _MultilingualNlpEngine(SpacyNlpEngine):
+    """spaCy engine: full (MIT) NER for English, patterns-only elsewhere.
 
-    Italian is loaded as a blank pipeline instead of a downloaded model, so
-    it has no NER component: PERSON/LOCATION detection is unavailable for
-    Italian text, but tokenization still works, which is all Presidio's
-    pattern recognizers need.
+    `it`, `fr`, `es` and `ar` are loaded as blank pipelines instead of
+    downloaded models, so they have no NER component: PERSON/LOCATION
+    detection is unavailable for them, but tokenization still works, which
+    is all Presidio's pattern recognizers need.
     """
 
     def load(self) -> None:
@@ -62,7 +73,7 @@ class _ItEnNlpEngine(SpacyNlpEngine):
         # below is exactly what the base class itself does at runtime.
         self.nlp = {  # type: ignore[assignment]
             "en": spacy.load("en_core_web_lg"),
-            "it": spacy.blank("it"),
+            **{lang: spacy.blank(lang) for lang in _BLANK_PIPELINE_LANGUAGES},
         }
 
 
@@ -73,7 +84,7 @@ class PiiRedactor:
     """
 
     def __init__(self) -> None:
-        nlp_engine = _ItEnNlpEngine()
+        nlp_engine = _MultilingualNlpEngine()
         nlp_engine.load()
         self._analyzer = AnalyzerEngine(
             nlp_engine=nlp_engine, supported_languages=_SUPPORTED_LANGUAGES
@@ -85,16 +96,15 @@ class PiiRedactor:
     def redact(self, text: str, language: str = "it") -> str:
         if not text:
             return text
-        results = self._analyzer.analyze(
-            text=text, language=language, entities=_ENTITIES
-        )
+        results = self._analyzer.analyze(text=text, language=language, entities=_ENTITIES)
         if not results:
             return text
         # presidio-analyzer and presidio-anonymizer each declare their own
         # (structurally identical) `RecognizerResult` class, so mypy sees two
         # distinct types here even though this is the documented usage.
         return self._anonymizer.anonymize(
-            text=text, analyzer_results=results  # type: ignore[arg-type]
+            text=text,
+            analyzer_results=results,  # type: ignore[arg-type]
         ).text
 
 
@@ -127,8 +137,7 @@ def sanitize_profile(
 
     if clean.aspiration is not None:
         clean.aspiration.fields_of_interest = [
-            redactor.redact(item, language)
-            for item in clean.aspiration.fields_of_interest
+            redactor.redact(item, language) for item in clean.aspiration.fields_of_interest
         ]
 
     for training in clean.desired_training:

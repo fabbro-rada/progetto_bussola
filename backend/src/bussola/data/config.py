@@ -14,57 +14,12 @@ take precedence over ``.env`` values.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from psycopg.conninfo import make_conninfo
 
+from bussola.env import load_project_dotenv
 
-def _load_dotenv(path: Path) -> None:
-    """Load ``KEY=VALUE`` pairs from `path` into ``os.environ``.
-
-    Blank lines and lines starting with ``#`` are ignored. Surrounding single
-    or double quotes on the value are stripped. Existing environment
-    variables are never overridden: the real environment always wins over
-    ``.env``. A missing (or otherwise unreadable) file is a no-op; this
-    function never raises.
-    """
-    try:
-        contents = path.read_text(encoding="utf-8")
-    except OSError:
-        return
-
-    for line in contents.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, _, value = stripped.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            value = value[1:-1]
-        if key and key not in os.environ:
-            os.environ[key] = value
-
-
-def _find_dotenv(start: Path | None = None) -> Path | None:
-    """Return the first ``.env`` file found walking up from `start` to the root.
-
-    `start` defaults to the current working directory (the behavior used at
-    import time below); an explicit `start` is accepted so this walk is
-    testable against a temporary directory tree.
-    """
-    if start is None:
-        start = Path.cwd()
-    for directory in (start, *start.parents):
-        candidate = directory / ".env"
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-_dotenv_path = _find_dotenv()
-if _dotenv_path is not None:
-    _load_dotenv(_dotenv_path)
+load_project_dotenv()
 
 _HOST = os.environ.get("BUSSOLA_DB_HOST", "127.0.0.1")
 _PORT = os.environ.get("BUSSOLA_DB_PORT", "5432")
