@@ -3,10 +3,16 @@
 Scope is enforced on the way IN and on the way OUT (§2). The output PII filter
 (§7.3) redacts any personal data before the reply reaches the person.
 
-The whole flow is wrapped in a graceful-degradation guard (§3.7): if the local
-LLM server cannot be reached (`LlmUnavailable`), the exception is never
-propagated and no content is ever let through — the person only ever sees a
-controlled, localized "temporarily unavailable" reply.
+The whole flow is wrapped in a graceful-degradation guard (§3.7 / §7.1 "the
+conversation must never block"): if the local LLM server cannot be reached
+(`LlmUnavailable`), or if *anything else* in the flow fails unexpectedly
+(a redaction bug, an HTTP 5xx surfacing as `httpx.HTTPStatusError`, a
+malformed LLM response raising `KeyError`/`IndexError`, ...), the exception
+is never propagated and no model content is ever let through — the person
+only ever sees a controlled, localized "temporarily unavailable" reply. This
+is a deliberate fail-closed net: an unforeseen fault degrades the
+conversation, it does not crash it and it does not leak whatever partial
+content was in flight.
 """
 
 from __future__ import annotations
@@ -54,12 +60,23 @@ class GuardedConversation:
             # Graceful degradation (§3.7): never propagate, never let
             # content through. The person only sees a controlled notice.
             return self._unavailable()
+        except Exception:
+            # Broad fail-closed net (§7.1 "never blocks"): ANY other
+            # unforeseen fault in the flow (a redaction bug, an HTTP 5xx
+            # surfacing as httpx.HTTPStatusError, a malformed LLM response
+            # raising KeyError/IndexError, ...) must degrade the same way
+            # as a known-unavailable server — never propagate, never let
+            # model content through. This is deliberately unspecific: the
+            # whole point is to catch faults we did not anticipate.
+            return self._unavailable()
 
     def _ask(self, user_text: str) -> Reply:
         incoming = self._guard.check(user_text, self._language)
         if not incoming.allow:
-            assert incoming.category is not None
-            return self._refuse(incoming.category)
+            # `RefusalCategory.OUT_OF_SCOPE` fallback mirrors the output-path
+            # handling below: fail-safe on a missing category rather than
+            # relying on `assert`, which is stripped under `python -O`.
+            return self._refuse(incoming.category or RefusalCategory.OUT_OF_SCOPE)
 
         answer = self._client.chat(
             [

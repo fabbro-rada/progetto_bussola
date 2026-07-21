@@ -37,3 +37,14 @@ def test_text_without_pii_is_unchanged(redactor):
 
 def test_empty_text_is_returned_as_is(redactor):
     assert redactor.redact("", language="it") == ""
+
+
+@pytest.mark.parametrize("language", ["fr", "es", "ar"])
+def test_redacts_email_in_all_supported_languages(redactor, language):
+    # CLAUDE.md §8: all five supported languages must survive redaction —
+    # pattern recognizers (email, phone, ...) are language-agnostic and only
+    # need the language registered with a spaCy pipeline (blank is enough).
+    # Before this fix, `redact(text, "fr"|"es"|"ar")` raised ValueError.
+    out = redactor.redact("scrivimi a mario.rossi@example.com", language=language)
+    assert "mario.rossi@example.com" not in out
+    assert "<EMAIL_ADDRESS>" in out
