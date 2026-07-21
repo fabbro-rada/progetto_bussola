@@ -1,2 +1,5 @@
 # Scratch di lavoro del flusso subagent-driven (non versionare)
 .superpowers/
+
+# Segreti locali (password reali dei ruoli DB): mai nel repo. Versionare solo .env.example.
+.env
