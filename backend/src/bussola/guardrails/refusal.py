@@ -47,3 +47,29 @@ def refusal_message(category: RefusalCategory, language: str) -> str:
     """Return a localized, non-judgmental refusal message (fallback: English)."""
     table = _MESSAGES.get(language, _MESSAGES["en"])
     return table[category]
+
+
+# Localized, non-judgmental notice for graceful degradation (§3.7) when the
+# local LLM server cannot be reached in time. Never blames the person; always
+# frames the interruption as temporary and outside their control.
+_UNAVAILABLE_MESSAGES: dict[str, str] = {
+    "it": "Il servizio è momentaneamente non disponibile. Riprova tra poco: "
+    "nessuna informazione è andata persa.",
+    "en": "The service is temporarily unavailable. Please try again shortly: "
+    "no information has been lost.",
+    "fr": "Le service est momentanément indisponible. Réessaie dans un instant : "
+    "aucune information n'a été perdue.",
+    "es": "El servicio no está disponible por el momento. Vuelve a intentarlo en "
+    "un momento: no se ha perdido ninguna información.",
+    "ar": "الخدمة غير متاحة مؤقتًا. حاول مرة أخرى بعد قليل: لم تُفقد أي معلومة.",
+}
+
+
+def unavailable_message(language: str) -> str:
+    """Return a localized, non-judgmental "temporarily unavailable" notice.
+
+    Used when the local LLM server cannot be reached (§3.7 graceful
+    degradation): the conversation must never break or lose data, it simply
+    tells the person to try again shortly. Falls back to English.
+    """
+    return _UNAVAILABLE_MESSAGES.get(language, _UNAVAILABLE_MESSAGES["en"])
