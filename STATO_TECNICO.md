@@ -221,17 +221,19 @@ mypy src           # type-check (strict)
 
 **Serving LLM (llama-server, OpenAI-compatibile).**
 
-Prerequisito: un binario `llama-server` con supporto CUDA (release prebuilt pinnata o build da
-sorgente) raggiungibile sul `PATH`.
+Prerequisito: un binario `llama-server` con accelerazione GPU sul `PATH`. Due vie:
+- **Vulkan (validato, consigliato):** release prebuilt `bin-ubuntu-vulkan` di llama.cpp — usa la GPU NVIDIA via il driver, **nessun CUDA toolkit, nessuna build da sorgente**. Requisiti già presenti qui: `libvulkan.so.1` + ICD NVIDIA (`nvidia_icd.json`, dal driver 580).
+- **CUDA:** build da sorgente con `-DGGML_CUDA=ON` (richiede CUDA toolkit/`nvcc`) — potenzialmente più veloce; **non** esiste un prebuilt CUDA per Linux.
+
+**Validazione serving (2026-07-21, backend Vulkan, RTX 4070 Mobile 8 GB):** Qwen2.5-7B Q4_K_M usa **~4.76 GB di VRAM** (entra negli 8 GB con margine), latenza a caldo **~38 token/s**, suite avversaria dei guardrail **7/7** su GPU. Vulkan è quindi un'opzione di deployment semplice e sufficiente per il kiosk.
 
 ```bash
 bash scripts/serve-llm.sh   # scarica il modello (una tantum, ~4.7 GB) e avvia il server su :8080
 ```
 
 Lo script scarica i due shard del Q4_K_M ufficiale di Qwen2.5-7B-Instruct-GGUF in `models/`
-(se non già presenti) e avvia `llama-server` puntato sul primo shard, con tutti i layer offloadati
-su GPU (`-ngl 999`) e contesto 8192. `models/` è in `.gitignore`: i pesi del modello non vengono
-mai versionati.
+(se non già presenti) e avvia `llama-server` puntato sul primo shard, con offload GPU
+(`-ngl 999`) e contesto 8192. `models/` è in `.gitignore`: i pesi non vengono mai versionati.
 
 ---
 
@@ -282,3 +284,5 @@ Registrati dalle revisioni (nessuno bloccante; da affrontare al momento giusto):
 |---|---|---|
 | 2026-07-21 | Sott. 3: guard layer **indipendente** (guard input = classificatore LLM strutturato temp 0; guard output = ri-check ambito LLM **sempre attivo** + filtro PII) | §2 ambito in ingresso **e in uscita**; §7.3 controlli indipendenti dal buon comportamento del modello |
 | 2026-07-21 | Sott. 3: serving `llama-server` **nativo** (CUDA), client **httpx** verso endpoint OpenAI-compatibile; modello Qwen2.5-7B GGUF Q4 (Apache 2.0) | Toolkit GPU per Docker assente → GPU nativa più semplice; dipendenze minime; nessuna API esterna |
+| 2026-07-21 | Serving GPU **validato via Vulkan** (prebuilt, no CUDA toolkit): VRAM ~4.76 GB, ~38 tok/s, guardrail 7/7 su GPU. Vulkan = opzione di deployment del kiosk | Nessun prebuilt CUDA Linux; Vulkan usa la GPU col solo driver → più semplice/replicabile (§10) |
+| 2026-07-21 | Sott. 4 (colloquio): flusso **deterministico** guidato dall'app; estrazione **per-sezione con constrained decoding**; incongruenze via **LLM semantico**; riepilogo & conferma **dalla persona**; stato in-memory + persistenza per-sezione | §7.1 «il sistema conduce»; §7.3 estrazione validata; §5 validazione con la persona; ripresa a metà sezione = Fase 2 |
