@@ -34,8 +34,10 @@ requires_voice = pytest.mark.skipif(
 @pytest.mark.parametrize(
     "language,phrase,keyword",
     [
-        ("it", "so cucinare", "cucin"),
-        ("en", "i can cook", "cook"),
+        # Full sentences (representative of real interview answers): a 2-word clip
+        # gives the ASR too little signal and mis-transcribes intermittently.
+        ("it", "so cucinare e faccio manutenzione di base", "cucin"),
+        ("en", "i can cook and do basic maintenance", "cook"),
     ],
 )
 def test_tts_stt_round_trip(language: str, phrase: str, keyword: str) -> None:
