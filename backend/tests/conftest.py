@@ -69,6 +69,12 @@ def db(test_database: None) -> Iterator[None]:
                 cur.execute("TRUNCATE audit.audit_log RESTART IDENTITY")
             if profiles_tbl is not None:
                 cur.execute("TRUNCATE profiles.work_profile")
+            cur.execute("SELECT to_regclass('auth.session'), to_regclass('auth.operator')")
+            session_tbl, operator_tbl = cur.fetchone()
+            if session_tbl is not None:
+                cur.execute("TRUNCATE auth.session RESTART IDENTITY")
+            if operator_tbl is not None:
+                cur.execute("TRUNCATE auth.operator RESTART IDENTITY CASCADE")
         owner.commit()
     yield
 
