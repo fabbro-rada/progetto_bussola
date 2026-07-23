@@ -3,7 +3,7 @@ from bussola.interview.sections import SECTIONS, base_question
 
 def test_five_sections_in_fixed_order():
     keys = [s.key for s in SECTIONS]
-    assert keys == ["competenze", "esperienze", "aspirazioni", "vincoli", "preferenze"]
+    assert keys == ["skills", "experiences", "aspirations", "constraints", "preferences"]
 
 
 def test_every_section_has_all_five_languages():
@@ -16,10 +16,14 @@ def test_base_question_falls_back_to_english():
     assert base_question(SECTIONS[0], "de") == SECTIONS[0].base_question["en"]
 
 
+def test_base_question_returns_requested_language():
+    assert base_question(SECTIONS[0], "it") == SECTIONS[0].base_question["it"]
+
+
 def test_extraction_models_forbid_extra_fields():
     import pytest
     from pydantic import ValidationError
 
-    model = SECTIONS[0].extraction_model
-    with pytest.raises(ValidationError):
-        model(secret="x")
+    for section in SECTIONS:
+        with pytest.raises(ValidationError):
+            section.extraction_model(unexpected="x")

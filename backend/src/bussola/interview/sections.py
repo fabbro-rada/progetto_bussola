@@ -18,31 +18,31 @@ from bussola.profile.models import DesiredTraining, LanguageKnown, Skill, WorkEx
 _STRICT = ConfigDict(extra="forbid")
 
 
-class CompetenzeExtraction(BaseModel):
+class SkillsExtraction(BaseModel):
     model_config = _STRICT
     skills: list[Skill] = Field(default_factory=list)
     languages: list[LanguageKnown] = Field(default_factory=list)
     digital_literacy: DigitalLiteracy | None = None
 
 
-class EsperienzeExtraction(BaseModel):
+class ExperiencesExtraction(BaseModel):
     model_config = _STRICT
     experiences: list[WorkExperience] = Field(default_factory=list)
 
 
-class AspirazioniExtraction(BaseModel):
+class AspirationsExtraction(BaseModel):
     model_config = _STRICT
     fields_of_interest: list[str] = Field(default_factory=list, max_length=20)
     desired_training: list[DesiredTraining] = Field(default_factory=list)
 
 
-class VincoliExtraction(BaseModel):
+class ConstraintsExtraction(BaseModel):
     model_config = _STRICT
     availability: Availability | None = None
     constraints: list[WorkConstraint] = Field(default_factory=list)
 
 
-class PreferenzeExtraction(BaseModel):
+class PreferencesExtraction(BaseModel):
     model_config = _STRICT
     operational_notes: list[OperationalNoteCategory] = Field(default_factory=list)
 
@@ -57,8 +57,8 @@ class Section:
 
 SECTIONS: tuple[Section, ...] = (
     Section(
-        "competenze",
-        CompetenzeExtraction,
+        "skills",
+        SkillsExtraction,
         {
             "it": "Parlami delle tue competenze: cosa sai fare bene, con le mani o con le persone? E che lingue parli?",
             "en": "Tell me about your skills: what are you good at, with your hands or with people? And which languages do you speak?",
@@ -69,8 +69,8 @@ SECTIONS: tuple[Section, ...] = (
         "Extract the person's skills (technical/soft, with an evidence grade), known languages with level, and digital literacy, from their reply. Only what they actually said.",
     ),
     Section(
-        "esperienze",
-        EsperienzeExtraction,
+        "experiences",
+        ExperiencesExtraction,
         {
             "it": "Che lavori hai fatto finora? Anche brevi. Per ognuno: che ruolo, in che settore, per quanto tempo.",
             "en": "What jobs have you done so far? Even short ones. For each: which role, which sector, for how long.",
@@ -81,8 +81,8 @@ SECTIONS: tuple[Section, ...] = (
         "Extract past work experiences (role, sector, duration in months) from their reply. Only what they actually said.",
     ),
     Section(
-        "aspirazioni",
-        AspirazioniExtraction,
+        "aspirations",
+        AspirationsExtraction,
         {
             "it": "Che tipo di lavoro ti piacerebbe fare? E c'è qualche formazione o corso che vorresti seguire?",
             "en": "What kind of work would you like to do? And is there any training or course you'd like to take?",
@@ -93,8 +93,8 @@ SECTIONS: tuple[Section, ...] = (
         "Extract fields of interest and desired training topics from their reply. Only what they actually said.",
     ),
     Section(
-        "vincoli",
-        VincoliExtraction,
+        "constraints",
+        ConstraintsExtraction,
         {
             "it": "Ci sono vincoli pratici sul lavoro? Per esempio disponibilità di tempo (pieno, parziale, flessibile) o turni.",
             "en": "Are there practical work constraints? For example time availability (full-time, part-time, flexible) or shifts.",
@@ -105,8 +105,8 @@ SECTIONS: tuple[Section, ...] = (
         "Extract availability (full_time/part_time/flexible) and work-scheduling constraints from their reply. Never health or juridical items. Only what they actually said.",
     ),
     Section(
-        "preferenze",
-        PreferenzeExtraction,
+        "preferences",
+        PreferencesExtraction,
         {
             "it": "Un'ultima cosa: preferisci lavorare in squadra o da solo? C'è qualcosa che ti aiuterebbe a partire meglio (es. supporto con la lingua)?",
             "en": "One last thing: do you prefer working in a team or alone? Is there anything that would help you start better (e.g. language support)?",
