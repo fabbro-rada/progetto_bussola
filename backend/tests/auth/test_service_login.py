@@ -65,12 +65,28 @@ def test_login_success_is_audited(app_conn: psycopg.Connection):
     assert actor == "alice"
 
 
+def test_login_failure_is_audited(app_conn: psycopg.Connection):
+    _seed(app_conn)
+    with pytest.raises(InvalidCredentials):
+        AuthService(app_conn).login("alice", "nope")
+    with app_conn.cursor() as cur:
+        cur.execute("SELECT action, actor FROM audit.audit_log ORDER BY id DESC LIMIT 1")
+        action, actor = cur.fetchone()
+    assert action == "login_failed"
+    assert actor == "alice"
+
+
 def test_logout_revokes_session(app_conn: psycopg.Connection):
     _seed(app_conn)
     svc = AuthService(app_conn)
     token = svc.login("alice", "correct-horse").token
-    svc.logout(token)
+    svc.logout(token, actor="alice")
     assert svc.authenticate(token) is None
+    with app_conn.cursor() as cur:
+        cur.execute("SELECT action, actor FROM audit.audit_log ORDER BY id DESC LIMIT 1")
+        action, actor = cur.fetchone()
+    assert action == "logout"
+    assert actor == "alice"
 
 
 def test_change_password_updates_and_clears_must_change(app_conn: psycopg.Connection):
@@ -80,3 +96,15 @@ def test_change_password_updates_and_clears_must_change(app_conn: psycopg.Connec
     svc.change_password(rec.id, "correct-horse", "brand-new-pw")
     token = svc.login("alice", "brand-new-pw").token
     assert svc.authenticate(token).must_change_password is False
+
+
+def test_change_password_is_audited(app_conn: psycopg.Connection):
+    _seed(app_conn)
+    svc = AuthService(app_conn)
+    rec = AccountRepository(app_conn).get_by_username("alice")
+    svc.change_password(rec.id, "correct-horse", "brand-new-pw")
+    with app_conn.cursor() as cur:
+        cur.execute("SELECT action, actor FROM audit.audit_log ORDER BY id DESC LIMIT 1")
+        action, actor = cur.fetchone()
+    assert action == "password_changed"
+    assert actor == "alice"

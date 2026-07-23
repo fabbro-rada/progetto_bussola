@@ -40,7 +40,7 @@ def logout(
     conn: psycopg.Connection = Depends(get_conn),
     operator: Operator = Depends(current_operator),
 ) -> Response:
-    AuthService(conn).logout(token)
+    AuthService(conn).logout(token, actor=operator.username)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
