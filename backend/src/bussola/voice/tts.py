@@ -52,7 +52,9 @@ class _PiperEngine:
         voice = self._load(voice_model)
         buffer = io.BytesIO()
         with wave.open(buffer, "wb") as wav_file:
-            voice.synthesize(text, wav_file)  # type: ignore[attr-defined]
+            # piper-tts >= 1.5: synthesize_wav writes into a wave.Wave_write and
+            # sets the WAV format itself (synthesize() now returns AudioChunks).
+            voice.synthesize_wav(text, wav_file)  # type: ignore[attr-defined]
         return buffer.getvalue()
 
     def _load(self, voice_model: str) -> object:
