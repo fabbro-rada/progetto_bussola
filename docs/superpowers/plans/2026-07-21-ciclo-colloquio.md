@@ -182,7 +182,7 @@ git commit -m "feat(llm): chat_json con output vincolato da json_schema"
 
 **Interfaces:**
 - Consumes: modelli foglia S1 (`Skill`, `LanguageKnown`, `WorkExperience`, `DesiredTraining`, enum).
-- Produces: `Section` (dataclass: `key: str`, `extraction_model: type[BaseModel]`, `base_question: dict[str, str]` per 5 lingue, `extraction_prompt: str`); `SECTIONS: tuple[Section, ...]` (ordine fisso: competenze, esperienze, aspirazioni, vincoli, preferenze); `base_question(section, language) -> str` (fallback en). Modelli di estrazione: `CompetenzeExtraction`, `EsperienzeExtraction`, `AspirazioniExtraction`, `VincoliExtraction`, `PreferenzeExtraction` (Pydantic, `extra="forbid"`, riusano i modelli foglia S1).
+- Produces: `Section` (dataclass: `key: str`, `extraction_model: type[BaseModel]`, `base_question: dict[str, str]` per 5 lingue, `extraction_prompt: str`); `SECTIONS: tuple[Section, ...]` (ordine fisso: competenze, esperienze, aspirazioni, vincoli, preferenze); `base_question(section, language) -> str` (fallback en). Modelli di estrazione: `SkillsExtraction`, `ExperiencesExtraction`, `AspirationsExtraction`, `ConstraintsExtraction`, `PreferencesExtraction` (Pydantic, `extra="forbid"`, riusano i modelli foglia S1).
 
 - [ ] **Step 1: Scrivere i test (falliscono)**
 
@@ -243,31 +243,31 @@ from bussola.profile.models import DesiredTraining, LanguageKnown, Skill, WorkEx
 _STRICT = ConfigDict(extra="forbid")
 
 
-class CompetenzeExtraction(BaseModel):
+class SkillsExtraction(BaseModel):
     model_config = _STRICT
     skills: list[Skill] = Field(default_factory=list)
     languages: list[LanguageKnown] = Field(default_factory=list)
     digital_literacy: DigitalLiteracy | None = None
 
 
-class EsperienzeExtraction(BaseModel):
+class ExperiencesExtraction(BaseModel):
     model_config = _STRICT
     experiences: list[WorkExperience] = Field(default_factory=list)
 
 
-class AspirazioniExtraction(BaseModel):
+class AspirationsExtraction(BaseModel):
     model_config = _STRICT
     fields_of_interest: list[str] = Field(default_factory=list, max_length=20)
     desired_training: list[DesiredTraining] = Field(default_factory=list)
 
 
-class VincoliExtraction(BaseModel):
+class ConstraintsExtraction(BaseModel):
     model_config = _STRICT
     availability: Availability | None = None
     constraints: list[WorkConstraint] = Field(default_factory=list)
 
 
-class PreferenzeExtraction(BaseModel):
+class PreferencesExtraction(BaseModel):
     model_config = _STRICT
     operational_notes: list[OperationalNoteCategory] = Field(default_factory=list)
 
@@ -283,7 +283,7 @@ class Section:
 SECTIONS: tuple[Section, ...] = (
     Section(
         "competenze",
-        CompetenzeExtraction,
+        SkillsExtraction,
         {
             "it": "Parlami delle tue competenze: cosa sai fare bene, con le mani o con le persone? E che lingue parli?",
             "en": "Tell me about your skills: what are you good at, with your hands or with people? And which languages do you speak?",
@@ -295,7 +295,7 @@ SECTIONS: tuple[Section, ...] = (
     ),
     Section(
         "esperienze",
-        EsperienzeExtraction,
+        ExperiencesExtraction,
         {
             "it": "Che lavori hai fatto finora? Anche brevi. Per ognuno: che ruolo, in che settore, per quanto tempo.",
             "en": "What jobs have you done so far? Even short ones. For each: which role, which sector, for how long.",
@@ -307,7 +307,7 @@ SECTIONS: tuple[Section, ...] = (
     ),
     Section(
         "aspirazioni",
-        AspirazioniExtraction,
+        AspirationsExtraction,
         {
             "it": "Che tipo di lavoro ti piacerebbe fare? E c'è qualche formazione o corso che vorresti seguire?",
             "en": "What kind of work would you like to do? And is there any training or course you'd like to take?",
@@ -319,7 +319,7 @@ SECTIONS: tuple[Section, ...] = (
     ),
     Section(
         "vincoli",
-        VincoliExtraction,
+        ConstraintsExtraction,
         {
             "it": "Ci sono vincoli pratici sul lavoro? Per esempio disponibilità di tempo (pieno, parziale, flessibile) o turni.",
             "en": "Are there practical work constraints? For example time availability (full-time, part-time, flexible) or shifts.",
@@ -331,7 +331,7 @@ SECTIONS: tuple[Section, ...] = (
     ),
     Section(
         "preferenze",
-        PreferenzeExtraction,
+        PreferencesExtraction,
         {
             "it": "Un'ultima cosa: preferisci lavorare in squadra o da solo? C'è qualcosa che ti aiuterebbe a partire meglio (es. supporto con la lingua)?",
             "en": "One last thing: do you prefer working in a team or alone? Is there anything that would help you start better (e.g. language support)?",
@@ -379,9 +379,9 @@ File `backend/tests/interview/test_session.py`:
 
 ```python
 from bussola.interview.sections import (
-    AspirazioniExtraction,
-    CompetenzeExtraction,
-    VincoliExtraction,
+    AspirationsExtraction,
+    SkillsExtraction,
+    ConstraintsExtraction,
 )
 from bussola.interview.session import InterviewSession
 from bussola.profile.enums import Availability, EvidenceGrade, SkillKind
@@ -399,7 +399,7 @@ def test_starts_at_first_section_with_empty_profile():
 def test_merge_applies_extracted_fields():
     s = InterviewSession("P-1", "it")
     s.merge(
-        CompetenzeExtraction(
+        SkillsExtraction(
             skills=[Skill(name="cooking", kind=SkillKind.TECHNICAL, evidence=EvidenceGrade.DEMONSTRATED)]
         )
     )
@@ -408,8 +408,8 @@ def test_merge_applies_extracted_fields():
 
 def test_merge_composes_aspiration_across_sections():
     s = InterviewSession("P-1", "it")
-    s.merge(AspirazioniExtraction(fields_of_interest=["ristorazione"]))
-    s.merge(VincoliExtraction(availability=Availability.PART_TIME))
+    s.merge(AspirationsExtraction(fields_of_interest=["ristorazione"]))
+    s.merge(ConstraintsExtraction(availability=Availability.PART_TIME))
     assert s.profile.aspiration is not None
     assert s.profile.aspiration.fields_of_interest == ["ristorazione"]
     assert s.profile.aspiration.availability is Availability.PART_TIME
@@ -443,12 +443,12 @@ from pydantic import BaseModel
 
 from bussola.interview.sections import (
     SECTIONS,
-    AspirazioniExtraction,
-    CompetenzeExtraction,
-    EsperienzeExtraction,
-    PreferenzeExtraction,
+    AspirationsExtraction,
+    SkillsExtraction,
+    ExperiencesExtraction,
+    PreferencesExtraction,
     Section,
-    VincoliExtraction,
+    ConstraintsExtraction,
 )
 from bussola.profile.models import Aspiration, WorkProfile
 
@@ -479,21 +479,21 @@ class InterviewSession:
 
     def merge(self, extracted: BaseModel) -> None:
         """Apply an extracted section model to the partial profile."""
-        if isinstance(extracted, CompetenzeExtraction):
+        if isinstance(extracted, SkillsExtraction):
             self.profile.skills = extracted.skills
             self.profile.languages = extracted.languages
             self.profile.digital_literacy = extracted.digital_literacy
-        elif isinstance(extracted, EsperienzeExtraction):
+        elif isinstance(extracted, ExperiencesExtraction):
             self.profile.experiences = extracted.experiences
-        elif isinstance(extracted, AspirazioniExtraction):
+        elif isinstance(extracted, AspirationsExtraction):
             asp = self._aspiration()
             asp.fields_of_interest = extracted.fields_of_interest
             self.profile.desired_training = extracted.desired_training
-        elif isinstance(extracted, VincoliExtraction):
+        elif isinstance(extracted, ConstraintsExtraction):
             asp = self._aspiration()
             asp.availability = extracted.availability
             asp.constraints = extracted.constraints
-        elif isinstance(extracted, PreferenzeExtraction):
+        elif isinstance(extracted, PreferencesExtraction):
             self.profile.operational_notes = extracted.operational_notes
         else:  # pragma: no cover - defensive
             raise TypeError(f"unknown extraction model: {type(extracted)!r}")
@@ -662,12 +662,12 @@ File `backend/tests/interview/test_confirm.py`:
 ```python
 from bussola.interview.confirm import interpret_confirmation, summarize
 from bussola.interview.sections import SECTIONS
-from bussola.interview.sections import CompetenzeExtraction
+from bussola.interview.sections import SkillsExtraction
 
 
 def test_summarize_returns_text(make_fake_json_llm):
     client = make_fake_json_llm(text_responses=["Hai detto che sai cucinare."])
-    text = summarize(client, SECTIONS[0], CompetenzeExtraction(), "it")
+    text = summarize(client, SECTIONS[0], SkillsExtraction(), "it")
     assert "cucinare" in text
 
 
