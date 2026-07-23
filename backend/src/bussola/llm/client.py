@@ -6,6 +6,7 @@ surface as `LlmUnavailable` so callers can degrade gracefully (text-first).
 
 from __future__ import annotations
 
+import json
 from typing import Any, Protocol
 
 import httpx
@@ -25,6 +26,15 @@ class LlmClient(Protocol):
         temperature: float = 0.0,
         max_tokens: int | None = None,
     ) -> str: ...
+
+    def chat_json(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        json_schema: dict[str, Any],
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]: ...
 
 
 class HttpxLlmClient:
@@ -60,3 +70,33 @@ class HttpxLlmClient:
         data = response.json()
         content: str = data["choices"][0]["message"]["content"]
         return content
+
+    def chat_json(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        json_schema: dict[str, Any],
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        """Chat with a JSON-schema-constrained response; returns the parsed object."""
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "messages": messages,
+            "temperature": temperature,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "extraction", "schema": json_schema, "strict": True},
+            },
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        try:
+            response = self._client.post("/v1/chat/completions", json=payload)
+            response.raise_for_status()
+        except httpx.TransportError as exc:
+            raise LlmUnavailable(str(exc)) from exc
+        data = response.json()
+        content: str = data["choices"][0]["message"]["content"]
+        parsed: dict[str, Any] = json.loads(content)
+        return parsed
