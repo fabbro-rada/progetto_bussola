@@ -1,0 +1,7 @@
+"""Auth router (stub — endpoints added in Task 9)."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/auth", tags=["auth"])
