@@ -4,6 +4,7 @@ failures are generic (no user-enumeration) with timing equalized via dummy-verif
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -11,8 +12,9 @@ import psycopg
 
 from bussola.auth import auth_audit, config, passwords
 from bussola.auth.accounts import AccountRepository
-from bussola.auth.errors import InvalidCredentials
+from bussola.auth.errors import InvalidCredentials, OperatorNotFound
 from bussola.auth.models import Operator, OperatorRecord
+from bussola.auth.rbac import Role
 from bussola.auth.sessions import SessionStore
 
 
@@ -98,6 +100,73 @@ class AuthService:
             self._conn, action=auth_audit.PASSWORD_CHANGED, actor=rec.username
         )
         self._conn.commit()
+
+    def create_operator(
+        self, *, actor: str, username: str, display_name: str, role: Role
+    ) -> tuple[Operator, str]:
+        temp_password = secrets.token_urlsafe(9)  # >= 12 chars
+        operator = self._accounts.create(
+            username=username,
+            display_name=display_name,
+            role=role,
+            password_hash=passwords.hash_password(temp_password),
+            created_by=actor,
+            must_change_password=True,
+        )
+        auth_audit.record_auth_event(
+            self._conn,
+            action=auth_audit.OPERATOR_CREATED,
+            actor=actor,
+            target_operator=username,
+            role=role.value,
+        )
+        self._conn.commit()
+        return operator, temp_password
+
+    def disable_operator(self, *, actor: str, operator_id: int) -> None:
+        rec = self._require(operator_id)
+        self._accounts.set_active(operator_id, False, by=actor)
+        self._sessions.revoke_all_for_operator(operator_id)
+        auth_audit.record_auth_event(
+            self._conn,
+            action=auth_audit.OPERATOR_DISABLED,
+            actor=actor,
+            target_operator=rec.username,
+        )
+        self._conn.commit()
+
+    def enable_operator(self, *, actor: str, operator_id: int) -> None:
+        rec = self._require(operator_id)
+        self._accounts.set_active(operator_id, True, by=actor)
+        auth_audit.record_auth_event(
+            self._conn,
+            action=auth_audit.OPERATOR_ENABLED,
+            actor=actor,
+            target_operator=rec.username,
+        )
+        self._conn.commit()
+
+    def reset_password(self, *, actor: str, operator_id: int) -> str:
+        rec = self._require(operator_id)
+        temp_password = secrets.token_urlsafe(9)
+        self._accounts.set_password(
+            operator_id, passwords.hash_password(temp_password), must_change=True
+        )
+        self._sessions.revoke_all_for_operator(operator_id)
+        auth_audit.record_auth_event(
+            self._conn,
+            action=auth_audit.OPERATOR_PASSWORD_RESET,
+            actor=actor,
+            target_operator=rec.username,
+        )
+        self._conn.commit()
+        return temp_password
+
+    def _require(self, operator_id: int) -> OperatorRecord:
+        rec = self._accounts.get_by_id(operator_id)
+        if rec is None:
+            raise OperatorNotFound(str(operator_id))
+        return rec
 
 
 def _operator_from_record(rec: OperatorRecord) -> Operator:
