@@ -42,6 +42,25 @@ def test_match_endpoint_returns_results(client, make_operator, app_conn, monkeyp
     assert r.json()[0]["requirements"][0]["satisfied"] is True
 
 
+def test_match_endpoint_returns_404_for_missing_job(client, make_operator, app_conn, monkeypatch):
+    # a stale/non-existent job id must surface as 404 (not an opaque 500): the
+    # service raises JobRequestNotFound before any candidate is judged, so the
+    # LLM is never reached — stub it anyway per the module's fake-LLM pattern.
+    from bussola.api.routers import matching as matching_router
+
+    class FakeLlm:
+        def chat_json(self, messages, *, json_schema, temperature=0.0, max_tokens=None):
+            raise AssertionError("must not be called: job lookup fails first")
+
+    monkeypatch.setattr(matching_router, "HttpxLlmClient", lambda: FakeLlm())
+
+    user, temp = make_operator("op1", Role.OPERATOR)
+    token = client.post("/auth/login", json={"username": user, "password": temp}).json()["token"]
+    r = client.post("/job-requests/999999/match", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 404
+    assert r.json() == {"detail": "richiesta di lavoro inesistente"}
+
+
 def test_match_endpoint_returns_503_when_llm_unavailable(
     client, make_operator, app_conn, monkeypatch
 ):

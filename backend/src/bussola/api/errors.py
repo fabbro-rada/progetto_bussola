@@ -12,11 +12,13 @@ from bussola.auth.errors import (
     UsernameExists,
 )
 from bussola.llm.client import LlmUnavailable
+from bussola.matching.errors import JobRequestNotFound
 
 _STATUS = {
     InvalidCredentials: status.HTTP_401_UNAUTHORIZED,
     PermissionDenied: status.HTTP_403_FORBIDDEN,
     OperatorNotFound: status.HTTP_404_NOT_FOUND,
+    JobRequestNotFound: status.HTTP_404_NOT_FOUND,
     UsernameExists: status.HTTP_409_CONFLICT,
     LlmUnavailable: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
@@ -25,6 +27,7 @@ _MESSAGE: dict[type[Exception], str] = {
     InvalidCredentials: "credenziali non valide",
     PermissionDenied: "privilegi insufficienti",
     OperatorNotFound: "operatore inesistente",
+    JobRequestNotFound: "richiesta di lavoro inesistente",
     UsernameExists: "username già esistente",
     LlmUnavailable: "servizio di matching temporaneamente non disponibile",
 }

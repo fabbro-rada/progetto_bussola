@@ -27,9 +27,30 @@ def search_profiles(
     operator: Operator = Depends(_read),
     conn: psycopg.Connection = Depends(get_conn),
 ) -> list[WorkProfile]:
-    return ProfileRepository(conn, PiiRedactor()).search(
+    results = ProfileRepository(conn, PiiRedactor()).search(
         availability=availability, language=language, note=note, skill_query=skill_query
     )
+    # §6/§7.3: bulk enumeration is the most obvious misuse vector, so it must be
+    # traceable — audit the applied filter *names* and result count only, never
+    # any profile/PII data.
+    applied = [
+        name
+        for name, value in (
+            ("availability", availability),
+            ("language", language),
+            ("note", note),
+            ("skill_query", skill_query),
+        )
+        if value is not None
+    ]
+    append_audit(
+        conn,
+        action="profiles_searched",
+        actor=operator.username,
+        details={"filters": ",".join(applied), "results": str(len(results))},
+        target_pseudonym=None,
+    )
+    return results
 
 
 @router.get("/{pseudonym}", response_model=WorkProfile)
