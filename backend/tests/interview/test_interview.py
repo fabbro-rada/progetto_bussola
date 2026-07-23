@@ -47,13 +47,10 @@ def test_off_topic_answer_is_refused_and_does_not_advance(make_fake_json_llm):
 def test_confirmed_section_persists_and_advances(make_fake_json_llm):
     repo = FakeRepo()
     # answer1: guard ALLOW (text), extract COMP (json), summary (text)
-    # answer2 (confirm): interpret_confirmation True (json), incongruence none (json) -> save+advance -> next question
+    # answer2 (confirm): interpret_confirmation True (json) -> save + advance ->
+    # next question. NO per-section incongruence check (it runs once at the end).
     client = make_fake_json_llm(
-        json_responses=[
-            COMP,
-            {"confirmed": True},
-            {"has_incongruence": False, "clarification": ""},
-        ],
+        json_responses=[COMP, {"confirmed": True}],
         text_responses=[ALLOW, "Riepilogo: sai cucinare. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it")
@@ -113,3 +110,68 @@ def test_summarize_failure_does_not_leave_awaiting_confirmation():
     # not be interpreted as a confirmation reply.
     step2 = itw.submit("che tempo fa domani?")
     assert step2.kind == "refusal"
+
+
+# Valid empty payloads for the 5 sections, in fixed order.
+_EMPTY_EXTRACTIONS = [
+    {"skills": [], "languages": [], "digital_literacy": None},
+    {"experiences": []},
+    {"fields_of_interest": [], "desired_training": []},
+    {"availability": None, "constraints": []},
+    {"operational_notes": []},
+]
+
+
+def _confirm_all_sections(json_responses, text_responses):
+    """Extend the fake client's scripted responses to drive all 5 sections:
+    each section answer needs guard ALLOW (text) + extraction (json) + summary
+    (text); each confirmation needs interpret_confirmation True (json)."""
+    for extraction in _EMPTY_EXTRACTIONS:
+        text_responses.extend([ALLOW, "Riepilogo. Giusto?"])
+        json_responses.extend([extraction, {"confirmed": True}])
+
+
+def test_full_interview_runs_incongruence_once_at_end(make_fake_json_llm):
+    repo = FakeRepo()
+    json_responses: list[dict] = []
+    text_responses: list[str] = []
+    _confirm_all_sections(json_responses, text_responses)
+    # Exactly ONE incongruence check, at the very end, on the whole profile.
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+    itw.start()
+
+    last = None
+    for _ in range(5):
+        s = itw.submit("una risposta di lavoro")
+        assert s.kind == "summary"
+        last = itw.submit("sì, è corretto")
+    assert last is not None and last.kind == "completed"
+    assert len(repo.saved) == 5  # one save per confirmed section
+    # All json responses consumed: 5*(extraction+confirm) + 1 final incongruence.
+    assert not client._json
+
+
+def test_final_incongruence_surfaces_clarification_then_completes(make_fake_json_llm):
+    repo = FakeRepo()
+    json_responses: list[dict] = []
+    text_responses: list[str] = []
+    _confirm_all_sections(json_responses, text_responses)
+    # A real contradiction is reported at the end -> gentle clarification.
+    json_responses.append({"has_incongruence": True, "clarification": "Puoi chiarire la durata?"})
+    # The person's clarification reply is guarded (text) -> ALLOW -> completed.
+    text_responses.append(ALLOW)
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+    itw.start()
+
+    clar = None
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        clar = itw.submit("sì, è corretto")
+    assert clar is not None and clar.kind == "clarification"
+    assert "chiarire" in clar.text
+    # Replying to the clarification (in scope) completes the interview.
+    final = itw.submit("La durata è di due anni, chiarito.")
+    assert final.kind == "completed"
