@@ -43,7 +43,7 @@ def test_synthetic_interview_produces_work_only_profile(app_conn):
     redactor = PiiRedactor()
     repo = ProfileRepository(app_conn, redactor)
     client = HttpxLlmClient()
-    itw = Interview(client, ScopeGuard(client), repo, language="it")
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=redactor)
 
     itw.start()
     _drive(itw, "So cucinare e faccio manutenzione base. Parlo italiano e un po' di inglese.")
