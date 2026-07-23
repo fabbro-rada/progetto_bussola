@@ -30,7 +30,7 @@ Realizza i **servizi backend di voce**: trascrizione (Speech-to-Text) delle risp
 
 1. **Servizi backend, non HTTP.** Deliverable = classi `SpeechToText`/`TextToSpeech` con un contratto di degrado chiaro; nessun endpoint. *Perché:* il trasporto rivolto alla **persona detenuta** (non un operatore autenticato) e la blindatura kiosk appartengono a S8 (stesso confine del motore-colloquio S4, che è backend-only). Mantiene la voce **disaccoppiata** dal colloquio.
 
-2. **STT = faster-whisper, int8 su CPU** (`STATO_TECNICO` §4.2). Modello caricato una volta (costoso) e riusato. Default `large-v3-turbo` (equilibrio qualità/velocità), **configurabile** (`large-v3` per l'arabo di massima qualità; `small`/`medium` per più reattività sul kiosk). Si passa la **lingua scelta** come hint (niente auto-detect ambiguo). *Perché §3/§8:* miglior STT open, copre l'arabo, gira su CPU lasciando la GPU all'LLM.
+2. **STT = faster-whisper; device configurabile, CPU di default** (`STATO_TECNICO` §4.2/§5). Modello caricato una volta (costoso) e riusato. `device`/`compute_type` sono **tunable da env**: **default `cpu`/`int8`** — nessuna contesa con l'LLM sulla GPU da 8 GB, quasi satura (LLM ~6.2 GB, ~1.8 GB liberi). `device=cuda` è **attivabile** quando la VRAM lo consente (box di produzione più capiente, modello Whisper più piccolo, o desktop spostato sull'iGPU per liberare la VRAM NVIDIA, §5). Nota: CTranslate2 accelera solo su **CUDA** (non l'iGPU AMD/ROCm). Modello default `large-v3-turbo` (equilibrio qualità/velocità), configurabile (`large-v3` per l'arabo di massima qualità; `small`/`medium` per più reattività). Si passa la **lingua scelta** come hint (niente auto-detect ambiguo). *Perché §3/§8:* miglior STT open, copre l'arabo; su CPU la GPU resta tutta per l'LLM, e la latenza a turni (qualche secondo) è coperta dal degrado a testo — la scelta del device si **misura sul pilota**, non si incide nell'architettura.
 
 3. **TTS = Piper, voce per lingua** (`STATO_TECNICO` §4.3). `synthesize -> bytes(WAV) | None`. *Perché §3:* leggero, CPU-friendly, permissivo; l'alternativa di qualità superiore (XTTS) è non-commerciale → esclusa.
 
@@ -45,7 +45,7 @@ Realizza i **servizi backend di voce**: trascrizione (Speech-to-Text) delle risp
 ## 4. Unità e confini
 
 Nuovo package **`bussola.voice`**:
-- `config.py` — tunables da env: modello STT + device/compute, cartella modelli, mappa `lingua → voce Piper` (arabo assente di default), soglie/timeout.
+- `config.py` — tunables da env: modello STT, **`device` (`cpu` default / `cuda`) e `compute_type` (`int8` default)**, cartella modelli, mappa `lingua → voce Piper` (arabo assente di default), soglie/timeout.
 - `errors.py` — `VoiceUnavailable(Exception)`.
 - `models.py` — `Transcription(text: str, language: str)` (Pydantic).
 - `stt.py` — `SpeechToText`: carica il modello una volta; `transcribe(audio: bytes, language: str) -> Transcription`; su fallimento → `VoiceUnavailable`.
@@ -77,7 +77,8 @@ TDD; **solo dati sintetici** (frasi di lavoro sintetiche).
 
 | Rischio | Mitigazione |
 |---|---|
-| STT lento sul kiosk (CPU) | modello configurabile (`small`/`medium`); il degrado a testo evita blocchi; misura sul pilota |
+| STT lento sul kiosk (CPU) | modello configurabile (`small`/`medium`); **`device=cuda` attivabile** se la VRAM lo consente; il degrado a testo evita blocchi; misura sul pilota |
+| STT su GPU va in OOM accanto all'LLM | default `cpu`; `cuda` è opt-in cosciente (VRAM ~1.8 GB liberi su 8 GB) da usare solo con margine reale |
 | Arabo STT su dialetti | Whisper è il miglior open; gli errori emergono nel *riepiloga-e-conferma* (§5 colloquio) e la persona corregge |
 | Qualità/licenza voce araba TTS | arabo-TTS = solo-testo di default finché non validato + permissivo (§6) |
 | Voce Piper a licenza non permissiva | vetting per-voce; solo permissive (§3), annotate in STATO_TECNICO |
