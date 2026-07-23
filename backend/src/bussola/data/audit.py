@@ -45,8 +45,14 @@ def append_audit(
     actor: str | None = None,
     target_pseudonym: str | None = None,
     details: dict[str, Any] | None = None,
+    commit: bool = True,
 ) -> None:
-    """Append one audit record, chained to the previous one."""
+    """Append one audit record, chained to the previous one.
+
+    When ``commit`` is False the record is appended within the caller's
+    transaction (no own commit), so an operation and its audit record commit
+    atomically together.
+    """
     payload = details or {}
     occurred_at = datetime.now(timezone.utc)
     with conn.cursor() as cur:
@@ -61,7 +67,8 @@ def append_audit(
             "VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (occurred_at, actor, action, target_pseudonym, Jsonb(payload), prev_hash, record_hash),
         )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 @dataclass(frozen=True)
