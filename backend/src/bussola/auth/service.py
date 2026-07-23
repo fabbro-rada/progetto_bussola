@@ -83,9 +83,9 @@ class AuthService:
             return None
         return _operator_from_record(rec)
 
-    def logout(self, token: str) -> None:
+    def logout(self, token: str, *, actor: str | None = None) -> None:
         self._sessions.revoke(token)
-        auth_audit.record_auth_event(self._conn, action=auth_audit.LOGOUT, actor=None)
+        auth_audit.record_auth_event(self._conn, action=auth_audit.LOGOUT, actor=actor)
         self._conn.commit()
 
     def change_password(self, operator_id: int, old_password: str, new_password: str) -> None:

@@ -53,6 +53,49 @@ def test_reset_password_issues_new_temp_and_revokes(app_conn: psycopg.Connection
     assert svc.login("toreset", new_temp).operator.username == "toreset"
 
 
+def test_disable_operator_is_audited(app_conn: psycopg.Connection):
+    svc = AuthService(app_conn)
+    op, _ = svc.create_operator(
+        actor="admin", username="todisable2", display_name="X", role=Role.OPERATOR
+    )
+    svc.disable_operator(actor="admin", operator_id=op.id)
+    with app_conn.cursor() as cur:
+        cur.execute("SELECT action, actor, details FROM audit.audit_log ORDER BY id DESC LIMIT 1")
+        action, actor, details = cur.fetchone()
+    assert action == "operator_disabled"
+    assert actor == "admin"
+    assert details["target_operator"] == "todisable2"
+
+
+def test_enable_operator_is_audited(app_conn: psycopg.Connection):
+    svc = AuthService(app_conn)
+    op, _ = svc.create_operator(
+        actor="admin", username="toenable", display_name="X", role=Role.OPERATOR
+    )
+    svc.disable_operator(actor="admin", operator_id=op.id)
+    svc.enable_operator(actor="admin", operator_id=op.id)
+    with app_conn.cursor() as cur:
+        cur.execute("SELECT action, actor, details FROM audit.audit_log ORDER BY id DESC LIMIT 1")
+        action, actor, details = cur.fetchone()
+    assert action == "operator_enabled"
+    assert actor == "admin"
+    assert details["target_operator"] == "toenable"
+
+
+def test_reset_password_is_audited(app_conn: psycopg.Connection):
+    svc = AuthService(app_conn)
+    op, _ = svc.create_operator(
+        actor="admin", username="toreset2", display_name="X", role=Role.OPERATOR
+    )
+    svc.reset_password(actor="admin", operator_id=op.id)
+    with app_conn.cursor() as cur:
+        cur.execute("SELECT action, actor, details FROM audit.audit_log ORDER BY id DESC LIMIT 1")
+        action, actor, details = cur.fetchone()
+    assert action == "operator_password_reset"
+    assert actor == "admin"
+    assert details["target_operator"] == "toreset2"
+
+
 def test_operations_on_missing_operator_raise(app_conn: psycopg.Connection):
     svc = AuthService(app_conn)
     with pytest.raises(OperatorNotFound):
