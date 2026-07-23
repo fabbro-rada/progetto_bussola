@@ -37,3 +37,12 @@ def test_selects_voice_model_for_language():
     engine = FakeTts()
     TextToSpeech(engine=engine, voices=_VOICES).synthesize("hello", "en")
     assert engine.calls == [("hello", "en.onnx")]
+
+
+def test_engine_construction_failure_returns_none(monkeypatch):
+    class RaisingEngine:
+        def __init__(self) -> None:
+            raise RuntimeError("voice load failed")
+
+    monkeypatch.setattr("bussola.voice.tts._PiperEngine", RaisingEngine)
+    assert TextToSpeech(voices={"it": "it.onnx"}).synthesize("ciao", "it") is None

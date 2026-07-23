@@ -35,3 +35,13 @@ def test_language_hint_is_propagated_to_engine():
 def test_engine_failure_raises_voice_unavailable():
     with pytest.raises(VoiceUnavailable):
         SpeechToText(engine=FakeStt(raises=True)).transcribe(b"AUDIO", "it")
+
+
+def test_engine_construction_failure_raises_voice_unavailable(monkeypatch):
+    class RaisingEngine:
+        def __init__(self) -> None:
+            raise RuntimeError("model load failed")
+
+    monkeypatch.setattr("bussola.voice.stt._FasterWhisperEngine", RaisingEngine)
+    with pytest.raises(VoiceUnavailable):
+        SpeechToText().transcribe(b"AUDIO", "it")
