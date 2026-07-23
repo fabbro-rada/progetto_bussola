@@ -75,6 +75,10 @@ def db(test_database: None) -> Iterator[None]:
                 cur.execute("TRUNCATE auth.session RESTART IDENTITY")
             if operator_tbl is not None:
                 cur.execute("TRUNCATE auth.operator RESTART IDENTITY CASCADE")
+            cur.execute("SELECT to_regclass('matching.job_request')")
+            job_request_tbl = cur.fetchone()[0]
+            if job_request_tbl is not None:
+                cur.execute("TRUNCATE matching.job_request RESTART IDENTITY")
         owner.commit()
     yield
 
