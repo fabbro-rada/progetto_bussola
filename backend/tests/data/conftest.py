@@ -1,16 +1,18 @@
-"""Fixtures for data-layer tests. Require a running Postgres:
-docker compose up -d db
+"""Data-layer test marker.
+
+The database FIXTURES now live in the shared `tests/conftest.py` (reused by
+the interview live test too). This module keeps only the `requires_db`
+collection marker, which the data-layer test modules import directly
+(`from .conftest import requires_db`) to skip at collection time when Postgres
+is not running.
 """
 
 from __future__ import annotations
-
-from collections.abc import Iterator
 
 import psycopg
 import pytest
 
 from bussola.data import config
-from bussola.data.migrate import apply_migrations
 
 
 def _server_reachable() -> bool:
@@ -26,63 +28,3 @@ requires_db = pytest.mark.skipif(
     not _server_reachable(),
     reason="Postgres non raggiungibile (avvia: docker compose up -d db)",
 )
-
-_TEST_DB = "bussola_test"
-
-
-@pytest.fixture(scope="session")
-def test_database() -> Iterator[None]:
-    # Recreate a clean test database owned by bussola_owner.
-    with psycopg.connect(config.dsn("superuser", dbname="postgres")) as su:
-        su.autocommit = True
-        with su.cursor() as cur:
-            cur.execute(
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-                "WHERE datname = %s AND pid <> pg_backend_pid()",
-                (_TEST_DB,),
-            )
-            cur.execute(f"DROP DATABASE IF EXISTS {_TEST_DB}")
-            cur.execute(f"CREATE DATABASE {_TEST_DB} OWNER bussola_owner")
-            cur.execute(f"GRANT CONNECT ON DATABASE {_TEST_DB} TO bussola_app, bussola_auditor")
-    with psycopg.connect(config.dsn("owner", dbname=_TEST_DB)) as owner:
-        apply_migrations(owner)
-    yield
-
-
-@pytest.fixture
-def db(test_database: None) -> Iterator[None]:
-    # Truncate mutable tables between tests. TRUNCATE bypasses the append-only
-    # row trigger, and owner owns the tables. Guarded so it works before the
-    # profiles/audit tables exist (Task 3 only has schemas).
-    with psycopg.connect(config.dsn("owner", dbname=_TEST_DB)) as owner:
-        with owner.cursor() as cur:
-            cur.execute(
-                "SELECT to_regclass('audit.audit_log'), to_regclass('profiles.work_profile')"
-            )
-            audit_tbl, profiles_tbl = cur.fetchone()
-            if audit_tbl is not None:
-                cur.execute("TRUNCATE audit.audit_log RESTART IDENTITY")
-            if profiles_tbl is not None:
-                cur.execute("TRUNCATE profiles.work_profile")
-        owner.commit()
-    yield
-
-
-def _role_conn(role: str) -> Iterator[psycopg.Connection]:
-    with psycopg.connect(config.dsn(role, dbname=_TEST_DB)) as conn:
-        yield conn
-
-
-@pytest.fixture
-def owner_conn(db: None) -> Iterator[psycopg.Connection]:
-    yield from _role_conn("owner")
-
-
-@pytest.fixture
-def app_conn(db: None) -> Iterator[psycopg.Connection]:
-    yield from _role_conn("app")
-
-
-@pytest.fixture
-def auditor_conn(db: None) -> Iterator[psycopg.Connection]:
-    yield from _role_conn("auditor")
