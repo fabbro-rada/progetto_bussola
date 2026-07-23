@@ -48,6 +48,7 @@ class Interview:
         self._language = language
         self._session: InterviewSession | None = None
         self._awaiting_confirmation = False
+        self._awaiting_final_clarification = False
 
     def _question_step(self) -> Step:
         section = self._session.current_section  # type: ignore[union-attr]
@@ -61,7 +62,18 @@ class Interview:
         pseudonym = self._repo.create_new()
         self._session = InterviewSession(pseudonym, self._language)
         self._awaiting_confirmation = False
+        self._awaiting_final_clarification = False
         return self._question_step()
+
+    def _finalize(self, session: InterviewSession) -> Step:
+        """All sections confirmed: run the incongruence check ONCE on the whole
+        profile. A real cross-section contradiction surfaces a gentle
+        clarification; otherwise the interview completes."""
+        clarification = find_incongruence(self._client, session.profile, self._language)
+        if clarification is not None:
+            self._awaiting_final_clarification = True
+            return Step("clarification", clarification)
+        return Step("completed", _final_summary(self._language))
 
     def submit(self, answer: str) -> Step:
         session = self._session
@@ -74,17 +86,27 @@ class Interview:
             return self._unavailable()
 
     def _submit(self, session: InterviewSession, answer: str) -> Step:
-        section = session.current_section
-        assert section is not None
+        # Final incongruence surfaced: the person is replying to the gentle
+        # clarification. Guard the reply, then complete (surfacing the question
+        # and hearing the person is the Fase-1 contract; targeted re-extraction
+        # from a final clarification is Fase 2).
+        if self._awaiting_final_clarification:
+            decision = self._guard.check(answer, self._language)
+            if not decision.allow:
+                return Step(
+                    "refusal",
+                    refusal_message(
+                        decision.category or RefusalCategory.OUT_OF_SCOPE, self._language
+                    ),
+                )
+            self._awaiting_final_clarification = False
+            return Step("completed", _final_summary(self._language))
 
         if self._awaiting_confirmation:
             if interpret_confirmation(self._client, answer, self._language):
-                clarification = find_incongruence(self._client, session.profile, self._language)
-                if clarification is not None:
-                    # Re-open the section: the next submit is a fresh answer
-                    # (guard -> extract -> summarize) that re-confirms.
-                    self._awaiting_confirmation = False
-                    return Step("clarification", clarification)
+                # Confirmed by the person: persist this section and advance.
+                # The incongruence check runs once at the end, on the whole
+                # profile (contradictions are cross-section), NOT per section.
                 self._repo.save(session.profile)
                 if self._audit is not None:
                     self._audit(
@@ -94,13 +116,15 @@ class Interview:
                 self._awaiting_confirmation = False
                 session.advance()
                 if session.completed:
-                    return Step("completed", _final_summary(self._language))
+                    return self._finalize(session)
                 return self._question_step()
             # not confirmed -> re-ask the section question
             self._awaiting_confirmation = False
             return self._question_step()
 
         # normal answer: guard -> extract -> summarize -> await confirmation
+        section = session.current_section
+        assert section is not None
         decision = self._guard.check(answer, self._language)
         if not decision.allow:
             return Step(

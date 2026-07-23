@@ -37,7 +37,7 @@ Realizza il **motore conversazionale backend** del ciclo centrale: conduce il co
 
 3. **Riepilogo & conferma dalla persona.** A fine sezione e fine colloquio, l'LLM riassume nella lingua ciò che ha capito; la persona **conferma o corregge**; su correzione si ri-estrae. *Perché §5:* è il meccanismo che rende il profilo realistico **senza impegnare gli operatori** — «chi conferma è la persona».
 
-4. **Incongruenze: controllo LLM semantico + chiarimento gentile.** Sui dati confermati, un controllo LLM cerca incongruenze semantiche (durata che non torna, competenza in contrasto con le esperienze); se ne trova, il sistema **non accusa**: pone una domanda di chiarimento gentile e ri-conferma. *Perché §4/§5.*
+4. **Incongruenze: controllo LLM semantico a fine colloquio + chiarimento gentile.** Il controllo cerca **contraddizioni reali** tra i dati che la persona ha effettivamente fornito (una durata che non torna, una competenza in contrasto con le esperienze). Un campo **mancante o vuoto non è mai** un'incongruenza (il profilo è minimo per costruzione). Il controllo è eseguito **una sola volta sul profilo completo a fine colloquio** — non dopo ogni sezione — perché le contraddizioni sono per natura **cross-sezione** e, su una singola sezione ancora sparsa, il modello produrrebbe falsi positivi che disallineerebbero il colloquio. Se trova una contraddizione reale, il sistema **non accusa**: pone **una** domanda di chiarimento gentile nella lingua della persona e la persona risponde. *Perché §4/§5.* *(Nota di ambito Fase 1: la domanda viene **posta** e la risposta **ascoltata**; la ri-estrazione mirata a partire dalla risposta di chiarimento finale è Fase 2 — le sezioni confermate sono già persistite.)*
 
 5. **Guardrail su ogni risposta libera (S3).** La risposta della persona passa dal `ScopeGuard`; se fuori-tema/injection → rifiuto gentile e **ri-pongo la stessa domanda** (il colloquio non deraglia). Le domande/riepiloghi generati passano dall'output guard + filtro PII. *Perché §2/§7.3.*
 
@@ -66,11 +66,11 @@ domanda(sezione) → risposta persona
    → ScopeGuard(risposta): fuori-tema/injection? → rifiuto gentile + ri-poni la domanda
    → altrimenti: estrazione vincolata → validazione Pydantic → merge nel profilo parziale
    → riepilogo della sezione → conferma?
-        no/correzione → ri-estrai/aggiorna → ri-riepiloga
-        sì → controllo incongruenze
-              incongruenza → domanda di chiarimento gentile → ri-conferma
-              ok → salva la sezione (ProfileRepository.save) + append_audit → sezione successiva
-(alla fine) riepilogo finale → conferma → colloquio completato
+        no/correzione → ri-poni la domanda della sezione
+        sì → salva la sezione (ProfileRepository.save) + append_audit → sezione successiva
+(dopo l'ultima sezione confermata) controllo incongruenze UNA volta sul profilo completo
+        contraddizione reale → domanda di chiarimento gentile → la persona risponde → completato
+        nessuna → completato
 ```
 
 ## 6. Strategia di test (§9)
@@ -101,4 +101,5 @@ Priorità: la tenuta (guard non aggirato dal colloquio), il profilo solo-lavoro,
 
 - **`CLAUDE.md`** (nucleo protetto): conforme (§4/§5/§7.1/§7.3/§9). **Nessuna modifica al nucleo.**
 - **`STATO_TECNICO.md`**: aggiornato con il ciclo del colloquio e con l'esito della **validazione serving GPU** (backend Vulkan: Qwen2.5-7B Q4 in **4.76 GB VRAM**, ~38 tok/s, guardrail 7/7 su GPU — **senza CUDA toolkit**; Vulkan come opzione di deployment semplice per il kiosk).
+- **Esito validazione end-to-end reale (Qwen2.5-7B).** Il test di integrazione ha fatto emergere, e portato a correggere, due comportamenti del modello reale: (1) `find_incongruence` trattava un campo mancante come incongruenza e, eseguito per-sezione, disallineava il colloquio → prompt reso rigoroso (solo contraddizioni reali, mai campi mancanti, default nessuna) ed eseguito **una volta a fine colloquio** (vedi §3.4); (2) lo scope-guard rifiutava per errore risposte lecite (es. preferenza di lavoro in squadra) → prompt del classificatore rifinito con esempi in-ambito espliciti, **senza** indebolire il rifiuto del fuori-tema/injection (suite avversaria S3 **7/7** riverificata sul modello reale). Le asserzioni del test live sono state irrobustite: verificano un profilo **popolato e allineato per sezione**, non solo la persistenza.
 - **Piano collegato:** scomposizione eseguibile in TDD (sottosistema coeso ma ampio → piano corposo, molte tappe).
