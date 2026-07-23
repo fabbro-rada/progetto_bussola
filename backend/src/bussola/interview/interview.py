@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
+from bussola.guardrails.pii import PiiRedactor
 from bussola.guardrails.refusal import RefusalCategory, refusal_message, unavailable_message
 from bussola.guardrails.scope import ScopeGuard
 from bussola.interview.confirm import interpret_confirmation, summarize
@@ -28,6 +29,10 @@ class ProfileStore(Protocol):
     def save(self, profile: WorkProfile) -> WorkProfile: ...
 
 
+class TextRedactor(Protocol):
+    def redact(self, text: str, language: str = ...) -> str: ...
+
+
 AuditFn = Callable[..., None]
 
 
@@ -40,15 +45,30 @@ class Interview:
         *,
         language: str = "it",
         audit: AuditFn | None = None,
+        redactor: TextRedactor | None = None,
     ) -> None:
         self._client = client
         self._guard = scope_guard
         self._repo = repository
         self._audit = audit
         self._language = language
+        # Outbound PII filter for LLM-generated text shown to the person
+        # (§7.3 "prima di mostrare"). Built lazily on first use if not injected,
+        # so redaction is on by default; tests inject a light double.
+        self._redactor = redactor
         self._session: InterviewSession | None = None
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+
+    def _redact(self, text: str) -> str:
+        """Redact personal data from LLM-generated text before it is shown to
+        the person (§7.3). The base questions and the static refusal/unavailable/
+        completed messages are author-controlled and need no redaction."""
+        if not text:
+            return text
+        if self._redactor is None:
+            self._redactor = PiiRedactor()
+        return self._redactor.redact(text, self._language)
 
     def _question_step(self) -> Step:
         section = self._session.current_section  # type: ignore[union-attr]
@@ -72,7 +92,7 @@ class Interview:
         clarification = find_incongruence(self._client, session.profile, self._language)
         if clarification is not None:
             self._awaiting_final_clarification = True
-            return Step("clarification", clarification)
+            return Step("clarification", self._redact(clarification))
         return Step("completed", _final_summary(self._language))
 
     def submit(self, answer: str) -> Step:
@@ -132,7 +152,7 @@ class Interview:
                 refusal_message(decision.category or RefusalCategory.OUT_OF_SCOPE, self._language),
             )
         extracted = extract_section(self._client, section, answer, self._language)
-        summary_text = summarize(self._client, section, extracted, self._language)
+        summary_text = self._redact(summarize(self._client, section, extracted, self._language))
         session.merge(extracted)
         self._awaiting_confirmation = True
         return Step("summary", summary_text)

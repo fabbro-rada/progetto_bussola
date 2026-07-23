@@ -27,6 +27,18 @@ COMP = {
 }
 
 
+class _FakeRedactor:
+    """Light outbound-redaction double: records the text it saw and blanks a
+    sentinel, so tests stay fast (no NLP models) and can prove redaction ran."""
+
+    def __init__(self) -> None:
+        self.seen: list[str] = []
+
+    def redact(self, text: str, language: str = "it") -> str:
+        self.seen.append(text)
+        return text.replace("mario@example.com", "<EMAIL_ADDRESS>")
+
+
 def test_start_returns_first_question(make_fake_json_llm):
     client = make_fake_json_llm()
     itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it")
@@ -53,7 +65,7 @@ def test_confirmed_section_persists_and_advances(make_fake_json_llm):
         json_responses=[COMP, {"confirmed": True}],
         text_responses=[ALLOW, "Riepilogo: sai cucinare. Giusto?"],
     )
-    itw = Interview(client, ScopeGuard(client), repo, language="it")
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
     itw.start()
     s1 = itw.submit("so cucinare")
     assert s1.kind == "summary"
@@ -139,7 +151,7 @@ def test_full_interview_runs_incongruence_once_at_end(make_fake_json_llm):
     # Exactly ONE incongruence check, at the very end, on the whole profile.
     json_responses.append({"has_incongruence": False, "clarification": ""})
     client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
-    itw = Interview(client, ScopeGuard(client), repo, language="it")
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
     itw.start()
 
     last = None
@@ -163,7 +175,7 @@ def test_final_incongruence_surfaces_clarification_then_completes(make_fake_json
     # The person's clarification reply is guarded (text) -> ALLOW -> completed.
     text_responses.append(ALLOW)
     client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
-    itw = Interview(client, ScopeGuard(client), repo, language="it")
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
     itw.start()
 
     clar = None
@@ -175,3 +187,20 @@ def test_final_incongruence_surfaces_clarification_then_completes(make_fake_json
     # Replying to the clarification (in scope) completes the interview.
     final = itw.submit("La durata è di due anni, chiarito.")
     assert final.kind == "completed"
+
+
+def test_generated_summary_is_pii_redacted_before_display(make_fake_json_llm):
+    # The LLM-generated summary leaks an email; the outbound redactor must
+    # scrub it before it is shown to the person (§7.3 "prima di mostrare").
+    redactor = _FakeRedactor()
+    client = make_fake_json_llm(
+        json_responses=[COMP],
+        text_responses=[ALLOW, "Sai cucinare. Scrivimi a mario@example.com. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=redactor)
+    itw.start()
+    step = itw.submit("so cucinare")
+    assert step.kind == "summary"
+    assert "mario@example.com" not in step.text
+    assert "<EMAIL_ADDRESS>" in step.text
+    assert redactor.seen  # the redactor was actually consulted
