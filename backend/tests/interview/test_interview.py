@@ -78,3 +78,38 @@ def test_llm_unavailable_yields_controlled_step(make_fake_json_llm):
     itw.start()
     step = itw.submit("so cucinare")
     assert step.kind == "unavailable"
+
+
+def test_summarize_failure_does_not_leave_awaiting_confirmation():
+    # guard ALLOW (text call #1), extract COMP (json call #1), then the
+    # summarize text call fails -> unavailable, and NO state must have been
+    # mutated: the next answer must be re-guarded from scratch, not treated
+    # as a confirmation reply (which would call interpret_confirmation/
+    # chat_json instead of the guard's chat).
+    class SummarizeDown:
+        def __init__(self) -> None:
+            self._chat_queue: list[str | None] = [ALLOW, None, REFUSE]
+            self._json_queue: list[dict] = [COMP]
+
+        def chat(self, messages, *, temperature=0.0, max_tokens=None):
+            value = self._chat_queue.pop(0)
+            if value is None:
+                raise LlmUnavailable("summarize down")
+            return value
+
+        def chat_json(self, messages, *, json_schema, temperature=0.0, max_tokens=None):
+            if not self._json_queue:
+                raise AssertionError(
+                    "unexpected chat_json call: still awaiting confirmation after failure"
+                )
+            return self._json_queue.pop(0)
+
+    client = SummarizeDown()
+    itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it")
+    itw.start()
+    step1 = itw.submit("so cucinare")
+    assert step1.kind == "unavailable"
+    # The next answer must go through a fresh guarded turn (guard -> REFUSE),
+    # not be interpreted as a confirmation reply.
+    step2 = itw.submit("che tempo fa domani?")
+    assert step2.kind == "refusal"

@@ -108,9 +108,10 @@ class Interview:
                 refusal_message(decision.category or RefusalCategory.OUT_OF_SCOPE, self._language),
             )
         extracted = extract_section(self._client, section, answer, self._language)
+        summary_text = summarize(self._client, section, extracted, self._language)
         session.merge(extracted)
         self._awaiting_confirmation = True
-        return Step("summary", summarize(self._client, section, extracted, self._language))
+        return Step("summary", summary_text)
 
 
 def _final_summary(language: str) -> str:
