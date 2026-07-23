@@ -221,17 +221,19 @@ mypy src           # type-check (strict)
 
 **Serving LLM (llama-server, OpenAI-compatibile).**
 
-Prerequisito: un binario `llama-server` con supporto CUDA (release prebuilt pinnata o build da
-sorgente) raggiungibile sul `PATH`.
+Prerequisito: un binario `llama-server` con accelerazione GPU sul `PATH`. Due vie:
+- **Vulkan (validato, consigliato):** release prebuilt `bin-ubuntu-vulkan` di llama.cpp — usa la GPU NVIDIA via il driver, **nessun CUDA toolkit, nessuna build da sorgente**. Requisiti già presenti qui: `libvulkan.so.1` + ICD NVIDIA (`nvidia_icd.json`, dal driver 580).
+- **CUDA:** build da sorgente con `-DGGML_CUDA=ON` (richiede CUDA toolkit/`nvcc`) — potenzialmente più veloce; **non** esiste un prebuilt CUDA per Linux.
+
+**Validazione serving (2026-07-21, backend Vulkan, RTX 4070 Mobile 8 GB):** Qwen2.5-7B Q4_K_M usa **~4.76 GB di VRAM** (entra negli 8 GB con margine), latenza a caldo **~38 token/s**, suite avversaria dei guardrail **7/7** su GPU. Vulkan è quindi un'opzione di deployment semplice e sufficiente per il kiosk.
 
 ```bash
 bash scripts/serve-llm.sh   # scarica il modello (una tantum, ~4.7 GB) e avvia il server su :8080
 ```
 
 Lo script scarica i due shard del Q4_K_M ufficiale di Qwen2.5-7B-Instruct-GGUF in `models/`
-(se non già presenti) e avvia `llama-server` puntato sul primo shard, con tutti i layer offloadati
-su GPU (`-ngl 999`) e contesto 8192. `models/` è in `.gitignore`: i pesi del modello non vengono
-mai versionati.
+(se non già presenti) e avvia `llama-server` puntato sul primo shard, con offload GPU
+(`-ngl 999`) e contesto 8192. `models/` è in `.gitignore`: i pesi non vengono mai versionati.
 
 ---
 
@@ -273,6 +275,11 @@ Registrati dalle revisioni (nessuno bloccante; da affrontare al momento giusto):
 - **`db-init/00-roles.sh`**: le password sono interpolate come literal SQL (init una-tantum, input del deployer) → avvertenza «niente apici singoli» o binding.
 - **Test aggiuntivi (hardening):** idempotenza del runner di migrazioni (`[]` alla 2ª esecuzione); percorso fail-closed di `ProfileRepository.save` end-to-end; `details` con payload non banale per la hash-chain (normalizzazione numeri JSON).
 - **`_CHAIN_LOCK_KEY`**: documentare uno schema di namespacing per gli advisory-lock (sono cluster-wide).
+- **Sott. 4 — `output ScopeGuard` sui testi generati** (`check_output`, una chiamata LLM): non ancora applicato ai riepiloghi/chiarimenti (il filtro PII sì). Rischio basso (dati solo-lavoro, stessa sessione/persona); da chiudere quando S7 renderizza le stringhe.
+- **Sott. 4 — grado di evidenza ottimistico:** col modello reale una competenza solo *dichiarata* può essere estratta come `evidence="certified"`; candidato a tuning del prompt d'estrazione (non un difetto strutturale).
+- **Sott. 4 — copertura test minori:** wiring dell'`audit` hook non esercitato dai test (kwargs allineati a S2 ma non verificati end-to-end); ramo di rifiuto nella clarification finale non testato a livello unit; docstring `extraction.py` («unparseable/invalid») da precisare a «invalid (schema)».
+- **Sott. 4 — `submit()` dopo `completed`** restituisce «unavailable» (messaggio fuorviante): valutare uno Step terminale dedicato.
+- **Sott. 4 — `_final_summary`**: stringhe i18n inline nell'orchestratore; valutare di centralizzarle nel modulo messaggi (coerenza §11).
 
 ---
 
@@ -282,3 +289,7 @@ Registrati dalle revisioni (nessuno bloccante; da affrontare al momento giusto):
 |---|---|---|
 | 2026-07-21 | Sott. 3: guard layer **indipendente** (guard input = classificatore LLM strutturato temp 0; guard output = ri-check ambito LLM **sempre attivo** + filtro PII) | §2 ambito in ingresso **e in uscita**; §7.3 controlli indipendenti dal buon comportamento del modello |
 | 2026-07-21 | Sott. 3: serving `llama-server` **nativo** (CUDA), client **httpx** verso endpoint OpenAI-compatibile; modello Qwen2.5-7B GGUF Q4 (Apache 2.0) | Toolkit GPU per Docker assente → GPU nativa più semplice; dipendenze minime; nessuna API esterna |
+| 2026-07-21 | Serving GPU **validato via Vulkan** (prebuilt, no CUDA toolkit): VRAM ~4.76 GB, ~38 tok/s, guardrail 7/7 su GPU. Vulkan = opzione di deployment del kiosk | Nessun prebuilt CUDA Linux; Vulkan usa la GPU col solo driver → più semplice/replicabile (§10) |
+| 2026-07-21 | Sott. 4 (colloquio): flusso **deterministico** guidato dall'app; estrazione **per-sezione con constrained decoding**; incongruenze via **LLM semantico**; riepilogo & conferma **dalla persona**; stato in-memory + persistenza per-sezione | §7.1 «il sistema conduce»; §7.3 estrazione validata; §5 validazione con la persona; ripresa a metà sezione = Fase 2 |
+| 2026-07-23 | Sott. 4 concluso + validato end-to-end con Qwen2.5-7B reale su GPU (Vulkan) + Postgres. Estrazione vincolata **eccellente**; validazione reale ha corretto 2 comportamenti del modello (vedi §14/remediation): incongruenze **a fine colloquio** (prompt rigoroso, mai campi mancanti) e **precisione dello scope-guard** (esempi in-ambito, no falso «lingua diversa»), guard avversario **7/7** riverificato | Il metro è «si comporta come promesso quando messo alla prova» (§10): il test live ha fatto emergere difetti che asserzioni deboli avrebbero nascosto |
+| 2026-07-23 | Sott. 4: **filtro PII in uscita anche «prima di mostrare»** — `PiiRedactor` (Presidio, no LLM) applicato ai testi generati (riepilogo/chiarimento) nell'orchestratore, oltre al filtro già presente a persistenza | Nucleo §7.3 richiede il filtro «prima di mostrare **o** salvare»; rilevato dalla review finale opus |
