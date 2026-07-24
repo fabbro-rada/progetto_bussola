@@ -235,6 +235,25 @@ Lo script scarica i due shard del Q4_K_M ufficiale di Qwen2.5-7B-Instruct-GGUF i
 (se non già presenti) e avvia `llama-server` puntato sul primo shard, con offload GPU
 (`-ngl 999`) e contesto 8192. `models/` è in `.gitignore`: i pesi non vengono mai versionati.
 
+**Setup e gate del frontend** (kiosk della persona — Sottosistema 9, da `frontend/`):
+
+```bash
+npm install                  # dipendenze (React 18, Vite 5, react-i18next; runtime tutte MIT)
+cp .env.example .env         # impostare VITE_KIOSK_TOKEN sulla postazione blindata (mai versionato)
+npm run dev                  # dev server; proxy di /kiosk → 127.0.0.1:8000 (backend S8)
+```
+
+**Gate di qualità** (da `frontend/`):
+
+```bash
+npm test          # Vitest + @testing-library/react (jsdom) — il gate di ogni task
+npm run typecheck # tsc -b (strict)
+npm run lint      # ESLint 9 flat config + typescript-eslint
+npm run build     # tsc -b && vite build
+```
+
+> Playwright (e2e/accessibilità) è previsto ma **rimandato**: audit opzionale/manuale vs API S8 reale (§14). Il token del kiosk è iniettato a build (`VITE_KIOSK_TOKEN`); vive solo sulla postazione blindata.
+
 ---
 
 ## 12. Percorso di upgrade in produzione
@@ -298,6 +317,12 @@ Registrati dalle revisioni (nessuno bloccante; da affrontare al momento giusto):
 - **Sott. 8 — registry di sessione non thread-safe / single-process:** `InterviewRegistry` (in-memory, `_sweep`/`pop` non lock-ati) assume **una sessione concorrente** (una postazione). Multi-worker/multi-postazione o thread concorrenti = **Fase 2** (store condiviso + lock).
 - **Sott. 8 — endpoint di abort esplicito (§4):** oggi la volontarietà è soddisfatta (abbandono → TTL-sweep chiude la conn; sezioni confermate già persistite), ma il comando «ferma» è una preoccupazione della UI kiosk (S9). Valutare un endpoint `/kiosk/interview/end` esplicito.
 - **Sott. 8 — DB down a `start` → 500:** onesto (niente persistenza = niente colloquio), non uno scenario di degrado §3; la conn viene comunque chiusa sul fallimento. Nessuna azione, annotato.
+- **Sott. 9 (UI kiosk, primo frontend) — stringhe arabe da rivedere da un madrelingua prima del pilota (§8):** i cataloghi `ar` sono una traduzione «al meglio», non validata; RTL già applicato. Bloccante di *qualità* pre-pilota, non di codice.
+- **Sott. 9 — audit accessibilità/e2e rimandato:** aggiungere Playwright + axe contro l'API S8 reale su localhost (smoke e2e + audit a11y automatico); oggi coperto solo da unit/component test (Vitest + RTL).
+- **Sott. 9 — «opzioni rapide» del §7.1 non native:** il motore colloquio (S4) produce domande a **testo libero**; la UI realizza «domande brevi / il sistema conduce» ma non opzioni strutturate a scelta. Evoluzione futura del motore colloquio (non modifica del nucleo; documentato nella spec S9).
+- **Sott. 9 — guard doppio-invio solo via `disabled` DOM:** gli handler `submit`/`start` non hanno un `if (state.pending) return`; oggi sufficiente (il bottone è l'unico trigger, provato da test con promise deferita), ma aggiungere difesa-in-profondità a livello handler se si introduce un trigger da tastiera/`<form>`. Idem: nessun `finally` che azzeri `pending` se un client alternativo sollevasse (il client reale è fail-closed).
+- **Sott. 9 — licenze transitive dev-only fuori dalla lista MIT/Apache/BSD:** `caniuse-lite` (CC-BY-4.0, dati) e `argparse` (Python-2.0), più alcune advisory `npm audit` in dev-deps transitive — **solo build-time, non nel bundle `dist/`** (i runtime dep sono tutti MIT). Valutare una allowlist `license-checker`.
+- **Sott. 9 — hardening minori (da review):** `initialState` restituito per riferimento (usare `{...initialState}`) e nessuna exhaustiveness-guard sulle union `Action`/`Screen`; context `TextSize` non memoizzato; alcuni test brief-mandated non asseriscono tutto (clear del campo, Send-disabled-quando-vuoto, assenza bottone in Unauthorized); prop types inline ripetuti; hex hardcoded in `theme.css` fuori dai token. Nessuno impatta il comportamento o una linea rossa.
 
 ---
 
@@ -317,3 +342,4 @@ Registrati dalle revisioni (nessuno bloccante; da affrontare al momento giusto):
 | 2026-07-23 | Sott. 6: nessuna tassonomia di competenze da mantenere — il matching semantico è affidato all'LLM locale (già disponibile, costo marginale zero) con output ancorato; alternativa scartata: tassonomia controllata (es. ESCO) che richiederebbe comunque un LLM per classificare il testo libero + manutenzione | Decisione di prodotto (utente): i profili sono testo libero in 5 lingue; un confronto per stringhe fallisce, e mantenere categorie è oneroso. L'ancoraggio + il gate deterministico preservano il §2 |
 | 2026-07-23 | Sott. 7 «Voce»: servizi backend **STT = faster-whisper** (1.2.1, int8/CPU default, `device`/`compute_type` da env, `cuda` opt-in) + **TTS = Piper** (1.5.0, `synthesize_wav`), con **degrado elegante come contratto**: STT giù → `VoiceUnavailable` (si scrive), TTS assente/errore/lingua-senza-voce → `None` (si legge). Arabo-TTS **solo-testo di default** (mappa voci senza `ar`, §8); STT copre l'arabo. Import delle librerie pesanti **pigri** (unit con engine finto senza librerie); extra opzionale `[voice]`. Validato coi modelli reali (round-trip TTS→STT it/en quasi perfetto) | §3 testo-primo/voce-potenziamento/degrado elegante + open-source permissivo (faster-whisper/piper MIT); §4 accessibilità; §7.1 ripiego voce↔testo; §8 arabo→testo. Review finale opus: contratto di degrado (lato fallimento) totale; Ship with follow-ups |
 | 2026-07-24 | Sott. 8 «API rivolta alla persona (kiosk)»: primo layer HTTP rivolto alla persona — colloquio turno-per-turno (`/kiosk/interview/start|submit` sottili su `Interview` S4) + voce (`/kiosk/voice/transcribe|synthesize`) **con timeout** (`asyncio.wait_for`) → degrado `503`/`204`. **Sessione server-side** in-memory (registry che POSSIEDE la conn DB per l'intera sessione, TTL, chiusa all'eviction) + **token di dispositivo** `X-Kiosk-Token` (fail-closed, tempo costante). Topologia **single-box/localhost** (bind 127.0.0.1, no TLS, microfono via secure-context). Aggiunto `python-multipart` (Apache-2.0). Validato end-to-end via HTTP coi modelli reali (colloquio + round-trip voce) | §3 degrado elegante (mai un blocco) + prevenzione abusi (token) + localhost; §4 interrompibile; §7.1 colloquio/voce/kiosk. Il timeout voce **chiude il follow-up S7** «voce lenta → testo». Review finale opus: degrado/auth/lifecycle-conn corretti; Ship with follow-ups |
+| 2026-07-24 | Sott. 9 «UI kiosk della persona (text-first)» — **primo frontend** (`frontend/`, React 18 + Vite 5 + TS + react-i18next). SPA che consuma l'API S8 turno-per-turno: lingua → consenso → colloquio → fine. **Macchina a stati degli schermi** (riduttore puro, nessun routing di URL; `step.kind`→schermo), `kioskClient` isolato con `X-Kiosk-Token` **build-time** e **degrado fail-closed** (401/404/5xx/rete/JSON-non-valido → schermo gentile, mai un throw o un blocco), i18n 5 lingue + **RTL arabo** alla radice, accessibilità (controllo dimensione testo, alto contrasto), **«Ferma» sempre montato in-sessione** che azzera, stato **in-memory** (privacy; nessun resume = Fase 2). **Voce = sottosistema successivo** (§3 testo-primo): controlli voce placeholder inerti. Stato `pending` (guardia richieste in volo + feedback «sto elaborando…») contro il doppio-invio su backend lento. Test: Vitest + @testing-library/react (54, gate verde, output pristine) | §3 testo-primo/degrado elegante/open-source permissivo/token kiosk; §4 consenso, interrompibilità, accessibilità; §8 5 lingue + RTL; §11 stringhe UI esternalizzate i18n. Review finale opus: **Ship with fixes** → corretti in-branch: guardia parse fail-closed (body 2xx non-JSON→unavailable), guardia in-flight/`pending`, e race «risposta tardiva annulla «Ferma»» (risposta stale ignorata quando `pending=false`). Follow-up §14: revisione arabo madrelingua, Playwright/axe, «opzioni rapide» §7.1 |
