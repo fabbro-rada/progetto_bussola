@@ -27,7 +27,12 @@ from bussola.llm.client import HttpxLlmClient
 
 def require_kiosk(x_kiosk_token: str | None = Header(default=None)) -> None:
     expected = config.KIOSK_TOKEN
-    if not expected or not x_kiosk_token or not secrets.compare_digest(x_kiosk_token, expected):
+    if not expected or not x_kiosk_token:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "kiosk not authorized")
+    # Compare as bytes: secrets.compare_digest on `str` requires ASCII-only
+    # operands and raises TypeError otherwise (e.g. a non-ASCII header would
+    # 500 instead of 401ing).
+    if not secrets.compare_digest(x_kiosk_token.encode("utf-8"), expected.encode("utf-8")):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "kiosk not authorized")
 
 

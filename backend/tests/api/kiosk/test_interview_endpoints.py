@@ -5,7 +5,7 @@ from bussola.api.app import create_app
 from bussola.api.kiosk import config
 from bussola.api.kiosk.routers import interview as interview_router
 from bussola.guardrails.scope import ScopeGuard
-from bussola.interview.interview import Interview
+from bussola.interview.interview import Interview, Step
 from bussola.profile.models import WorkProfile
 
 TOKEN = "secret-kiosk"
@@ -110,3 +110,40 @@ def test_start_failure_closes_connection(monkeypatch):
     r = client.post("/kiosk/interview/start", json={"language": "it"}, headers=_h())
     assert r.status_code == 500
     assert evicted == [True]  # on_evict ran -> connection closed, no leak
+
+
+def test_completed_submit_discards_session_and_closes_conn(monkeypatch):
+    monkeypatch.setattr(config, "KIOSK_TOKEN", TOKEN)
+    evicted = []
+
+    class CompletingInterview(Interview):
+        # Subclasses Interview only so the router's `isinstance(interview,
+        # Interview)` guard accepts it; the real constructor (LLM, repo, ...)
+        # is deliberately never called.
+        def __init__(self) -> None:  # type: ignore[super-init-not-called]
+            pass
+
+        def start(self) -> Step:
+            return Step("question", "Prima domanda?")
+
+        def submit(self, answer: str) -> Step:
+            return Step("completed", "Abbiamo finito, grazie!")
+
+    def fake_build(language: str):
+        return CompletingInterview(), lambda: evicted.append(True)
+
+    monkeypatch.setattr(interview_router, "build_interview", fake_build)
+    client = TestClient(create_app())
+    token = client.post("/kiosk/interview/start", json={"language": "it"}, headers=_h()).json()[
+        "session_token"
+    ]
+    done = client.post(
+        "/kiosk/interview/submit", json={"session_token": token, "answer": "sì"}, headers=_h()
+    )
+    assert done.status_code == 200 and done.json()["step"]["kind"] == "completed"
+    assert evicted == [True]  # on_evict ran -> connection closed
+    # session is gone: submitting again with the same token -> 404
+    again = client.post(
+        "/kiosk/interview/submit", json={"session_token": token, "answer": "x"}, headers=_h()
+    )
+    assert again.status_code == 404
