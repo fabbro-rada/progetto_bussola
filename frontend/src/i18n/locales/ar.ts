@@ -25,6 +25,7 @@ export const ar = {
     finish: 'لقد انتهيت',
   },
   unauthorized: { text: 'هذه المحطة غير مصرّح بها. اطلب المساعدة من موظف.' },
+  pending: { text: 'جارٍ المعالجة…' },
   stop: { label: 'إيقاف' },
   textSize: { label: 'حجم النص', normal: 'عادي', large: 'كبير', xlarge: 'كبير جدًا' },
   voice: { placeholder: 'تحدّث · استمع (قريبًا)' },

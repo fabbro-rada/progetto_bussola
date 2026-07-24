@@ -25,6 +25,7 @@ export const es = {
     finish: 'He terminado',
   },
   unauthorized: { text: 'Este puesto no está autorizado. Pide ayuda a un operador.' },
+  pending: { text: 'Procesando…' },
   stop: { label: 'Detener' },
   textSize: { label: 'Tamaño del texto', normal: 'Normal', large: 'Grande', xlarge: 'Muy grande' },
   voice: { placeholder: 'Hablar · Escuchar (próximamente)' },

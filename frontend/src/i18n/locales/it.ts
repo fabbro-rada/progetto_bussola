@@ -25,6 +25,7 @@ export const it = {
     finish: 'Ho finito',
   },
   unauthorized: { text: 'Questa postazione non è autorizzata. Chiedi aiuto a un operatore.' },
+  pending: { text: 'Sto elaborando…' },
   stop: { label: 'Ferma' },
   textSize: { label: 'Dimensione del testo', normal: 'Normale', large: 'Grande', xlarge: 'Molto grande' },
   voice: { placeholder: 'Parla · Ascolta (prossima fase)' },

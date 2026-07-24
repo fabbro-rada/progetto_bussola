@@ -25,6 +25,7 @@ export const en = {
     finish: "I'm done",
   },
   unauthorized: { text: 'This station is not authorized. Please ask an operator for help.' },
+  pending: { text: 'Working…' },
   stop: { label: 'Stop' },
   textSize: { label: 'Text size', normal: 'Normal', large: 'Large', xlarge: 'Very large' },
   voice: { placeholder: 'Speak · Listen (coming soon)' },

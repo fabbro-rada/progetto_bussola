@@ -25,6 +25,7 @@ export const fr = {
     finish: "J'ai terminé",
   },
   unauthorized: { text: "Ce poste n'est pas autorisé. Demande de l'aide à un opérateur." },
+  pending: { text: 'Un instant…' },
   stop: { label: 'Arrêter' },
   textSize: { label: 'Taille du texte', normal: 'Normale', large: 'Grande', xlarge: 'Très grande' },
   voice: { placeholder: 'Parler · Écouter (bientôt)' },
