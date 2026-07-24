@@ -64,3 +64,16 @@ test('stop pauses the current audio', async () => {
   expect(MockAudio.instances[0].paused).toBe(true)
   expect(result.current.speaking).toBe(false)
 })
+
+test('stop revokes the object URL to avoid leaking blobs on early stop', async () => {
+  vi.stubGlobal('Audio', MockAudio as unknown as typeof Audio)
+  const revoke = vi.fn()
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:x', revokeObjectURL: revoke })
+  const client = makeVoiceClient({ audio: new Blob(['wav']) })
+  const { result } = renderHook(() => useSpeech(client))
+  await act(async () => {
+    await result.current.play('x', 'it')
+  })
+  act(() => result.current.stop())
+  expect(revoke).toHaveBeenCalledWith('blob:x')
+})
