@@ -28,5 +28,16 @@ export const es = {
   pending: { text: 'Procesando…' },
   stop: { label: 'Detener' },
   textSize: { label: 'Tamaño del texto', normal: 'Normal', large: 'Grande', xlarge: 'Muy grande' },
-  voice: { placeholder: 'Hablar · Escuchar (próximamente)' },
+  voice: {
+    placeholder: 'Hablar · Escuchar (próximamente)',
+    speak: 'Hablar',
+    stop: 'Parar',
+    listening: 'escuchando…',
+    transcribing: 'transcribiendo…',
+    listen: 'Escuchar',
+    audioOn: 'Audio activado',
+    audioOff: 'Audio apagado',
+    muteToggle: 'Activar o desactivar el audio',
+    micDenied: 'Micrófono no disponible — escribe, por favor.',
+  },
 }

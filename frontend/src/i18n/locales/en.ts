@@ -28,5 +28,16 @@ export const en = {
   pending: { text: 'Working…' },
   stop: { label: 'Stop' },
   textSize: { label: 'Text size', normal: 'Normal', large: 'Large', xlarge: 'Very large' },
-  voice: { placeholder: 'Speak · Listen (coming soon)' },
+  voice: {
+    placeholder: 'Speak · Listen (coming soon)',
+    speak: 'Speak',
+    stop: 'Stop',
+    listening: 'listening…',
+    transcribing: 'transcribing…',
+    listen: 'Listen',
+    audioOn: 'Audio on',
+    audioOff: 'Audio off',
+    muteToggle: 'Turn audio on or off',
+    micDenied: 'Microphone unavailable — please type.',
+  },
 }

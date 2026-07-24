@@ -1,4 +1,5 @@
 import type { KioskClient, StartResult, Step, SubmitResult } from '../types'
+import type { VoiceClient } from '../voice/voiceClient'
 
 // Deterministic fake: `start` returns startResult; each `submit` returns the
 // next scripted SubmitResult. Synthetic data only (§9).
@@ -23,3 +24,34 @@ export function makeFakeClient(opts: {
 }
 
 export const step = (kind: Step['kind'], text: string): Step => ({ kind, text })
+
+// Silent default for component tests: no audio, dictation unavailable.
+export const noopVoiceClient: VoiceClient = {
+  async transcribe() {
+    return { status: 'unavailable' }
+  },
+  async synthesize() {
+    return null
+  },
+}
+
+// Configurable fake for voice tests. `transcript` → transcribe result text;
+// `audio` → a Blob for synthesize (null = 204/no audio).
+export function makeVoiceClient(opts: { transcript?: string; audio?: Blob | null } = {}): VoiceClient & {
+  calls: { transcribe: number; synthesize: Array<{ text: string; language: string }> }
+} {
+  const calls = { transcribe: 0, synthesize: [] as Array<{ text: string; language: string }> }
+  return {
+    calls,
+    async transcribe() {
+      calls.transcribe++
+      return opts.transcript !== undefined
+        ? { status: 'ok', text: opts.transcript }
+        : { status: 'unavailable' }
+    },
+    async synthesize(text: string, language: string) {
+      calls.synthesize.push({ text, language })
+      return opts.audio ?? null
+    },
+  }
+}
