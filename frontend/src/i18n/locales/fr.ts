@@ -1,0 +1,31 @@
+export const fr = {
+  consent: {
+    title: 'Avant de commencer 👋',
+    point: {
+      work: 'Je vais te poser quelques questions sur le travail que tu sais faire et que tu aimerais faire.',
+      purpose: "C'est seulement pour t'aider à trouver du travail et des formations.",
+      onlyWork: "Je ne recueille que des choses sur le travail. Pas d'infractions, pas de santé, pas de famille.",
+      voluntary: "C'est libre : tu peux t'arrêter quand tu veux avec le bouton « Arrêter ».",
+      local: 'Tes données restent ici. Elles ne sortent pas.',
+    },
+    accept: "J'ai compris, commençons",
+    decline: 'Pas maintenant',
+  },
+  prompt: { placeholder: 'Écris ta réponse ici…', next: 'Suivant' },
+  confirm: {
+    yes: "Oui, c'est correct",
+    no: 'Non, corriger quelque chose',
+    correctPlaceholder: 'Écris la correction…',
+    send: 'Envoyer',
+  },
+  refusal: { banner: 'Je peux seulement aider pour le travail et la formation.' },
+  unavailable: { text: 'Un instant, je réessaie bientôt. Tu peux aussi réécrire.', retry: 'Réessayer' },
+  completed: {
+    text: "Merci ! J'ai tout recueilli. Un opérateur utilisera ton profil pour chercher des opportunités.",
+    finish: "J'ai terminé",
+  },
+  unauthorized: { text: "Ce poste n'est pas autorisé. Demande de l'aide à un opérateur." },
+  stop: { label: 'Arrêter' },
+  textSize: { label: 'Taille du texte', normal: 'Normale', large: 'Grande', xlarge: 'Très grande' },
+  voice: { placeholder: 'Parler · Écouter (bientôt)' },
+}

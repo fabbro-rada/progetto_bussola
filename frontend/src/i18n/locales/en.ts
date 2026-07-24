@@ -1,0 +1,31 @@
+export const en = {
+  consent: {
+    title: 'Before we start 👋',
+    point: {
+      work: "I'll ask you a few questions about the work you can do and would like to do.",
+      purpose: "It's only to help find you work and training opportunities.",
+      onlyWork: 'I only collect things about work. No offences, no health, no family.',
+      voluntary: "It's free: you can stop whenever you want with the «Stop» button.",
+      local: "Your data stays here. It doesn't leave.",
+    },
+    accept: "I understand, let's start",
+    decline: 'Not now',
+  },
+  prompt: { placeholder: 'Type your answer here…', next: 'Next' },
+  confirm: {
+    yes: "Yes, that's correct",
+    no: 'No, correct something',
+    correctPlaceholder: 'Type the correction…',
+    send: 'Send',
+  },
+  refusal: { banner: 'I can only help with work and training.' },
+  unavailable: { text: "One moment, I'll try again shortly. You can also type again.", retry: 'Try again' },
+  completed: {
+    text: "Thank you! I've collected everything. An operator will use your profile to look for opportunities.",
+    finish: "I'm done",
+  },
+  unauthorized: { text: 'This station is not authorized. Please ask an operator for help.' },
+  stop: { label: 'Stop' },
+  textSize: { label: 'Text size', normal: 'Normal', large: 'Large', xlarge: 'Very large' },
+  voice: { placeholder: 'Speak · Listen (coming soon)' },
+}
