@@ -28,5 +28,16 @@ export const ar = {
   pending: { text: 'جارٍ المعالجة…' },
   stop: { label: 'إيقاف' },
   textSize: { label: 'حجم النص', normal: 'عادي', large: 'كبير', xlarge: 'كبير جدًا' },
-  voice: { placeholder: 'تحدّث · استمع (قريبًا)' },
+  voice: {
+    placeholder: 'تحدّث · استمع (قريبًا)',
+    speak: 'تحدّث',
+    stop: 'إيقاف',
+    listening: 'جارٍ الاستماع…',
+    transcribing: 'جارٍ التفريغ…',
+    listen: 'استمع',
+    audioOn: 'الصوت مُفعّل',
+    audioOff: 'الصوت مُطفأ',
+    muteToggle: 'تشغيل الصوت أو إيقافه',
+    micDenied: 'الميكروفون غير متاح — اكتب من فضلك.',
+  },
 }
