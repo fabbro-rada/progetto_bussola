@@ -13,7 +13,7 @@ test('declineConsent resets to the initial state', () => {
 })
 
 test('started ok derives the screen from the step kind and stores the session token', () => {
-  const s = reducer({ ...initialState, language: 'it' }, {
+  const s = reducer({ ...initialState, language: 'it', pending: true }, {
     type: 'started',
     result: { status: 'ok', sessionToken: 'tok', step: { kind: 'question', text: 'Q1' } },
   })
@@ -21,8 +21,8 @@ test('started ok derives the screen from the step kind and stores the session to
 })
 
 test('started unauthorized/unavailable route to their screens', () => {
-  expect(reducer(initialState, { type: 'started', result: { status: 'unauthorized' } }).screen).toBe('unauthorized')
-  expect(reducer(initialState, { type: 'started', result: { status: 'unavailable' } }).screen).toBe('unavailable')
+  expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unauthorized' } }).screen).toBe('unauthorized')
+  expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unavailable' } }).screen).toBe('unavailable')
 })
 
 test('submitting records lastAnswer for retry', () => {
@@ -31,7 +31,7 @@ test('submitting records lastAnswer for retry', () => {
 })
 
 test('submitted ok maps each step kind to its screen', () => {
-  const base = { ...initialState, sessionToken: 'tok' }
+  const base = { ...initialState, sessionToken: 'tok', pending: true }
   for (const kind of ['question', 'summary', 'clarification', 'refusal', 'unavailable', 'completed'] as const) {
     const s = reducer(base, { type: 'submitted', result: { status: 'ok', step: { kind, text: 't' } } })
     expect(s.screen).toBe(kind)
@@ -40,13 +40,13 @@ test('submitted ok maps each step kind to its screen', () => {
 })
 
 test('submitted session-expired resets to the start; unauthorized routes to unauthorized', () => {
-  const base = { ...initialState, sessionToken: 'tok', screen: 'question' as const }
+  const base = { ...initialState, sessionToken: 'tok', screen: 'question' as const, pending: true }
   expect(reducer(base, { type: 'submitted', result: { status: 'session-expired' } })).toEqual(initialState)
   expect(reducer(base, { type: 'submitted', result: { status: 'unauthorized' } }).screen).toBe('unauthorized')
 })
 
 test('submitted unavailable keeps the session token so retry is possible', () => {
-  const s = reducer({ ...initialState, sessionToken: 'tok' }, { type: 'submitted', result: { status: 'unavailable' } })
+  const s = reducer({ ...initialState, sessionToken: 'tok', pending: true }, { type: 'submitted', result: { status: 'unavailable' } })
   expect(s.screen).toBe('unavailable')
   expect(s.sessionToken).toBe('tok')
 })
@@ -90,4 +90,19 @@ test('submitted unauthorized/unavailable clear pending too', () => {
   const base = { ...initialState, sessionToken: 'tok', pending: true }
   expect(reducer(base, { type: 'submitted', result: { status: 'unauthorized' } }).pending).toBe(false)
   expect(reducer(base, { type: 'submitted', result: { status: 'unavailable' } }).pending).toBe(false)
+})
+
+test('a late started/submitted after a reset is ignored (pending=false → no-op)', () => {
+  // initialState has pending:false, screen:'language'
+  const lateStarted = reducer(initialState, {
+    type: 'started',
+    result: { status: 'ok', sessionToken: 'tok', step: { kind: 'question', text: 'Q' } },
+  })
+  expect(lateStarted).toEqual(initialState) // screen stays 'language', not 'question'
+
+  const lateSubmitted = reducer(initialState, {
+    type: 'submitted',
+    result: { status: 'ok', step: { kind: 'summary', text: 'RECAP' } },
+  })
+  expect(lateSubmitted).toEqual(initialState)
 })
