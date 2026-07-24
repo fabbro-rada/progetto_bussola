@@ -4,3 +4,7 @@
 # Segreti locali (password reali dei ruoli DB): mai nel repo. Versionare solo .env.example.
 .env
 models/
+
+frontend/node_modules/
+frontend/dist/
+frontend/.env

@@ -1,0 +1,19 @@
+:root {
+  --text-scale: 1;
+  --fg: #111111;
+  --bg: #ffffff;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --confirm: #15803d;
+  --danger: #b91c1c;
+  --warn-bg: #fffbeb;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  font-size: calc(18px * var(--text-scale));
+  line-height: 1.5;
+}
