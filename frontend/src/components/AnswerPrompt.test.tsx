@@ -1,9 +1,11 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { renderWithProviders } from '../test/utils'
 import { AnswerPrompt } from './AnswerPrompt'
 import i18n from '../i18n'
+import { makeVoiceClient } from '../test/fakeClient'
+import { stubMedia } from '../test/media'
 
 test('submits the trimmed answer and clears the field; empty is ignored', async () => {
   await i18n.changeLanguage('it')
@@ -23,4 +25,17 @@ test('submits the trimmed answer and clears the field; empty is ignored', async 
 test('renders an optional banner (used by the refusal screen)', () => {
   renderWithProviders(<AnswerPrompt text="Torniamo a te" onSubmit={vi.fn()} banner="Solo lavoro" />)
   expect(screen.getByText('Solo lavoro')).toBeInTheDocument()
+})
+
+test('dictated text lands in the field for review (does not auto-submit)', async () => {
+  await i18n.changeLanguage('it')
+  stubMedia(true)
+  const client = makeVoiceClient({ transcript: 'ho lavorato in cucina', audio: null })
+  const onSubmit = vi.fn()
+  renderWithProviders(<AnswerPrompt text="Che lavoro sai fare?" onSubmit={onSubmit} />, { voiceClient: client })
+  await userEvent.click(await screen.findByRole('button', { name: /Parla/ }))
+  await userEvent.click(await screen.findByRole('button', { name: /Stop/ }))
+  await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('ho lavorato in cucina'))
+  expect(onSubmit).not.toHaveBeenCalled() // review, not auto-submit
+  vi.unstubAllGlobals()
 })
