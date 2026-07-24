@@ -77,3 +77,39 @@ test('stop revokes the object URL to avoid leaking blobs on early stop', async (
   act(() => result.current.stop())
   expect(revoke).toHaveBeenCalledWith('blob:x')
 })
+
+test('a later play cancels an earlier in-flight synthesize (queue-of-one)', async () => {
+  stubAudio()
+  let resolveA!: (b: Blob | null) => void
+  let resolveB!: (b: Blob | null) => void
+  const client = {
+    transcribe: async () => ({ status: 'unavailable' as const }),
+    synthesize: vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<Blob | null>((r) => { resolveA = r }))
+      .mockImplementationOnce(() => new Promise<Blob | null>((r) => { resolveB = r })),
+  }
+  const { result } = renderHook(() => useSpeech(client))
+  let pA!: Promise<void>
+  let pB!: Promise<void>
+  act(() => { pA = result.current.play('A', 'it') })
+  act(() => { pB = result.current.play('B', 'it') })
+  await act(async () => { resolveB(new Blob(['b'])); await pB })
+  await act(async () => { resolveA(new Blob(['a'])); await pA })
+  expect(MockAudio.instances).toHaveLength(1)
+})
+
+test('synthesize resolving after stop() creates no audio', async () => {
+  stubAudio()
+  let resolveA!: (b: Blob | null) => void
+  const client = {
+    transcribe: async () => ({ status: 'unavailable' as const }),
+    synthesize: () => new Promise<Blob | null>((r) => { resolveA = r }),
+  }
+  const { result } = renderHook(() => useSpeech(client))
+  let pA!: Promise<void>
+  act(() => { pA = result.current.play('A', 'it') })
+  act(() => { result.current.stop() })
+  await act(async () => { resolveA(new Blob(['a'])); await pA })
+  expect(MockAudio.instances).toHaveLength(0)
+})
