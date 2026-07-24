@@ -1,7 +1,94 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { expect, test } from 'vitest'
+import { renderWithProviders } from './test/utils'
+import { makeFakeClient, step } from './test/fakeClient'
 import { App } from './App'
 
-test('renders the app shell', () => {
-  render(<App />)
-  expect(screen.getByText('Bussola')).toBeInTheDocument()
+async function chooseItalianAndConsent() {
+  await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Ho capito, iniziamo' }))
+}
+
+test('happy path: language -> consent -> question -> summary -> completed', async () => {
+  const client = makeFakeClient({
+    start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Che lavoro sai fare?') },
+    submits: [
+      { status: 'ok', step: step('summary', 'Ho capito: sai cucinare') },
+      { status: 'ok', step: step('completed', 'Grazie!') },
+    ],
+  })
+  renderWithProviders(<App client={client} />)
+
+  await chooseItalianAndConsent()
+  expect(await screen.findByText('Che lavoro sai fare?')).toBeInTheDocument()
+
+  await userEvent.type(screen.getByRole('textbox'), 'so cucinare')
+  await userEvent.click(screen.getByRole('button', { name: 'Avanti' }))
+
+  expect(await screen.findByText('Ho capito: sai cucinare')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Sì, è corretto' }))
+
+  expect(await screen.findByText(/Grazie! Ho raccolto tutto/)).toBeInTheDocument()
+  expect(client.calls.answers).toEqual(['so cucinare', 'Sì, è corretto'])
+})
+
+test('«Ferma» resets to the language picker from mid-interview', async () => {
+  const client = makeFakeClient({ start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Domanda') } })
+  renderWithProviders(<App client={client} />)
+  await chooseItalianAndConsent()
+  expect(await screen.findByText('Domanda')).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: /Ferma/ }))
+  expect(screen.getByRole('button', { name: 'Italiano' })).toBeInTheDocument()
+})
+
+test('«Ferma» is not shown on the language picker (no session yet)', () => {
+  renderWithProviders(<App client={makeFakeClient({})} />)
+  expect(screen.queryByRole('button', { name: /Ferma/ })).not.toBeInTheDocument()
+})
+
+test('backend down on start -> unavailable screen, retry recovers', async () => {
+  let firstCall = true
+  const base = makeFakeClient({ start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Ripartiti') } })
+  const client = {
+    ...base,
+    async startInterview() {
+      if (firstCall) {
+        firstCall = false
+        return { status: 'unavailable' as const }
+      }
+      return { status: 'ok' as const, sessionToken: 'tok', step: step('question', 'Ripartiti') }
+    },
+  }
+  renderWithProviders(<App client={client} />)
+  await chooseItalianAndConsent()
+  expect(await screen.findByText(/Un momento, ci riprovo/)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Riprova' }))
+  expect(await screen.findByText('Ripartiti')).toBeInTheDocument()
+})
+
+test('session expired mid-interview -> back to the language picker', async () => {
+  const client = makeFakeClient({
+    start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Domanda') },
+    submits: [{ status: 'session-expired' }],
+  })
+  renderWithProviders(<App client={client} />)
+  await chooseItalianAndConsent()
+  await userEvent.type(await screen.findByRole('textbox'), 'x')
+  await userEvent.click(screen.getByRole('button', { name: 'Avanti' }))
+  expect(await screen.findByRole('button', { name: 'Italiano' })).toBeInTheDocument()
+})
+
+test('unauthorized token -> station-not-authorized screen', async () => {
+  const client = makeFakeClient({ start: { status: 'unauthorized' } })
+  renderWithProviders(<App client={client} />)
+  await chooseItalianAndConsent()
+  expect(await screen.findByText(/Questa postazione non è autorizzata/)).toBeInTheDocument()
+})
+
+test('choosing Arabic sets the document direction to rtl', async () => {
+  renderWithProviders(<App client={makeFakeClient({})} />)
+  await userEvent.click(screen.getByRole('button', { name: 'العربية' }))
+  expect(document.documentElement.dir).toBe('rtl')
 })
