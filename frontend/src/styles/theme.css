@@ -59,5 +59,6 @@ textarea {
   padding: 18px; border: 2px solid #cbd5e1; border-radius: 12px; background: #fff; cursor: pointer;
 }
 .voice-placeholder { color: var(--muted); border: 1px dashed #cbd5e1; border-radius: 8px; padding: 6px 10px; }
+.pending { color: var(--muted); font-weight: 600; }
 .text-size-control button { font: inherit; padding: 6px 10px; margin-inline-start: 4px; cursor: pointer; }
 .text-size-control button[aria-pressed='true'] { background: var(--accent); color: #fff; }

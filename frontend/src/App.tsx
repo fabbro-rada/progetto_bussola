@@ -1,4 +1,5 @@
 import { useCallback, useReducer } from 'react'
+import { useTranslation } from 'react-i18next'
 import { kioskClient } from './api/kioskClient'
 import type { KioskClient } from './types'
 import { applyLanguage } from './i18n'
@@ -18,6 +19,7 @@ import { Unauthorized } from './screens/Unauthorized'
 
 export function App({ client = kioskClient }: { client?: KioskClient } = {}) {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const { t } = useTranslation()
 
   const selectLanguage = useCallback((code: string) => {
     applyLanguage(code)
@@ -26,6 +28,7 @@ export function App({ client = kioskClient }: { client?: KioskClient } = {}) {
 
   const start = useCallback(async () => {
     if (!state.language) return
+    dispatch({ type: 'starting' })
     const result = await client.startInterview(state.language)
     dispatch({ type: 'started', result })
   }, [client, state.language])
@@ -42,12 +45,11 @@ export function App({ client = kioskClient }: { client?: KioskClient } = {}) {
 
   const retry = useCallback(async () => {
     if (state.sessionToken && state.lastAnswer !== null) {
-      const result = await client.submitAnswer(state.sessionToken, state.lastAnswer)
-      dispatch({ type: 'submitted', result })
+      await submit(state.lastAnswer)
     } else {
       await start()
     }
-  }, [client, state.sessionToken, state.lastAnswer, start])
+  }, [state.sessionToken, state.lastAnswer, submit, start])
 
   const stop = useCallback(() => {
     applyLanguage('it')
@@ -59,17 +61,17 @@ export function App({ client = kioskClient }: { client?: KioskClient } = {}) {
       case 'language':
         return <LanguagePicker onSelect={selectLanguage} />
       case 'consent':
-        return <Consent onAccept={start} onDecline={() => dispatch({ type: 'declineConsent' })} />
+        return <Consent onAccept={start} onDecline={() => dispatch({ type: 'declineConsent' })} busy={state.pending} />
       case 'question':
-        return <Question text={state.step!.text} onSubmit={submit} />
+        return <Question text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'summary':
-        return <Summary text={state.step!.text} onSubmit={submit} />
+        return <Summary text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'clarification':
-        return <Clarification text={state.step!.text} onSubmit={submit} />
+        return <Clarification text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'refusal':
-        return <Refusal text={state.step!.text} onSubmit={submit} />
+        return <Refusal text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'unavailable':
-        return <Unavailable onRetry={retry} />
+        return <Unavailable onRetry={retry} busy={state.pending} />
       case 'completed':
         return <Completed onFinish={stop} />
       case 'unauthorized':
@@ -82,6 +84,11 @@ export function App({ client = kioskClient }: { client?: KioskClient } = {}) {
     <div className="app">
       <header className="chrome">
         {inSession ? <StopButton onStop={stop} /> : <span />}
+        {state.pending && (
+          <div className="pending" role="status" aria-live="polite">
+            {t('pending.text')}
+          </div>
+        )}
         <TextSizeControl />
         <VoicePlaceholder />
       </header>

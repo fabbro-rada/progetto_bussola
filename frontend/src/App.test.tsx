@@ -4,6 +4,7 @@ import { expect, test } from 'vitest'
 import { renderWithProviders } from './test/utils'
 import { makeFakeClient, step } from './test/fakeClient'
 import { App } from './App'
+import type { KioskClient, SubmitResult } from './types'
 
 async function chooseItalianAndConsent() {
   await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
@@ -91,4 +92,36 @@ test('choosing Arabic sets the document direction to rtl', async () => {
   renderWithProviders(<App client={makeFakeClient({})} />)
   await userEvent.click(screen.getByRole('button', { name: 'العربية' }))
   expect(document.documentElement.dir).toBe('rtl')
+})
+
+test('does not double-submit while a request is in flight; shows pending, disables the button', async () => {
+  let releaseSubmit!: (r: SubmitResult) => void
+  const inFlight = new Promise<SubmitResult>((res) => { releaseSubmit = res })
+  let submitCalls = 0
+  const client: KioskClient = {
+    async startInterview() {
+      return { status: 'ok', sessionToken: 'tok', step: step('summary', 'Ho capito: sai cucinare') }
+    },
+    async submitAnswer() {
+      submitCalls++
+      return inFlight
+    },
+  }
+  renderWithProviders(<App client={client} />)
+  await chooseItalianAndConsent()
+
+  const yes = await screen.findByRole('button', { name: 'Sì, è corretto' })
+  await userEvent.click(yes)
+
+  // pending feedback shown, button disabled
+  expect(screen.getByText('Sto elaborando…')).toBeInTheDocument()
+  expect(yes).toBeDisabled()
+
+  // a second tap while in flight must NOT fire a second request
+  await userEvent.click(yes)
+  expect(submitCalls).toBe(1)
+
+  // releasing the request advances normally
+  releaseSubmit({ status: 'ok', step: step('completed', 'Grazie!') })
+  expect(await screen.findByText(/Grazie/)).toBeInTheDocument()
 })

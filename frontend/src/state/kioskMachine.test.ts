@@ -55,3 +55,39 @@ test('stop resets to the initial state from anywhere', () => {
   const s = reducer({ ...initialState, screen: 'summary', sessionToken: 'tok', language: 'fr' }, { type: 'stop' })
   expect(s).toEqual(initialState)
 })
+
+test('starting sets pending true', () => {
+  const s = reducer(initialState, { type: 'starting' })
+  expect(s.pending).toBe(true)
+})
+
+test('submitting sets pending true along with lastAnswer', () => {
+  const s = reducer({ ...initialState, sessionToken: 'tok' }, { type: 'submitting', answer: 'so cucinare' })
+  expect(s.lastAnswer).toBe('so cucinare')
+  expect(s.pending).toBe(true)
+})
+
+test('started ok clears pending even when the prior state was pending', () => {
+  const s = reducer({ ...initialState, language: 'it', pending: true }, {
+    type: 'started',
+    result: { status: 'ok', sessionToken: 'tok', step: { kind: 'question', text: 'Q1' } },
+  })
+  expect(s.pending).toBe(false)
+})
+
+test('started unauthorized/unavailable clear pending too', () => {
+  expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unauthorized' } }).pending).toBe(false)
+  expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unavailable' } }).pending).toBe(false)
+})
+
+test('submitted ok clears pending even when the prior state was pending', () => {
+  const base = { ...initialState, sessionToken: 'tok', pending: true }
+  const s = reducer(base, { type: 'submitted', result: { status: 'ok', step: { kind: 'summary', text: 't' } } })
+  expect(s.pending).toBe(false)
+})
+
+test('submitted unauthorized/unavailable clear pending too', () => {
+  const base = { ...initialState, sessionToken: 'tok', pending: true }
+  expect(reducer(base, { type: 'submitted', result: { status: 'unauthorized' } }).pending).toBe(false)
+  expect(reducer(base, { type: 'submitted', result: { status: 'unavailable' } }).pending).toBe(false)
+})

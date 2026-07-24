@@ -6,10 +6,12 @@ export function AnswerPrompt({
   text,
   onSubmit,
   banner,
+  busy,
 }: {
   text: string
   onSubmit: (answer: string) => void
   banner?: string
+  busy?: boolean
 }) {
   const { t } = useTranslation()
   const [value, setValue] = useState('')
@@ -26,7 +28,7 @@ export function AnswerPrompt({
       />
       <BigButton
         variant="confirm"
-        disabled={!trimmed}
+        disabled={!trimmed || busy}
         onClick={() => {
           onSubmit(trimmed)
           setValue('')
