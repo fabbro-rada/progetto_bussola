@@ -29,7 +29,6 @@ export const it = {
   stop: { label: 'Ferma' },
   textSize: { label: 'Dimensione del testo', normal: 'Normale', large: 'Grande', xlarge: 'Molto grande' },
   voice: {
-    placeholder: 'Parla · Ascolta (prossima fase)',
     speak: 'Parla',
     stop: 'Stop',
     listening: 'sto ascoltando…',
