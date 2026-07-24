@@ -5,8 +5,10 @@ export function useSpeech(client: VoiceClient) {
   const [speaking, setSpeaking] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const urlRef = useRef<string | null>(null)
+  const genRef = useRef(0)
 
   const stop = useCallback(() => {
+    genRef.current++ // invalidate any in-flight play()
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current = null
@@ -21,8 +23,10 @@ export function useSpeech(client: VoiceClient) {
   const play = useCallback(
     async (text: string, language: string) => {
       stop()
+      const gen = genRef.current
       const blob = await client.synthesize(text, language)
-      if (!blob) return // 204/no audio → stay on text, no state change
+      // 204/no audio, or a newer stop()/play() superseded this one → drop (no Audio, no URL)
+      if (!blob || gen !== genRef.current) return
       const url = URL.createObjectURL(blob)
       urlRef.current = url
       const audio = new Audio(url)
@@ -34,9 +38,13 @@ export function useSpeech(client: VoiceClient) {
       }
       try {
         await audio.play()
+        if (gen !== genRef.current) return // stopped while play() was resolving
         setSpeaking(true)
       } catch {
-        setSpeaking(false) // autoplay blocked → text stays
+        URL.revokeObjectURL(url)
+        urlRef.current = null
+        audioRef.current = null
+        setSpeaking(false)
       }
     },
     [client, stop],
