@@ -90,3 +90,23 @@ def test_submit_unknown_session_is_404(client):
         headers=_h(),
     )
     assert r.status_code == 404
+
+
+def test_start_failure_closes_connection(monkeypatch):
+    monkeypatch.setattr(config, "KIOSK_TOKEN", TOKEN)
+    evicted = []
+
+    class BoomInterview:
+        def start(self):
+            raise RuntimeError("db down at start")
+
+    def fake_build(language: str):
+        return BoomInterview(), lambda: evicted.append(True)
+
+    monkeypatch.setattr(interview_router, "build_interview", fake_build)
+    client = TestClient(
+        create_app(), raise_server_exceptions=False
+    )  # let the 500 surface as a response
+    r = client.post("/kiosk/interview/start", json={"language": "it"}, headers=_h())
+    assert r.status_code == 500
+    assert evicted == [True]  # on_evict ran -> connection closed, no leak

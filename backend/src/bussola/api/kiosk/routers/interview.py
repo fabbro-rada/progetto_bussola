@@ -38,7 +38,11 @@ class SubmitResponse(BaseModel):
 @router.post("/start", response_model=StartResponse)
 def start(body: StartRequest) -> StartResponse:
     interview, on_evict = build_interview(body.language)
-    step = interview.start()
+    try:
+        step = interview.start()
+    except Exception:
+        on_evict()
+        raise
     token = REGISTRY.create(interview, on_evict=on_evict)
     return StartResponse(session_token=token, step=StepOut(kind=step.kind, text=step.text))
 
