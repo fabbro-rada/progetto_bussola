@@ -46,7 +46,13 @@ export function useRecorder({ onText }: { onText: (text: string) => void }) {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch {
       busyRef.current = false
-      setState('denied')
+      if (mountedRef.current) setState('denied')
+      return
+    }
+    if (!mountedRef.current) {
+      // unmounted while the permission prompt was open — release the mic, don't start
+      stream.getTracks().forEach((track) => track.stop())
+      busyRef.current = false
       return
     }
     streamRef.current = stream
