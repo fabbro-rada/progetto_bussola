@@ -33,3 +33,14 @@ def test_correct_token_passes(monkeypatch):
 def test_unconfigured_token_is_401(monkeypatch):
     monkeypatch.setattr(config, "KIOSK_TOKEN", "")  # not configured -> deny
     assert _client().get("/probe", headers={"X-Kiosk-Token": ""}).status_code == 401
+
+
+def test_non_ascii_token_is_401_not_500(monkeypatch):
+    # secrets.compare_digest on `str` requires ASCII-only operands and raises
+    # TypeError for non-ASCII input; a crafted header must 401, not 500.
+    # The header value is passed as raw UTF-8 bytes: httpx's TestClient
+    # rejects a non-ASCII `str` header value client-side (it would never
+    # reach the app), so bytes are needed to exercise the real wire format.
+    monkeypatch.setattr(config, "KIOSK_TOKEN", "secret-kiosk")
+    r = _client().get("/probe", headers={"X-Kiosk-Token": "tökén-nön-ascii".encode("utf-8")})
+    assert r.status_code == 401
