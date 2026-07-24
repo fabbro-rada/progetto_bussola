@@ -29,7 +29,6 @@ export const en = {
   stop: { label: 'Stop' },
   textSize: { label: 'Text size', normal: 'Normal', large: 'Large', xlarge: 'Very large' },
   voice: {
-    placeholder: 'Speak · Listen (coming soon)',
     speak: 'Speak',
     stop: 'Stop',
     listening: 'listening…',

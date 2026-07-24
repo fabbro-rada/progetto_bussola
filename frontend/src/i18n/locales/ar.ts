@@ -29,7 +29,6 @@ export const ar = {
   stop: { label: 'إيقاف' },
   textSize: { label: 'حجم النص', normal: 'عادي', large: 'كبير', xlarge: 'كبير جدًا' },
   voice: {
-    placeholder: 'تحدّث · استمع (قريبًا)',
     speak: 'تحدّث',
     stop: 'إيقاف',
     listening: 'جارٍ الاستماع…',
