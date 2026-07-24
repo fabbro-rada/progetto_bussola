@@ -42,6 +42,7 @@ export function useSpeech(client: VoiceClient) {
         setSpeaking(true)
       } catch {
         URL.revokeObjectURL(url)
+        if (gen !== genRef.current) return // superseded → don't clobber the newer generation
         urlRef.current = null
         audioRef.current = null
         setSpeaking(false)
