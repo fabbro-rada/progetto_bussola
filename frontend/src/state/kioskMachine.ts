@@ -41,6 +41,7 @@ export function reducer(state: MachineState, action: Action): MachineState {
     case 'starting':
       return { ...state, pending: true }
     case 'started': {
+      if (!state.pending) return state
       const r = action.result
       if (r.status === 'unauthorized') return { ...state, screen: 'unauthorized', pending: false }
       if (r.status === 'unavailable') return { ...state, screen: 'unavailable', pending: false }
@@ -49,6 +50,7 @@ export function reducer(state: MachineState, action: Action): MachineState {
     case 'submitting':
       return { ...state, lastAnswer: action.answer, pending: true }
     case 'submitted': {
+      if (!state.pending) return state
       const r = action.result
       if (r.status === 'unauthorized') return { ...state, screen: 'unauthorized', pending: false }
       if (r.status === 'session-expired') return initialState

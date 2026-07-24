@@ -94,6 +94,35 @@ test('choosing Arabic sets the document direction to rtl', async () => {
   expect(document.documentElement.dir).toBe('rtl')
 })
 
+test('declining consent in Arabic returns to an ltr language picker', async () => {
+  renderWithProviders(<App client={makeFakeClient({})} />)
+  await userEvent.click(screen.getByRole('button', { name: 'العربية' }))
+  await userEvent.click(await screen.findByRole('button', { name: /ليس الآن|Non ora/ }))
+  expect(document.documentElement.dir).toBe('ltr')
+})
+
+test('«Ferma» during an in-flight submit is not undone by the late response', async () => {
+  let releaseSubmit!: (r: SubmitResult) => void
+  const inFlight = new Promise<SubmitResult>((res) => { releaseSubmit = res })
+  const client: KioskClient = {
+    async startInterview() {
+      return { status: 'ok', sessionToken: 'tok', step: step('summary', 'RECAP PRIVATO') }
+    },
+    async submitAnswer() { return inFlight },
+  }
+  renderWithProviders(<App client={client} />)
+  await chooseItalianAndConsent()
+  await userEvent.click(await screen.findByRole('button', { name: 'Sì, è corretto' }))
+  // stop while the submit is pending
+  await userEvent.click(screen.getByRole('button', { name: /Ferma/ }))
+  expect(screen.getByRole('button', { name: 'Italiano' })).toBeInTheDocument()
+  // late response must NOT resurrect the interview
+  releaseSubmit({ status: 'ok', step: step('completed', 'Grazie!') })
+  // allow the microtask to flush; still on the picker
+  expect(await screen.findByRole('button', { name: 'Italiano' })).toBeInTheDocument()
+  expect(screen.queryByText('RECAP PRIVATO')).not.toBeInTheDocument()
+})
+
 test('does not double-submit while a request is in flight; shows pending, disables the button', async () => {
   let releaseSubmit!: (r: SubmitResult) => void
   const inFlight = new Promise<SubmitResult>((res) => { releaseSubmit = res })

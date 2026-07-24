@@ -56,12 +56,17 @@ export function App({ client = kioskClient }: { client?: KioskClient } = {}) {
     dispatch({ type: 'stop' })
   }, [])
 
+  const decline = useCallback(() => {
+    applyLanguage('it')
+    dispatch({ type: 'declineConsent' })
+  }, [])
+
   function renderScreen() {
     switch (state.screen) {
       case 'language':
         return <LanguagePicker onSelect={selectLanguage} />
       case 'consent':
-        return <Consent onAccept={start} onDecline={() => dispatch({ type: 'declineConsent' })} busy={state.pending} />
+        return <Consent onAccept={start} onDecline={decline} busy={state.pending} />
       case 'question':
         return <Question text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'summary':
