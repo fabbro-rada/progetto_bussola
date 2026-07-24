@@ -61,3 +61,30 @@ test('transcribe unavailable (503) → state unavailable', async () => {
   await waitFor(() => expect(result.current.state).toBe('unavailable'))
   expect(onText).not.toHaveBeenCalled()
 })
+
+test('re-entrant start() while requesting/recording is ignored (no orphaned stream)', async () => {
+  stubMedia(true)
+  const onText = vi.fn()
+  const { result } = renderHook(() => useRecorder({ onText }), {
+    wrapper: wrapper(makeVoiceClient({ transcript: 'x' })),
+  })
+  await act(async () => {
+    await Promise.all([result.current.start(), result.current.start()])
+  })
+  expect(MockMediaRecorder.instances.length).toBe(1)
+})
+
+test('unmount mid-capture releases the mic (stops the stream tracks)', async () => {
+  const trackStop = vi.fn()
+  const stream = { getTracks: () => [{ stop: trackStop }] } as unknown as MediaStream
+  vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(stream) } })
+  vi.stubGlobal('MediaRecorder', MockMediaRecorder as unknown as typeof MediaRecorder)
+  const { result, unmount } = renderHook(() => useRecorder({ onText: vi.fn() }), {
+    wrapper: wrapper(makeVoiceClient({ transcript: 'x' })),
+  })
+  await act(async () => {
+    await result.current.start()
+  })
+  unmount()
+  expect(trackStop).toHaveBeenCalled()
+})
