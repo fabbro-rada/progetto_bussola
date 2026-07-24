@@ -88,3 +88,28 @@ test('unmount mid-capture releases the mic (stops the stream tracks)', async () 
   unmount()
   expect(trackStop).toHaveBeenCalled()
 })
+
+test('unmount while the permission prompt is pending releases the mic and does not start', async () => {
+  const trackStop = vi.fn()
+  const stream = { getTracks: () => [{ stop: trackStop }] } as unknown as MediaStream
+  let resolveGum!: (s: MediaStream) => void
+  vi.stubGlobal('navigator', {
+    mediaDevices: { getUserMedia: vi.fn().mockReturnValue(new Promise<MediaStream>((r) => { resolveGum = r })) },
+  })
+  vi.stubGlobal('MediaRecorder', MockMediaRecorder as unknown as typeof MediaRecorder)
+  const { result, unmount } = renderHook(() => useRecorder({ onText: vi.fn() }), {
+    wrapper: wrapper(makeVoiceClient({ transcript: 'x' })),
+  })
+  let startPromise!: Promise<void>
+  act(() => {
+    startPromise = result.current.start()
+  })
+  unmount()
+  await act(async () => {
+    resolveGum(stream)
+    await startPromise
+  })
+  expect(trackStop).toHaveBeenCalled()
+  expect(MockMediaRecorder.instances).toHaveLength(0)
+  vi.unstubAllGlobals()
+})
