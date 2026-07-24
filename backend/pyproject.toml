@@ -13,6 +13,7 @@ dependencies = [
     "argon2-cffi>=23.1,<24",
     "fastapi>=0.115,<0.116",
     "uvicorn>=0.30,<0.35",
+    "python-multipart>=0.0.9,<0.1",
 ]
 
 [project.optional-dependencies]
