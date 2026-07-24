@@ -20,7 +20,12 @@ async function startInterview(language: string): Promise<StartResult> {
   }
   if (res.status === 401) return { status: 'unauthorized' }
   if (!res.ok) return { status: 'unavailable' }
-  const data = (await res.json()) as { session_token: string; step: Step }
+  let data: { session_token: string; step: Step }
+  try {
+    data = (await res.json()) as { session_token: string; step: Step }
+  } catch {
+    return { status: 'unavailable' }
+  }
   return { status: 'ok', sessionToken: data.session_token, step: data.step }
 }
 
@@ -38,7 +43,12 @@ async function submitAnswer(sessionToken: string, answer: string): Promise<Submi
   if (res.status === 401) return { status: 'unauthorized' }
   if (res.status === 404) return { status: 'session-expired' }
   if (!res.ok) return { status: 'unavailable' }
-  const data = (await res.json()) as { step: Step }
+  let data: { step: Step }
+  try {
+    data = (await res.json()) as { step: Step }
+  } catch {
+    return { status: 'unavailable' }
+  }
   return { status: 'ok', step: data.step }
 }
 

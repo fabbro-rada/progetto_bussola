@@ -9,6 +9,16 @@ function mockFetch(status: number, body?: unknown) {
   } as Response)
 }
 
+function mockFetchBadJson(status = 200) {
+  return vi.fn().mockResolvedValue({
+    status,
+    ok: status >= 200 && status < 300,
+    json: async () => {
+      throw new Error('bad json')
+    },
+  } as unknown as Response)
+}
+
 beforeEach(() => vi.stubGlobal('fetch', mockFetch(200, { session_token: 't', step: { kind: 'question', text: 'Q' } })))
 afterEach(() => vi.unstubAllGlobals())
 
@@ -34,6 +44,11 @@ test('start maps a thrown fetch (backend down) to unavailable', async () => {
   expect(await kioskClient.startInterview('it')).toEqual({ status: 'unavailable' })
 })
 
+test('start maps a 2xx response with an unparsable body to unavailable', async () => {
+  vi.stubGlobal('fetch', mockFetchBadJson(200))
+  expect(await kioskClient.startInterview('it')).toEqual({ status: 'unavailable' })
+})
+
 test('submit maps 200 to ok with the step', async () => {
   vi.stubGlobal('fetch', mockFetch(200, { step: { kind: 'summary', text: 'Riepilogo' } }))
   expect(await kioskClient.submitAnswer('tok', 'ciao')).toEqual({ status: 'ok', step: { kind: 'summary', text: 'Riepilogo' } })
@@ -48,5 +63,10 @@ test('submit maps 404 to session-expired and 401 to unauthorized', async () => {
 
 test('submit maps 5xx to unavailable', async () => {
   vi.stubGlobal('fetch', mockFetch(503))
+  expect(await kioskClient.submitAnswer('tok', 'x')).toEqual({ status: 'unavailable' })
+})
+
+test('submit maps a 2xx response with an unparsable body to unavailable', async () => {
+  vi.stubGlobal('fetch', mockFetchBadJson(200))
   expect(await kioskClient.submitAnswer('tok', 'x')).toEqual({ status: 'unavailable' })
 })
