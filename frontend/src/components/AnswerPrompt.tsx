@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BigButton } from './BigButton'
+import { VoiceBar } from './VoiceBar'
 
 export function AnswerPrompt({
   text,
@@ -20,6 +21,7 @@ export function AnswerPrompt({
     <div>
       {banner && <div className="banner-warn">{banner}</div>}
       <p className="prompt-text">{text}</p>
+      <VoiceBar text={text} canDictate onDictated={setValue} />
       <textarea
         aria-label={t('prompt.placeholder')}
         placeholder={t('prompt.placeholder')}

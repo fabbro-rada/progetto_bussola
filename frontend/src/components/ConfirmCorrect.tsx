@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BigButton } from './BigButton'
+import { VoiceBar } from './VoiceBar'
 
 export function ConfirmCorrect({
   text,
@@ -20,6 +21,7 @@ export function ConfirmCorrect({
       <p className="prompt-text">{text}</p>
       {!correcting ? (
         <>
+          <VoiceBar text={text} />
           <BigButton variant="confirm" disabled={busy} onClick={() => onSubmit(t('confirm.yes'))}>
             {t('confirm.yes')}
           </BigButton>
@@ -29,6 +31,7 @@ export function ConfirmCorrect({
         </>
       ) : (
         <>
+          <VoiceBar text={text} canDictate onDictated={setValue} />
           <textarea
             aria-label={t('confirm.correctPlaceholder')}
             placeholder={t('confirm.correctPlaceholder')}
