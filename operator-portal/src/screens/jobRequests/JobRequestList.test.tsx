@@ -25,6 +25,7 @@ test('renders the job requests with a link to each detail and to new', async () 
   renderWithProviders(harness(), { client, route: '/job-requests' })
   expect(await screen.findByText('Aiuto cuoco')).toBeInTheDocument()
   expect(screen.getByText('Ristorazione')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Aiuto cuoco' })).toHaveAttribute('href', '/job-requests/7')
   expect(screen.getByRole('link', { name: 'Nuova richiesta' })).toHaveAttribute('href', '/job-requests/new')
 })
 

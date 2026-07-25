@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { useApiError } from '../../hooks/useApiError'
 import type { JobRequest } from '../../types'
@@ -9,7 +9,6 @@ export function JobRequestList() {
   const { t } = useTranslation()
   const { client } = useAuth()
   const handleError = useApiError()
-  const navigate = useNavigate()
   const [jobs, setJobs] = useState<JobRequest[] | null>(null)
   const [error, setError] = useState('')
 
@@ -50,7 +49,7 @@ export function JobRequestList() {
           </thead>
           <tbody>
             {jobs.map((j) => (
-              <tr key={j.id} onClick={() => navigate(`/job-requests/${j.id}`)} style={{ cursor: 'pointer' }}>
+              <tr key={j.id}>
                 <td><Link to={`/job-requests/${j.id}`}>{j.title}</Link></td>
                 <td>{j.sector}</td>
                 <td>{j.created_by}</td>
