@@ -8,6 +8,7 @@ interface AuthValue {
   loading: boolean
   mustChangePassword: boolean
   sessionExpired: boolean
+  client: OperatorClient
   login(username: string, password: string): Promise<LoginResult>
   logout(): Promise<void>
   changePassword(oldPassword: string, newPassword: string): Promise<ChangeResult>
@@ -92,6 +93,7 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
         loading,
         mustChangePassword,
         sessionExpired,
+        client,
         login,
         logout,
         changePassword,
