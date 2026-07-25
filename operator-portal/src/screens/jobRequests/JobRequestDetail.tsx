@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
@@ -16,6 +16,8 @@ export function JobRequestDetail() {
   const [results, setResults] = useState<MatchResult[] | null>(null)
   const [error, setError] = useState('')
   const [matching, setMatching] = useState(false)
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
 
   useEffect(() => {
     let active = true
@@ -34,6 +36,7 @@ export function JobRequestDetail() {
     setError('')
     setMatching(true)
     const r = await client.runMatch(jobId)
+    if (!mountedRef.current) return
     setMatching(false)
     if (r.status === 'ok') setResults(r.results)
     else {
