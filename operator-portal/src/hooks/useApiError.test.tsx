@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, screen } from '@testing-library/react'
 import { expect, test, afterEach } from 'vitest'
 import { type ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
@@ -39,6 +39,7 @@ test('unauthorized clears the token and is reported as handled', async () => {
   })
   expect(outcome).toBe('handled')
   expect(getToken()).toBeNull()
+  expect(await screen.findByText('LOGIN')).toBeInTheDocument()
 })
 
 test('forbidden/not-found/error are returned unchanged', () => {
