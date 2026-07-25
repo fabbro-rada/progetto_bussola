@@ -1,5 +1,18 @@
 import { getToken } from '../auth/session'
-import type { ChangeResult, LoginResult, MeResult, Operator, OperatorClient } from '../types'
+import type {
+  ChangeResult,
+  CreateJobRequestResult,
+  GetJobRequestResult,
+  JobRequest,
+  JobRequestCreate,
+  ListJobRequestsResult,
+  LoginResult,
+  MatchResult,
+  MatchResultsResult,
+  MeResult,
+  Operator,
+  OperatorClient,
+} from '../types'
 
 const BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -72,4 +85,82 @@ async function changePassword(oldPassword: string, newPassword: string): Promise
   return { status: 'error' }
 }
 
-export const operatorClient: OperatorClient = { login, me, logout, changePassword }
+async function listJobRequests(): Promise<ListJobRequestsResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/job-requests`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', jobs: (await res.json()) as JobRequest[] }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function getJobRequest(id: number): Promise<GetJobRequestResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/job-requests/${id}`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 404) return { status: 'not-found' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', job: (await res.json()) as JobRequest }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function createJobRequest(body: JobRequestCreate): Promise<CreateJobRequestResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/job-requests`, { method: 'POST', headers: headers(true), body: JSON.stringify(body) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', job: (await res.json()) as JobRequest }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function runMatch(id: number): Promise<MatchResultsResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/job-requests/${id}/match`, { method: 'POST', headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', results: (await res.json()) as MatchResult[] }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+export const operatorClient: OperatorClient = {
+  login,
+  me,
+  logout,
+  changePassword,
+  listJobRequests,
+  getJobRequest,
+  createJobRequest,
+  runMatch,
+}
