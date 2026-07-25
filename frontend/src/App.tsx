@@ -6,7 +6,9 @@ import { applyLanguage } from './i18n'
 import { initialState, reducer } from './state/kioskMachine'
 import { StopButton } from './components/StopButton'
 import { TextSizeControl } from './components/TextSizeControl'
-import { VoicePlaceholder } from './components/VoicePlaceholder'
+import { voiceClient as realVoiceClient } from './voice/voiceClient'
+import { VoiceProvider } from './voice/VoiceContext'
+import type { VoiceClient } from './voice/voiceClient'
 import { LanguagePicker } from './screens/LanguagePicker'
 import { Consent } from './screens/Consent'
 import { Question } from './screens/Question'
@@ -17,7 +19,10 @@ import { Unavailable } from './screens/Unavailable'
 import { Completed } from './screens/Completed'
 import { Unauthorized } from './screens/Unauthorized'
 
-export function App({ client = kioskClient }: { client?: KioskClient } = {}) {
+export function App({
+  client = kioskClient,
+  voiceClient = realVoiceClient,
+}: { client?: KioskClient; voiceClient?: VoiceClient } = {}) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const { t } = useTranslation()
 
@@ -95,9 +100,10 @@ export function App({ client = kioskClient }: { client?: KioskClient } = {}) {
           </div>
         )}
         <TextSizeControl />
-        <VoicePlaceholder />
       </header>
-      <main>{renderScreen()}</main>
+      <VoiceProvider language={state.language ?? 'it'} client={voiceClient}>
+        <main>{renderScreen()}</main>
+      </VoiceProvider>
     </div>
   )
 }
