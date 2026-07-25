@@ -13,7 +13,10 @@ export function renderWithProviders(
 ): RenderResult {
   return render(
     <I18nextProvider i18n={i18n}>
-      <MemoryRouter initialEntries={[opts.route ?? '/']}>
+      <MemoryRouter
+        initialEntries={[opts.route ?? '/']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <AuthProvider client={opts.client ?? makeFakeClient({})}>{ui}</AuthProvider>
       </MemoryRouter>
     </I18nextProvider>,
