@@ -19,6 +19,7 @@ export const it = {
     role: { operator: 'Operatore', supervisor: 'Supervisore', admin: 'Amministratore', auditor: 'Auditor' },
   },
   nav: {
+    ariaLabel: 'Sezioni',
     jobRequests: 'Richieste di lavoro',
     profiles: 'Profili',
     export: 'Export',

@@ -1,16 +1,18 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
 export function Login() {
   const { t } = useTranslation()
-  const { operator, mustChangePassword, login } = useAuth()
+  const { operator, mustChangePassword, sessionExpired, clearSessionExpired, login } = useAuth()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => () => clearSessionExpired(), [clearSessionExpired])
 
   if (operator) return <Navigate to={mustChangePassword ? '/change-password' : '/'} replace />
 
@@ -24,6 +26,8 @@ export function Login() {
     else if (r.status === 'invalid') setError(t('errors.invalidCredentials'))
     else setError(t('errors.generic'))
   }
+
+  const notice = error || (sessionExpired ? t('errors.sessionExpired') : '')
 
   return (
     <form className="auth-form" onSubmit={submit}>
@@ -41,7 +45,7 @@ export function Login() {
           autoComplete="current-password"
         />
       </label>
-      {error && <p className="error" role="alert">{error}</p>}
+      {notice && <p className="error" role="alert">{notice}</p>}
       <button type="submit" disabled={busy || !username || !password}>
         {t('login.submit')}
       </button>

@@ -27,6 +27,14 @@ function renderApp(client: OperatorClient, route = '/') {
 test('unauthenticated visit to / lands on login', async () => {
   renderApp(makeFakeClient({ me: { status: 'unauthorized' } }), '/')
   expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
+  expect(screen.queryByText('Sessione scaduta. Accedi di nuovo.')).not.toBeInTheDocument()
+})
+
+test('stale token invalidated during bootstrap → login shows the session-expired notice', async () => {
+  setToken('stale')
+  renderApp(makeFakeClient({ me: { status: 'unauthorized' } }), '/')
+  expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
+  expect(screen.getByText('Sessione scaduta. Accedi di nuovo.')).toBeInTheDocument()
 })
 
 test('happy path: login → shell home with the operator name', async () => {
@@ -61,6 +69,6 @@ test('logout returns to login', async () => {
 })
 
 test('deep link to a protected route while unauthenticated → login', async () => {
-  renderApp(makeFakeClient({ me: { status: 'unauthorized' } }), '/')
+  renderApp(makeFakeClient({ me: { status: 'unauthorized' } }), '/profiles')
   expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
 })

@@ -8,7 +8,7 @@ export function Nav() {
   if (!operator) return null
   const items = NAV_BY_ROLE[operator.role]
   return (
-    <nav className="nav" aria-label="Sezioni">
+    <nav className="nav" aria-label={t('nav.ariaLabel')}>
       <ul>
         {items.map((item) => (
           <li key={item.path}>
