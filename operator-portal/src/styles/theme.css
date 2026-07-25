@@ -23,3 +23,19 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); backgrou
 .nav-item.disabled { color: var(--muted); }
 .nav-item .coming { font-size: 0.85em; }
 .shell-main { flex: 1; padding: 24px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; }
+.btn { background: var(--accent); color: #fff; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: 700; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.job-form { max-width: 640px; display: flex; flex-direction: column; gap: 12px; }
+.job-form label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.job-form input, .job-form textarea, .job-form select { padding: 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.job-form .check { flex-direction: row; align-items: center; gap: 8px; }
+.lang-row { display: flex; gap: 8px; margin-bottom: 6px; }
+.match-card { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.match-head { display: flex; align-items: center; justify-content: space-between; }
+.match-head .badges { display: flex; gap: 8px; align-items: center; }
+.badge.ok { background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+.match-detail { margin-top: 8px; padding-left: 8px; border-left: 3px solid var(--border); }
+.verdicts { list-style: none; padding: 0; } .verdicts .ok { color: #15803d; font-weight: 700; } .verdicts .no { color: var(--danger); font-weight: 700; }
+.gaps { background: #eff6ff; border-radius: 8px; padding: 8px; margin-top: 8px; }
