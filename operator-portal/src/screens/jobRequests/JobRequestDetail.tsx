@@ -58,6 +58,14 @@ export function JobRequestDetail() {
         {job.required_skills.map((s) => <li key={s}>{s}</li>)}
         {job.required_languages.map((l) => <li key={l.language}>{l.language} — {t(`jobForm.level_${l.min_level}`)}</li>)}
       </ul>
+      <p>{t('jobForm.availability')}: {job.required_availability ? t(`jobForm.availability_${job.required_availability}`) : t('jobForm.availabilityNone')}</p>
+      <p>{t('jobForm.nightShifts')}: {job.involves_night_shifts ? t('common.yes') : t('common.no')}</p>
+      {job.training_prerequisites.length > 0 && (
+        <>
+          <h2>{t('jobForm.prerequisites')}</h2>
+          <ul>{job.training_prerequisites.map((p) => <li key={p}>{p}</li>)}</ul>
+        </>
+      )}
       <button type="button" onClick={() => void runMatch()} disabled={matching}>{t('detail.runMatch')}</button>
       {matching && <p role="status">{t('detail.calculating')}</p>}
       {results !== null && <MatchResults results={results} />}

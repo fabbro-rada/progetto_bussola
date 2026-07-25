@@ -1,5 +1,5 @@
 export const it = {
-  common: { loading: 'Caricamento…', comingSoon: 'in arrivo' },
+  common: { loading: 'Caricamento…', comingSoon: 'in arrivo', yes: 'Sì', no: 'No' },
   login: {
     title: 'Portale operatore',
     username: 'Nome utente',
