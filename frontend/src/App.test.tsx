@@ -1,8 +1,8 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import { renderWithProviders } from './test/utils'
-import { makeFakeClient, step } from './test/fakeClient'
+import { makeFakeClient, makeVoiceClient, noopVoiceClient, step } from './test/fakeClient'
 import { App } from './App'
 import type { KioskClient, SubmitResult } from './types'
 
@@ -19,7 +19,7 @@ test('happy path: language -> consent -> question -> summary -> completed', asyn
       { status: 'ok', step: step('completed', 'Grazie!') },
     ],
   })
-  renderWithProviders(<App client={client} />)
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
 
   await chooseItalianAndConsent()
   expect(await screen.findByText('Che lavoro sai fare?')).toBeInTheDocument()
@@ -36,7 +36,7 @@ test('happy path: language -> consent -> question -> summary -> completed', asyn
 
 test('«Ferma» resets to the language picker from mid-interview', async () => {
   const client = makeFakeClient({ start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Domanda') } })
-  renderWithProviders(<App client={client} />)
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
   expect(await screen.findByText('Domanda')).toBeInTheDocument()
 
@@ -45,7 +45,7 @@ test('«Ferma» resets to the language picker from mid-interview', async () => {
 })
 
 test('«Ferma» is not shown on the language picker (no session yet)', () => {
-  renderWithProviders(<App client={makeFakeClient({})} />)
+  renderWithProviders(<App client={makeFakeClient({})} voiceClient={noopVoiceClient} />)
   expect(screen.queryByRole('button', { name: /Ferma/ })).not.toBeInTheDocument()
 })
 
@@ -62,7 +62,7 @@ test('backend down on start -> unavailable screen, retry recovers', async () => 
       return { status: 'ok' as const, sessionToken: 'tok', step: step('question', 'Ripartiti') }
     },
   }
-  renderWithProviders(<App client={client} />)
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
   expect(await screen.findByText(/Un momento, ci riprovo/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Riprova' }))
@@ -74,7 +74,7 @@ test('session expired mid-interview -> back to the language picker', async () =>
     start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Domanda') },
     submits: [{ status: 'session-expired' }],
   })
-  renderWithProviders(<App client={client} />)
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
   await userEvent.type(await screen.findByRole('textbox'), 'x')
   await userEvent.click(screen.getByRole('button', { name: 'Avanti' }))
@@ -83,19 +83,19 @@ test('session expired mid-interview -> back to the language picker', async () =>
 
 test('unauthorized token -> station-not-authorized screen', async () => {
   const client = makeFakeClient({ start: { status: 'unauthorized' } })
-  renderWithProviders(<App client={client} />)
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
   expect(await screen.findByText(/Questa postazione non è autorizzata/)).toBeInTheDocument()
 })
 
 test('choosing Arabic sets the document direction to rtl', async () => {
-  renderWithProviders(<App client={makeFakeClient({})} />)
+  renderWithProviders(<App client={makeFakeClient({})} voiceClient={noopVoiceClient} />)
   await userEvent.click(screen.getByRole('button', { name: 'العربية' }))
   expect(document.documentElement.dir).toBe('rtl')
 })
 
 test('declining consent in Arabic returns to an ltr language picker', async () => {
-  renderWithProviders(<App client={makeFakeClient({})} />)
+  renderWithProviders(<App client={makeFakeClient({})} voiceClient={noopVoiceClient} />)
   await userEvent.click(screen.getByRole('button', { name: 'العربية' }))
   await userEvent.click(await screen.findByRole('button', { name: /ليس الآن|Non ora/ }))
   expect(document.documentElement.dir).toBe('ltr')
@@ -110,7 +110,7 @@ test('«Ferma» during an in-flight submit is not undone by the late response', 
     },
     async submitAnswer() { return inFlight },
   }
-  renderWithProviders(<App client={client} />)
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
   await userEvent.click(await screen.findByRole('button', { name: 'Sì, è corretto' }))
   // stop while the submit is pending
@@ -136,7 +136,7 @@ test('does not double-submit while a request is in flight; shows pending, disabl
       return inFlight
     },
   }
-  renderWithProviders(<App client={client} />)
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
 
   const yes = await screen.findByRole('button', { name: 'Sì, è corretto' })
@@ -153,4 +153,18 @@ test('does not double-submit while a request is in flight; shows pending, disabl
   // releasing the request advances normally
   releaseSubmit({ status: 'ok', step: step('completed', 'Grazie!') })
   expect(await screen.findByText(/Grazie/)).toBeInTheDocument()
+})
+
+test('auto-reads the interview question via synthesize when a step appears', async () => {
+  const fakeVoice = makeVoiceClient({ audio: null })
+  const client = makeFakeClient({
+    start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Che lavoro sai fare?') },
+  })
+  renderWithProviders(<App client={client} voiceClient={fakeVoice} />)
+  await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Ho capito, iniziamo' }))
+  await screen.findByText('Che lavoro sai fare?')
+  await waitFor(() =>
+    expect(fakeVoice.calls.synthesize.some((c) => c.text === 'Che lavoro sai fare?' && c.language === 'it')).toBe(true),
+  )
 })

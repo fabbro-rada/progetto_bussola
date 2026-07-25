@@ -28,5 +28,15 @@ export const fr = {
   pending: { text: 'Un instant…' },
   stop: { label: 'Arrêter' },
   textSize: { label: 'Taille du texte', normal: 'Normale', large: 'Grande', xlarge: 'Très grande' },
-  voice: { placeholder: 'Parler · Écouter (bientôt)' },
+  voice: {
+    speak: 'Parler',
+    stop: 'Stop',
+    listening: 'écoute…',
+    transcribing: 'transcription…',
+    listen: 'Écouter',
+    audioOn: 'Audio activé',
+    audioOff: 'Audio coupé',
+    muteToggle: 'Activer ou couper le son',
+    micDenied: 'Micro indisponible — écris, tout simplement.',
+  },
 }
