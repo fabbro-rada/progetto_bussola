@@ -8,3 +8,7 @@ models/
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+
+operator-portal/node_modules/
+operator-portal/dist/
+operator-portal/.env
