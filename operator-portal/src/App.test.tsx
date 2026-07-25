@@ -77,5 +77,6 @@ test('an authenticated operator can navigate to the job-requests section', async
   setToken('tok')
   const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } })
   renderApp(client, '/job-requests')
-  expect(await screen.findByText('Richieste di lavoro')).toBeInTheDocument()
+  // «Nuova richiesta» is rendered only by JobRequestList → proves the route mounted
+  expect(await screen.findByRole('link', { name: 'Nuova richiesta' })).toBeInTheDocument()
 })
