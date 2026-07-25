@@ -78,6 +78,8 @@ export const it = {
   match: {
     fraction: '{{n}}/{{total}} requisiti',
     constraintOk: 'Vincoli ok',
+    constraintFail: 'Vincoli non compatibili',
+    constraintReasons: 'Motivi di incompatibilità',
     evidence: 'Evidenza',
     noEvidence: 'non risulta',
     gapsTitle: 'Gap → formazione consigliata',
