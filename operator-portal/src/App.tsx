@@ -5,6 +5,9 @@ import { Login } from './screens/Login'
 import { ChangePassword } from './screens/ChangePassword'
 import { Home } from './screens/Home'
 import { Unauthorized } from './screens/Unauthorized'
+import { JobRequestList } from './screens/jobRequests/JobRequestList'
+import { JobRequestCreate } from './screens/jobRequests/JobRequestCreate'
+import { JobRequestDetail } from './screens/jobRequests/JobRequestDetail'
 
 export function App() {
   return (
@@ -28,6 +31,9 @@ export function App() {
       >
         <Route index element={<Home />} />
         <Route path="unauthorized" element={<Unauthorized />} />
+        <Route path="job-requests" element={<JobRequestList />} />
+        <Route path="job-requests/new" element={<JobRequestCreate />} />
+        <Route path="job-requests/:id" element={<JobRequestDetail />} />
         {/* later sub-projects add nested section routes here */}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
