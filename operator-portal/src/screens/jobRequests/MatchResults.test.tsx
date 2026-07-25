@@ -11,9 +11,12 @@ test('shows pseudonym, transparent fraction, and (expanded) verdicts with eviden
   renderWithProviders(<MatchResults results={[MATCH]} />)
   expect(screen.getByText('P-4F2A')).toBeInTheDocument()
   expect(screen.getByText('1/2 requisiti')).toBeInTheDocument() // 1 satisfied of 2
+  expect(screen.getByText(/Vincoli ok/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: /Dettagli/ }))
   expect(screen.getByText('Esperienza in cucina')).toBeInTheDocument()
   expect(screen.getByText(/ho lavorato in un ristorante/)).toBeInTheDocument()
+  expect(screen.getByText('Attestato HACCP')).toBeInTheDocument()
+  expect(screen.getByText('non risulta')).toBeInTheDocument()
   expect(screen.getByText(/Corso HACCP base/)).toBeInTheDocument()
 })
 

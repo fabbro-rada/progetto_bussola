@@ -12,9 +12,13 @@ function Card({ result }: { result: MatchResult }) {
       <div className="match-head">
         <span className="pseudonym">{result.pseudonym_id}</span>
         <span className="badges">
-          <span className="badge ok">✓ {t('match.constraintOk')}</span>
+          {result.constraint.compatible ? (
+            <span className="badge ok">✓ {t('match.constraintOk')}</span>
+          ) : (
+            <span className="badge fail">✗ {t('match.constraintFail')}</span>
+          )}
           <span className="fraction">{t('match.fraction', { n: satisfied, total })}</span>
-          <button type="button" className="expand" onClick={() => setOpen((o) => !o)}>
+          <button type="button" className="expand" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
             {open ? t('match.collapse') : t('match.expand')}
           </button>
         </span>
@@ -31,6 +35,16 @@ function Card({ result }: { result: MatchResult }) {
               </li>
             ))}
           </ul>
+          {!result.constraint.compatible && result.constraint.reasons.length > 0 && (
+            <div className="constraint-reasons">
+              <strong>{t('match.constraintReasons')}</strong>
+              <ul>
+                {result.constraint.reasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {result.gaps.length > 0 && (
             <div className="gaps">
               <strong>{t('match.gapsTitle')}</strong>
