@@ -1,0 +1,74 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { expect, test, afterEach } from 'vitest'
+import { I18nextProvider } from 'react-i18next'
+import { MemoryRouter } from 'react-router-dom'
+import i18n from './i18n'
+import { AuthProvider } from './auth/AuthContext'
+import { App } from './App'
+import { makeFakeClient, operatorWith } from './test/fakeClient'
+import { setToken } from './auth/session'
+import type { OperatorClient } from './types'
+
+afterEach(() => sessionStorage.clear())
+
+function renderApp(client: OperatorClient, route = '/') {
+  return render(
+    <I18nextProvider i18n={i18n}>
+      <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AuthProvider client={client}>
+          <App />
+        </AuthProvider>
+      </MemoryRouter>
+    </I18nextProvider>,
+  )
+}
+
+test('unauthenticated visit to / lands on login', async () => {
+  renderApp(makeFakeClient({ me: { status: 'unauthorized' } }), '/')
+  expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
+  expect(screen.queryByText('Sessione scaduta. Accedi di nuovo.')).not.toBeInTheDocument()
+})
+
+test('stale token invalidated during bootstrap → login shows the session-expired notice', async () => {
+  setToken('stale')
+  renderApp(makeFakeClient({ me: { status: 'unauthorized' } }), '/')
+  expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
+  expect(screen.getByText('Sessione scaduta. Accedi di nuovo.')).toBeInTheDocument()
+})
+
+test('happy path: login → shell home with the operator name', async () => {
+  const client = makeFakeClient({
+    login: { status: 'ok', token: 'tok', operator: operatorWith({ display_name: 'M. Rossi' }), mustChangePassword: false },
+  })
+  renderApp(client, '/login')
+  await userEvent.type(screen.getByLabelText('Nome utente'), 'mrossi')
+  await userEvent.type(screen.getByLabelText('Password'), 'pw')
+  await userEvent.click(screen.getByRole('button', { name: 'Entra' }))
+  expect(await screen.findByText('Benvenuto/a, M. Rossi')).toBeInTheDocument()
+})
+
+test('must_change_password gate: login forces the change screen, home not reachable', async () => {
+  const client = makeFakeClient({
+    login: { status: 'ok', token: 'tok', operator: operatorWith({ must_change_password: true }), mustChangePassword: true },
+  })
+  renderApp(client, '/login')
+  await userEvent.type(screen.getByLabelText('Nome utente'), 'mrossi')
+  await userEvent.type(screen.getByLabelText('Password'), 'pw')
+  await userEvent.click(screen.getByRole('button', { name: 'Entra' }))
+  expect(await screen.findByRole('button', { name: 'Salva la nuova password' })).toBeInTheDocument()
+  expect(screen.queryByText(/Benvenuto/)).not.toBeInTheDocument()
+})
+
+test('logout returns to login', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith() } })
+  renderApp(client, '/')
+  await userEvent.click(await screen.findByRole('button', { name: 'Esci' }))
+  expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
+})
+
+test('deep link to a protected route while unauthenticated → login', async () => {
+  renderApp(makeFakeClient({ me: { status: 'unauthorized' } }), '/profiles')
+  expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
+})
