@@ -7,10 +7,12 @@ interface AuthValue {
   operator: Operator | null
   loading: boolean
   mustChangePassword: boolean
+  sessionExpired: boolean
   login(username: string, password: string): Promise<LoginResult>
   logout(): Promise<void>
   changePassword(oldPassword: string, newPassword: string): Promise<ChangeResult>
   clearMustChangePassword(): void
+  clearSessionExpired(): void
   onUnauthorized(): void
 }
 
@@ -20,6 +22,7 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
   const [operator, setOperator] = useState<Operator | null>(null)
   const [mustChangePassword, setMcp] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   useEffect(() => {
     if (!getToken()) {
@@ -32,8 +35,12 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
       if (r.status === 'ok') {
         setOperator(r.operator)
         setMcp(r.operator.must_change_password)
-      } else {
+      } else if (r.status === 'unauthorized') {
         clearToken()
+        setOperator(null)
+        setSessionExpired(true)
+      } else {
+        // 'error' (network/5xx): transient — do NOT clear the token, do NOT flag expired
         setOperator(null)
       }
       setLoading(false)
@@ -50,6 +57,7 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
         setToken(r.token)
         setOperator(r.operator)
         setMcp(r.mustChangePassword)
+        setSessionExpired(false)
       }
       return r
     },
@@ -69,10 +77,12 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
   )
 
   const clearMustChangePassword = useCallback(() => setMcp(false), [])
+  const clearSessionExpired = useCallback(() => setSessionExpired(false), [])
   const onUnauthorized = useCallback(() => {
     clearToken()
     setOperator(null)
     setMcp(false)
+    setSessionExpired(true)
   }, [])
 
   return (
@@ -81,10 +91,12 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
         operator,
         loading,
         mustChangePassword,
+        sessionExpired,
         login,
         logout,
         changePassword,
         clearMustChangePassword,
+        clearSessionExpired,
         onUnauthorized,
       }}
     >
