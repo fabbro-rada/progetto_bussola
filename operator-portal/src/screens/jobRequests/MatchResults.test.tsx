@@ -24,3 +24,19 @@ test('empty results shows the no-candidates message', () => {
   renderWithProviders(<MatchResults results={[]} />)
   expect(screen.getByText('Nessun candidato compatibile.')).toBeInTheDocument()
 })
+
+test('an incompatible candidate shows the fail badge and its reasons, not "Vincoli ok"', async () => {
+  const incompatible = {
+    pseudonym_id: 'P-9C1B',
+    score: 0,
+    requirements: [],
+    constraint: { compatible: false, reasons: ['Richiede turni notturni; non disponibile la notte'] },
+    gaps: [],
+  }
+  renderWithProviders(<MatchResults results={[incompatible]} />)
+  expect(screen.getByText(/Vincoli non compatibili/)).toBeInTheDocument()
+  expect(screen.queryByText(/Vincoli ok/)).not.toBeInTheDocument()
+  // reasons show once expanded
+  await userEvent.click(screen.getByRole('button', { name: /Dettagli/ }))
+  expect(screen.getByText(/Richiede turni notturni/)).toBeInTheDocument()
+})
