@@ -55,3 +55,27 @@ test('changePassword maps 204 to ok, 401 to unauthorized, other to error', async
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(400)))
   expect(await operatorClient.changePassword('old', 'x')).toEqual({ status: 'error' })
 })
+
+test('changePassword sends {old_password,new_password} with Bearer to /auth/change-password', async () => {
+  setToken('tok')
+  const fetchMock = vi.fn().mockResolvedValue(res(204))
+  vi.stubGlobal('fetch', fetchMock)
+  await operatorClient.changePassword('oldpw', 'newpassword')
+  const [url, init] = fetchMock.mock.calls[0]
+  expect(String(url)).toContain('/auth/change-password')
+  expect((init!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  expect(JSON.parse((init as RequestInit).body as string)).toEqual({ old_password: 'oldpw', new_password: 'newpassword' })
+})
+
+test('logout posts to /auth/logout with Bearer and never throws on failure', async () => {
+  setToken('tok')
+  const fetchMock = vi.fn().mockResolvedValue(res(204))
+  vi.stubGlobal('fetch', fetchMock)
+  await operatorClient.logout()
+  const [url, init] = fetchMock.mock.calls[0]
+  expect(String(url)).toContain('/auth/logout')
+  expect((init!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  // best-effort: a rejected fetch must not throw
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  await expect(operatorClient.logout()).resolves.toBeUndefined()
+})
