@@ -27,6 +27,7 @@ test('shows the request then runs matching on click, rendering explainable resul
   })
   renderWithProviders(harness(), { client, route: '/job-requests/7' })
   expect(await screen.findByText('Aiuto cuoco')).toBeInTheDocument()
+  expect(await screen.findByText(/Tempo pieno/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Esegui matching' }))
   expect(await screen.findByText('P-4F2A')).toBeInTheDocument()
   expect(client.calls.match).toBe(1)
