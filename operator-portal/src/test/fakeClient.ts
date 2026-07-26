@@ -2,6 +2,7 @@ import type {
   ChangeResult,
   CreateJobRequestResult,
   GetJobRequestResult,
+  GetProfileResult,
   JobRequest,
   JobRequestCreate,
   ListJobRequestsResult,
@@ -11,7 +12,10 @@ import type {
   MeResult,
   Operator,
   OperatorClient,
+  ProfileFilters,
   Role,
+  SearchProfilesResult,
+  WorkProfile,
 } from '../types'
 
 export const OPERATOR: Operator = {
@@ -50,6 +54,20 @@ export const MATCH: MatchResult = {
   gaps: [{ requirement: 'Attestato HACCP', recommended_training: 'Corso HACCP base (8 ore)' }],
 }
 
+export const PROFILE: WorkProfile = {
+  pseudonym_id: 'P-4F2A',
+  languages: [{ language: 'it', level: 'fluent' }, { language: 'ar', level: 'native' }],
+  digital_literacy: 'intermediate',
+  skills: [
+    { name: 'Cucina', kind: 'technical', evidence: 'certified' },
+    { name: 'Puntualità', kind: 'soft', evidence: 'stated' },
+  ],
+  experiences: [{ role: 'Aiuto cuoco', sector: 'Ristorazione', duration_months: 24 }],
+  aspiration: { fields_of_interest: ['Ristorazione'], availability: 'full_time', constraints: ['no_night_shifts'] },
+  desired_training: [{ topic: 'HACCP' }],
+  operational_notes: ['needs_language_support'],
+}
+
 // Deterministic fake; each method returns its canned result and records calls.
 export function makeFakeClient(opts: {
   login?: LoginResult
@@ -59,15 +77,31 @@ export function makeFakeClient(opts: {
   job?: GetJobRequestResult
   create?: CreateJobRequestResult
   match?: MatchResultsResult
+  profiles?: SearchProfilesResult
+  profile?: GetProfileResult
 } = {}): OperatorClient & {
-  calls: { login: number; me: number; logout: number; change: number; list: number; get: number; create: number; match: number }
+  calls: {
+    login: number
+    me: number
+    logout: number
+    change: number
+    list: number
+    get: number
+    create: number
+    match: number
+    psearch: number
+    pget: number
+  }
   created: JobRequestCreate[]
+  searched: ProfileFilters[]
 } {
-  const calls = { login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0 }
+  const calls = { login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0 }
   const created: JobRequestCreate[] = []
+  const searched: ProfileFilters[] = []
   return {
     calls,
     created,
+    searched,
     async login() {
       calls.login++
       return opts.login ?? { status: 'ok', token: 'tok', operator: OPERATOR, mustChangePassword: false }
@@ -99,6 +133,15 @@ export function makeFakeClient(opts: {
     async runMatch() {
       calls.match++
       return opts.match ?? { status: 'ok', results: [MATCH] }
+    },
+    async searchProfiles(filters) {
+      calls.psearch++
+      searched.push(filters)
+      return opts.profiles ?? { status: 'ok', profiles: [PROFILE] }
+    },
+    async getProfile() {
+      calls.pget++
+      return opts.profile ?? { status: 'ok', profile: PROFILE }
     },
   }
 }
