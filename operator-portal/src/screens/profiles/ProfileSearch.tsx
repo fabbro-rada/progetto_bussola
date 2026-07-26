@@ -70,26 +70,29 @@ export function ProfileSearch() {
       </form>
 
       {error && <p className="error" role="alert">{error}</p>}
-      {profiles === null ? (
+      {profiles === null && !error ? (
         <p>{t('common.loading')}</p>
-      ) : profiles.length === 0 ? (
-        <p>{t('profiles.empty')}</p>
       ) : (
-        <table>
-          <thead>
-            <tr><th>{t('profiles.colPseudonym')}</th><th>{t('profiles.colLanguages')}</th><th>{t('profiles.colAvailability')}</th><th>{t('profiles.colSkills')}</th></tr>
-          </thead>
-          <tbody>
-            {profiles.map((p) => (
-              <tr key={p.pseudonym_id}>
-                <td><Link to={`/profiles/${p.pseudonym_id}`}>{p.pseudonym_id}</Link></td>
-                <td>{p.languages.map((l) => l.language).join(', ') || t('profiles.none')}</td>
-                <td>{p.aspiration?.availability ? t(`pl.availability_${p.aspiration.availability}`) : t('profiles.none')}</td>
-                <td>{t('profiles.skillsCount', { n: p.skills.length })}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        profiles &&
+        (profiles.length === 0 ? (
+          <p>{t('profiles.empty')}</p>
+        ) : (
+          <table>
+            <thead>
+              <tr><th>{t('profiles.colPseudonym')}</th><th>{t('profiles.colLanguages')}</th><th>{t('profiles.colAvailability')}</th><th>{t('profiles.colSkills')}</th></tr>
+            </thead>
+            <tbody>
+              {profiles.map((p) => (
+                <tr key={p.pseudonym_id}>
+                  <td><Link to={`/profiles/${p.pseudonym_id}`}>{p.pseudonym_id}</Link></td>
+                  <td>{p.languages.map((l) => l.language).join(', ') || t('profiles.none')}</td>
+                  <td>{p.aspiration?.availability ? t(`pl.availability_${p.aspiration.availability}`) : t('profiles.none')}</td>
+                  <td>{t('profiles.skillsCount', { n: p.skills.length })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ))
       )}
     </div>
   )
