@@ -16,6 +16,8 @@ export function ProfileDetail() {
 
   useEffect(() => {
     let active = true
+    setError('')
+    setProfile(null)
     void client.getProfile(pseudonym ?? '').then((r) => {
       if (!active) return
       if (r.status === 'ok') setProfile(r.profile)

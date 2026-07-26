@@ -50,3 +50,11 @@ test('401 redirects to login', async () => {
   renderWithProviders(harness(), { client, route: '/profiles' })
   expect(await screen.findByText('LOGIN')).toBeInTheDocument()
 })
+
+test('a 403 on mount shows the error, not a stuck loading spinner', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith() }, profiles: { status: 'forbidden' } })
+  renderWithProviders(harness(), { client, route: '/profiles' })
+  expect(await screen.findByText('Non hai i permessi per questa azione.')).toBeInTheDocument()
+  expect(screen.queryByText('Caricamento…')).not.toBeInTheDocument()
+})
