@@ -3,14 +3,16 @@ import type { Role } from '../types'
 export interface NavItem {
   path: string
   labelKey: string
+  built?: boolean
 }
 
 // UX-only nav skeleton (§6). The server remains the authority (403). Section
-// pages arrive in later sub-projects; here the items render as disabled
-// placeholders.
+// pages arrive in later sub-projects; until then, items render as disabled
+// placeholders. Once a section's screen exists, mark it `built` to render a
+// real link.
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   operator: [
-    { path: '/job-requests', labelKey: 'nav.jobRequests' },
+    { path: '/job-requests', labelKey: 'nav.jobRequests', built: true },
     { path: '/profiles', labelKey: 'nav.profiles' },
     { path: '/export', labelKey: 'nav.export' },
   ],

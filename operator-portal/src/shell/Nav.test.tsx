@@ -25,3 +25,11 @@ test('admin sees admin sections', async () => {
   await waitFor(() => expect(screen.getByText('Gestione utenze')).toBeInTheDocument())
   expect(screen.queryByText('Richieste di lavoro')).not.toBeInTheDocument()
 })
+
+test('the built job-requests item is a real link; others stay disabled', async () => {
+  setToken('tok')
+  renderWithProviders(<Nav />, { client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } }) })
+  expect(await screen.findByRole('link', { name: /Richieste di lavoro/ })).toHaveAttribute('href', '/job-requests')
+  // 'Profili' is not yet built → not a link
+  expect(screen.queryByRole('link', { name: /Profili/ })).not.toBeInTheDocument()
+})
