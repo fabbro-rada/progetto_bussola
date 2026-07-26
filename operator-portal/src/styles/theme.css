@@ -41,3 +41,14 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--bor
 .verdicts { list-style: none; padding: 0; } .verdicts .ok { color: #15803d; font-weight: 700; } .verdicts .no { color: var(--danger); font-weight: 700; }
 .gaps { background: #eff6ff; border-radius: 8px; padding: 8px; margin-top: 8px; }
 .constraint-reasons { margin-top: 8px; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px; }
+.filters label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.filters input, .filters select { padding: 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.filters button { padding: 9px 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.skills { list-style: none; padding: 0; } .skills li { margin: 4px 0; }
+.muted { color: var(--muted); }
+.ev-badge { border-radius: 10px; padding: 2px 10px; font-size: 12px; font-weight: 700; margin-left: 6px; }
+.ev-certified { background: #dcfce7; color: #15803d; }
+.ev-demonstrated { background: #dbeafe; color: #1d4ed8; }
+.ev-stated { background: #f3f4f6; color: #6b7280; }
+.pd-head { display: flex; align-items: baseline; justify-content: space-between; }
