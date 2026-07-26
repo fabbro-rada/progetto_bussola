@@ -13,7 +13,7 @@ export interface NavItem {
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   operator: [
     { path: '/job-requests', labelKey: 'nav.jobRequests', built: true },
-    { path: '/profiles', labelKey: 'nav.profiles' },
+    { path: '/profiles', labelKey: 'nav.profiles', built: true },
     { path: '/export', labelKey: 'nav.export' },
   ],
   supervisor: [
