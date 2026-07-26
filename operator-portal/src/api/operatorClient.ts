@@ -3,6 +3,7 @@ import type {
   ChangeResult,
   CreateJobRequestResult,
   GetJobRequestResult,
+  GetProfileResult,
   JobRequest,
   JobRequestCreate,
   ListJobRequestsResult,
@@ -12,6 +13,9 @@ import type {
   MeResult,
   Operator,
   OperatorClient,
+  ProfileFilters,
+  SearchProfilesResult,
+  WorkProfile,
 } from '../types'
 
 const BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -154,6 +158,47 @@ async function runMatch(id: number): Promise<MatchResultsResult> {
   }
 }
 
+async function searchProfiles(filters: ProfileFilters): Promise<SearchProfilesResult> {
+  const qs = new URLSearchParams()
+  if (filters.availability) qs.set('availability', filters.availability)
+  if (filters.language) qs.set('language', filters.language)
+  if (filters.note) qs.set('note', filters.note)
+  if (filters.skill_query) qs.set('skill_query', filters.skill_query)
+  const q = qs.toString()
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/profiles${q ? `?${q}` : ''}`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', profiles: (await res.json()) as WorkProfile[] }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function getProfile(pseudonym: string): Promise<GetProfileResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/profiles/${encodeURIComponent(pseudonym)}`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 404) return { status: 'not-found' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', profile: (await res.json()) as WorkProfile }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 export const operatorClient: OperatorClient = {
   login,
   me,
@@ -163,4 +208,6 @@ export const operatorClient: OperatorClient = {
   getJobRequest,
   createJobRequest,
   runMatch,
+  searchProfiles,
+  getProfile,
 }

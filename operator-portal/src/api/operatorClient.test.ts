@@ -132,3 +132,49 @@ test('runMatch: 200→ok with results; network→error', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
   expect(await operatorClient.runMatch(7)).toEqual({ status: 'error' })
 })
+
+const PROFILE = {
+  pseudonym_id: 'P-4F2A',
+  languages: [{ language: 'it', level: 'fluent' }],
+  digital_literacy: 'intermediate',
+  skills: [{ name: 'Cucina', kind: 'technical', evidence: 'certified' }],
+  experiences: [{ role: 'Aiuto cuoco', sector: 'Ristorazione', duration_months: 24 }],
+  aspiration: { fields_of_interest: ['Ristorazione'], availability: 'full_time', constraints: ['no_night_shifts'] },
+  desired_training: [{ topic: 'HACCP' }],
+  operational_notes: ['needs_language_support'],
+}
+
+test('searchProfiles sends only the set filters as query params, with Bearer', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(200, [PROFILE]))
+  vi.stubGlobal('fetch', f)
+  const r = await operatorClient.searchProfiles({ availability: 'full_time', skill_query: 'cucina' })
+  expect(r).toEqual({ status: 'ok', profiles: [PROFILE] })
+  const url = String(f.mock.calls[0][0])
+  expect(url).toContain('/profiles?')
+  expect(url).toContain('availability=full_time')
+  expect(url).toContain('skill_query=cucina')
+  expect(url).not.toContain('language=')
+  expect(url).not.toContain('note=')
+  expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+})
+
+test('searchProfiles with no filters hits /profiles (no query string) and maps 401/403', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(200, []))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.searchProfiles({})).toEqual({ status: 'ok', profiles: [] })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/profiles$/)
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(401)))
+  expect(await operatorClient.searchProfiles({})).toEqual({ status: 'unauthorized' })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.searchProfiles({})).toEqual({ status: 'forbidden' })
+})
+
+test('getProfile maps 200→ok and 404→not-found', async () => {
+  setToken('tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(200, PROFILE)))
+  expect(await operatorClient.getProfile('P-4F2A')).toEqual({ status: 'ok', profile: PROFILE })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(404)))
+  expect(await operatorClient.getProfile('P-4F2A')).toEqual({ status: 'not-found' })
+})
