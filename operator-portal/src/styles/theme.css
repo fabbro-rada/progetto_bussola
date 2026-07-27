@@ -61,3 +61,15 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--bor
 .pw { flex: 1; background: #f3f4f6; color: #111; border-radius: 6px; padding: 8px; font-size: 15px; letter-spacing: .5px; word-break: break-all; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 .modal-actions .primary { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+.op-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.op-head button { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.op-create { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+.op-create label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.op-create input, .op-create select { padding: 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.op-create-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.op-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.op-actions button { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font: inherit; cursor: pointer; }
+.op-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.st-active { color: #15803d; font-weight: 600; }
+.st-disabled { color: #6b7280; }
+.badge-mc { margin-left: 8px; background: #fef3c7; color: #92400e; border-radius: 10px; padding: 2px 8px; font-size: 12px; }
