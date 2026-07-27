@@ -40,6 +40,22 @@ test('create flow: form sends the 3 fields, opens the temp-password modal, reloa
   await waitFor(() => expect(client.calls.lops).toBe(2)) // reloaded
 })
 
+test('a failed create error does not persist after cancel + reopen', async () => {
+  setToken('tok')
+  const client = admin({ createOp: { status: 'error' } })
+  renderWithProviders(<OperatorList />, { client, route: '/operators' })
+  await screen.findByText('Maria Rossi')
+  await userEvent.click(screen.getByRole('button', { name: /Nuovo operatore/ }))
+  await userEvent.type(screen.getByLabelText('Nome utente'), 'n.neri')
+  await userEvent.type(screen.getByLabelText('Nome visualizzato'), 'Nadia Neri')
+  await userEvent.selectOptions(screen.getByLabelText('Ruolo'), 'operator')
+  await userEvent.click(screen.getByRole('button', { name: 'Crea operatore' }))
+  expect(await screen.findByText('Si è verificato un errore. Riprova.')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Annulla' }))
+  await userEvent.click(screen.getByRole('button', { name: /Nuovo operatore/ }))
+  expect(screen.queryByText('Si è verificato un errore. Riprova.')).not.toBeInTheDocument()
+})
+
 test('disable asks for confirmation; cancel does NOT call the client', async () => {
   setToken('tok')
   const client = admin()
