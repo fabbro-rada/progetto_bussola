@@ -178,3 +178,64 @@ test('getProfile maps 200→ok and 404→not-found', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(404)))
   expect(await operatorClient.getProfile('P-4F2A')).toEqual({ status: 'not-found' })
 })
+
+const OPS = [
+  { id: 1, username: 'm.rossi', display_name: 'Maria Rossi', role: 'operator', is_active: true, must_change_password: false },
+  { id: 3, username: 'a.verdi', display_name: 'Aldo Verdi', role: 'operator', is_active: false, must_change_password: false },
+]
+
+test('listOperators: 200→ok with Bearer; 401→unauthorized; 403→forbidden', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(200, OPS))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.listOperators()).toEqual({ status: 'ok', operators: OPS })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/operators$/)
+  expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(401)))
+  expect(await operatorClient.listOperators()).toEqual({ status: 'unauthorized' })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.listOperators()).toEqual({ status: 'forbidden' })
+})
+
+test('createOperator: POSTs the body, maps 201→ok{created}', async () => {
+  setToken('tok')
+  const created = { operator: OPS[0], temp_password: '7Kq9-mZ2t-Rf4x' }
+  const f = vi.fn().mockResolvedValue(res(201, created))
+  vi.stubGlobal('fetch', f)
+  const body = { username: 'm.rossi', display_name: 'Maria Rossi', role: 'operator' as const }
+  expect(await operatorClient.createOperator(body)).toEqual({ status: 'ok', created })
+  const [url, init] = f.mock.calls[0]
+  expect(String(url)).toMatch(/\/operators$/)
+  expect((init as RequestInit).method).toBe('POST')
+  expect(JSON.parse((init as RequestInit).body as string)).toEqual(body)
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.createOperator(body)).toEqual({ status: 'forbidden' })
+})
+
+test('disableOperator/enableOperator: POST to the right path, 204→ok', async () => {
+  setToken('tok')
+  const fd = vi.fn().mockResolvedValue(res(204))
+  vi.stubGlobal('fetch', fd)
+  expect(await operatorClient.disableOperator(3)).toEqual({ status: 'ok' })
+  expect(String(fd.mock.calls[0][0])).toMatch(/\/operators\/3\/disable$/)
+  expect((fd.mock.calls[0][1] as RequestInit).method).toBe('POST')
+  const fe = vi.fn().mockResolvedValue(res(204))
+  vi.stubGlobal('fetch', fe)
+  expect(await operatorClient.enableOperator(3)).toEqual({ status: 'ok' })
+  expect(String(fe.mock.calls[0][0])).toMatch(/\/operators\/3\/enable$/)
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(401)))
+  expect(await operatorClient.disableOperator(3)).toEqual({ status: 'unauthorized' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.enableOperator(3)).toEqual({ status: 'error' })
+})
+
+test('resetPassword: 200→ok{temp_password}; 403→forbidden', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(200, { temp_password: 'NEW-pw-123' }))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.resetPassword(1)).toEqual({ status: 'ok', temp_password: 'NEW-pw-123' })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/operators\/1\/reset-password$/)
+  expect((f.mock.calls[0][1] as RequestInit).method).toBe('POST')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.resetPassword(1)).toEqual({ status: 'forbidden' })
+})
