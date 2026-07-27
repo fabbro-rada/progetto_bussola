@@ -10,6 +10,7 @@ from typing import Any
 
 import psycopg
 from psycopg.types.json import Jsonb
+from pydantic import BaseModel, ConfigDict
 
 _CHAIN_LOCK_KEY = 4242  # advisory-lock key serializing audit appends
 
@@ -95,3 +96,62 @@ def verify_audit_chain(conn: psycopg.Connection) -> VerificationResult:
             return VerificationResult(ok=False, broken_at=rid, reason="record_hash mismatch")
         expected_prev = record_hash
     return VerificationResult(ok=True)
+
+
+class AuditEntry(BaseModel):
+    """Read-only view of one audit row (hashes are internal, not exposed)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    occurred_at: datetime
+    actor: str | None
+    action: str
+    target_pseudonym: str | None
+    details: dict[str, Any]
+
+
+def list_audit(
+    conn: psycopg.Connection,
+    *,
+    before: int | None = None,
+    limit: int = 50,
+    actor: str | None = None,
+    action: str | None = None,
+    from_ts: datetime | None = None,
+    to_ts: datetime | None = None,
+) -> list[AuditEntry]:
+    """Read audit entries, newest first, id-cursor paginated. Read-only."""
+    capped = max(1, min(limit, 200))
+    clauses: list[str] = []
+    params: list[object] = []
+    if before is not None:
+        clauses.append("id < %s")
+        params.append(before)
+    if actor is not None:
+        clauses.append("actor = %s")
+        params.append(actor)
+    if action is not None:
+        clauses.append("action = %s")
+        params.append(action)
+    if from_ts is not None:
+        clauses.append("occurred_at >= %s")
+        params.append(from_ts)
+    if to_ts is not None:
+        clauses.append("occurred_at <= %s")
+        params.append(to_ts)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    params.append(capped)
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, occurred_at, actor, action, target_pseudonym, details "
+            "FROM audit.audit_log" + where + " ORDER BY id DESC LIMIT %s",
+            params,
+        )
+        rows = cur.fetchall()
+    return [
+        AuditEntry(
+            id=r[0], occurred_at=r[1], actor=r[2], action=r[3], target_pseudonym=r[4], details=r[5]
+        )
+        for r in rows
+    ]
