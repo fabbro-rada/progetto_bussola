@@ -26,9 +26,17 @@ test('renders the five metrics, completeness as a percentage', async () => {
   const client = supervisor({ status: 'ok', metrics: { total_profiles: 5, completed_profiles: 3, average_completeness: 0.6, total_job_requests: 2, matching_runs: 4 } })
   renderWithProviders(harness(), { client, route: '/metrics' })
   expect(await screen.findByText('60%')).toBeInTheDocument()
-  expect(screen.getByText('Profili totali')).toBeInTheDocument()
+  // all five values
   expect(screen.getByText('5')).toBeInTheDocument()
   expect(screen.getByText('3')).toBeInTheDocument()
+  expect(screen.getByText('2')).toBeInTheDocument()
+  expect(screen.getByText('4')).toBeInTheDocument()
+  // all five labels
+  expect(screen.getByText('Profili totali')).toBeInTheDocument()
+  expect(screen.getByText('Colloqui completati')).toBeInTheDocument()
+  expect(screen.getByText('Completezza media')).toBeInTheDocument()
+  expect(screen.getByText('Richieste di lavoro')).toBeInTheDocument()
+  expect(screen.getByText('Matching eseguiti')).toBeInTheDocument()
 })
 
 test('403 shows the forbidden error, not a stuck spinner', async () => {
