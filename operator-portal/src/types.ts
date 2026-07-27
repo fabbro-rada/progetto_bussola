@@ -194,6 +194,33 @@ export type MetricsResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+export type ExportStatus = 'pending' | 'approved' | 'denied'
+export interface ExportRequest {
+  id: number
+  requested_by: string
+  filters: ProfileFilters
+  reason: string
+  status: ExportStatus
+  decided_by: string | null
+  decided_at: string | null
+  decision_reason: string | null
+  created_at: string
+}
+export type CreateExportResult =
+  | { status: 'ok'; request: ExportRequest }
+  | { status: 'unauthorized' } | { status: 'forbidden' } | { status: 'error' }
+export type ListExportsResult =
+  | { status: 'ok'; requests: ExportRequest[] }
+  | { status: 'unauthorized' } | { status: 'forbidden' } | { status: 'error' }
+export type MutateExportResult =
+  | { status: 'ok' }
+  | { status: 'unauthorized' } | { status: 'forbidden' }
+  | { status: 'not-found' } | { status: 'conflict' } | { status: 'error' }
+export type DownloadExportResult =
+  | { status: 'ok'; blob: Blob }
+  | { status: 'unauthorized' } | { status: 'forbidden' }
+  | { status: 'not-found' } | { status: 'not-approved' } | { status: 'error' }
+
 export interface OperatorClient {
   login(username: string, password: string): Promise<LoginResult>
   me(): Promise<MeResult>
@@ -211,4 +238,10 @@ export interface OperatorClient {
   enableOperator(id: number): Promise<MutateOperatorResult>
   resetPassword(id: number): Promise<ResetPasswordResult>
   getMetrics(): Promise<MetricsResult>
+  createExport(filters: ProfileFilters, reason: string): Promise<CreateExportResult>
+  listExports(): Promise<ListExportsResult>
+  listPendingExports(): Promise<ListExportsResult>
+  approveExport(id: number): Promise<MutateExportResult>
+  denyExport(id: number, reason: string): Promise<MutateExportResult>
+  downloadExport(id: number): Promise<DownloadExportResult>
 }
