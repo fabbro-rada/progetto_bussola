@@ -2,18 +2,25 @@ import { getToken } from '../auth/session'
 import type {
   ChangeResult,
   CreateJobRequestResult,
+  CreateOperatorRequest,
+  CreateOperatorResult,
+  CreatedOperator,
   GetJobRequestResult,
   GetProfileResult,
   JobRequest,
   JobRequestCreate,
   ListJobRequestsResult,
+  ListOperatorsResult,
   LoginResult,
   MatchResult,
   MatchResultsResult,
   MeResult,
+  MutateOperatorResult,
   Operator,
   OperatorClient,
   ProfileFilters,
+  ResetPasswordResult,
+  ResetResponse,
   SearchProfilesResult,
   WorkProfile,
 } from '../types'
@@ -199,6 +206,78 @@ async function getProfile(pseudonym: string): Promise<GetProfileResult> {
   }
 }
 
+async function listOperators(): Promise<ListOperatorsResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/operators`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', operators: (await res.json()) as Operator[] }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function createOperator(body: CreateOperatorRequest): Promise<CreateOperatorResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/operators`, { method: 'POST', headers: headers(true), body: JSON.stringify(body) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', created: (await res.json()) as CreatedOperator }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function mutateOperator(id: number, action: 'disable' | 'enable'): Promise<MutateOperatorResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/operators/${id}/${action}`, { method: 'POST', headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 204 || res.ok) return { status: 'ok' }
+  return { status: 'error' }
+}
+
+function disableOperator(id: number): Promise<MutateOperatorResult> {
+  return mutateOperator(id, 'disable')
+}
+
+function enableOperator(id: number): Promise<MutateOperatorResult> {
+  return mutateOperator(id, 'enable')
+}
+
+async function resetPassword(id: number): Promise<ResetPasswordResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/operators/${id}/reset-password`, { method: 'POST', headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', temp_password: ((await res.json()) as ResetResponse).temp_password }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 export const operatorClient: OperatorClient = {
   login,
   me,
@@ -210,4 +289,9 @@ export const operatorClient: OperatorClient = {
   runMatch,
   searchProfiles,
   getProfile,
+  listOperators,
+  createOperator,
+  disableOperator,
+  enableOperator,
+  resetPassword,
 }
