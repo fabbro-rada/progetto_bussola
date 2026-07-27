@@ -1,5 +1,9 @@
 import { getToken } from '../auth/session'
 import type {
+  AuditEntry,
+  AuditFilters,
+  AuditListResult,
+  AuditVerification,
   ChangeResult,
   CreateExportResult,
   CreateJobRequestResult,
@@ -29,6 +33,7 @@ import type {
   ResetPasswordResult,
   ResetResponse,
   SearchProfilesResult,
+  VerifyAuditResult,
   WorkProfile,
 } from '../types'
 
@@ -390,6 +395,48 @@ async function downloadExport(id: number): Promise<DownloadExportResult> {
   }
 }
 
+async function listAudit(filters: AuditFilters): Promise<AuditListResult> {
+  const qs = new URLSearchParams()
+  if (filters.before !== undefined) qs.set('before', String(filters.before))
+  if (filters.limit !== undefined) qs.set('limit', String(filters.limit))
+  if (filters.actor) qs.set('actor', filters.actor)
+  if (filters.action) qs.set('action', filters.action)
+  if (filters.from) qs.set('from', filters.from)
+  if (filters.to) qs.set('to', filters.to)
+  const q = qs.toString()
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/audit${q ? `?${q}` : ''}`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', entries: (await res.json()) as AuditEntry[] }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function verifyAudit(): Promise<VerifyAuditResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/audit/verify`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', verification: (await res.json()) as AuditVerification }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 export const operatorClient: OperatorClient = {
   login,
   me,
@@ -413,4 +460,6 @@ export const operatorClient: OperatorClient = {
   approveExport,
   denyExport,
   downloadExport,
+  listAudit,
+  verifyAudit,
 }
