@@ -10,6 +10,7 @@ from bussola.api.kiosk.routers import voice as kiosk_voice_router
 from bussola.api.routers import auth as auth_router
 from bussola.api.routers import job_requests as job_requests_router
 from bussola.api.routers import matching as matching_router
+from bussola.api.routers import metrics as metrics_router
 from bussola.api.routers import operators as operators_router
 from bussola.api.routers import profiles as profiles_router
 
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
     app.include_router(job_requests_router.router)
     app.include_router(matching_router.router)
     app.include_router(profiles_router.router)
+    app.include_router(metrics_router.router)
     app.include_router(kiosk_interview_router.router)
     app.include_router(kiosk_voice_router.router)
     return app
