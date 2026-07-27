@@ -10,6 +10,7 @@ import { JobRequestCreate } from './screens/jobRequests/JobRequestCreate'
 import { JobRequestDetail } from './screens/jobRequests/JobRequestDetail'
 import { ProfileSearch } from './screens/profiles/ProfileSearch'
 import { ProfileDetail } from './screens/profiles/ProfileDetail'
+import { OperatorList } from './screens/operators/OperatorList'
 
 export function App() {
   return (
@@ -38,6 +39,7 @@ export function App() {
         <Route path="job-requests/:id" element={<JobRequestDetail />} />
         <Route path="profiles" element={<ProfileSearch />} />
         <Route path="profiles/:pseudonym" element={<ProfileDetail />} />
+        <Route path="operators" element={<OperatorList />} />
         {/* later sub-projects add nested section routes here */}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

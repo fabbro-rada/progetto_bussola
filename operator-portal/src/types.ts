@@ -148,6 +148,39 @@ export type GetProfileResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+export interface CreateOperatorRequest {
+  username: string
+  display_name: string
+  role: Role
+}
+export interface CreatedOperator {
+  operator: Operator
+  temp_password: string
+}
+export interface ResetResponse {
+  temp_password: string
+}
+export type ListOperatorsResult =
+  | { status: 'ok'; operators: Operator[] }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+export type CreateOperatorResult =
+  | { status: 'ok'; created: CreatedOperator }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+export type MutateOperatorResult =
+  | { status: 'ok' }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+export type ResetPasswordResult =
+  | { status: 'ok'; temp_password: string }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+
 export interface OperatorClient {
   login(username: string, password: string): Promise<LoginResult>
   me(): Promise<MeResult>
@@ -159,4 +192,9 @@ export interface OperatorClient {
   runMatch(id: number): Promise<MatchResultsResult>
   searchProfiles(filters: ProfileFilters): Promise<SearchProfilesResult>
   getProfile(pseudonym: string): Promise<GetProfileResult>
+  listOperators(): Promise<ListOperatorsResult>
+  createOperator(body: CreateOperatorRequest): Promise<CreateOperatorResult>
+  disableOperator(id: number): Promise<MutateOperatorResult>
+  enableOperator(id: number): Promise<MutateOperatorResult>
+  resetPassword(id: number): Promise<ResetPasswordResult>
 }
