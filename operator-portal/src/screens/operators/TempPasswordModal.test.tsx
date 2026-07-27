@@ -16,3 +16,12 @@ test('shows the password + warning, copy calls the seam, close fires onClose', a
   await userEvent.click(screen.getByRole('button', { name: 'Ho copiato, chiudi' }))
   expect(onClose).toHaveBeenCalledOnce()
 })
+
+test('a failed copy does not flip the button to «Copiato»', async () => {
+  const copy = vi.fn().mockRejectedValue(new Error('no clipboard'))
+  renderWithProviders(<TempPasswordModal password="7Kq9-mZ2t-Rf4x" subtitle="x" onClose={() => {}} copy={copy} />)
+  await userEvent.click(screen.getByRole('button', { name: 'Copia' }))
+  expect(copy).toHaveBeenCalledWith('7Kq9-mZ2t-Rf4x')
+  expect(screen.getByRole('button', { name: 'Copia' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Copiato' })).not.toBeInTheDocument()
+})
