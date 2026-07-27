@@ -83,3 +83,7 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--bor
 .st-approved { background: #dcfce7; color: #15803d; }
 .st-denied { background: #f3f4f6; color: #4b5563; }
 .op-create textarea { padding: 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; min-height: 60px; }
+.audit-toolbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.audit-verify { display: flex; gap: 8px; align-items: center; }
+.badge-danger { border-radius: 10px; padding: 2px 10px; font-size: 12px; font-weight: 700; background: #fee2e2; color: #b91c1c; }
+.audit-more { margin-top: 10px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font: inherit; cursor: pointer; }
