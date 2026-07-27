@@ -282,10 +282,15 @@ test('listExports and listPendingExports hit the right paths and map status', as
   expect(await operatorClient.listPendingExports()).toEqual({ status: 'forbidden' })
 })
 
-test('approveExport 204→ok, 409→conflict, 404→not-found', async () => {
+test('approveExport 204→ok (POST /exports/{id}/approve with Bearer), 409→conflict, 404→not-found', async () => {
   setToken('tok')
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(204)))
+  const f = vi.fn().mockResolvedValue(res(204))
+  vi.stubGlobal('fetch', f)
   expect(await operatorClient.approveExport(5)).toEqual({ status: 'ok' })
+  const [url, init] = f.mock.calls[0]
+  expect(String(url)).toMatch(/\/exports\/5\/approve$/)
+  expect((init as RequestInit).method).toBe('POST')
+  expect((init!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(409)))
   expect(await operatorClient.approveExport(5)).toEqual({ status: 'conflict' })
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(404)))
@@ -305,9 +310,12 @@ test('denyExport POSTs {reason} and maps 204→ok', async () => {
 test('downloadExport returns a Blob on 200, not-approved on 409, not-found on 404', async () => {
   setToken('tok')
   const blob = new Blob(['[]'], { type: 'application/json' })
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, ok: true, blob: async () => blob }))
+  const f = vi.fn().mockResolvedValue({ status: 200, ok: true, blob: async () => blob })
+  vi.stubGlobal('fetch', f)
   const r = await operatorClient.downloadExport(5)
   expect(r).toEqual({ status: 'ok', blob })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/exports\/5\/download$/)
+  expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 409, ok: false, blob: async () => new Blob() }))
   expect(await operatorClient.downloadExport(5)).toEqual({ status: 'not-approved' })
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, ok: false, blob: async () => new Blob() }))
