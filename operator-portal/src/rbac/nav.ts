@@ -14,11 +14,12 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   operator: [
     { path: '/job-requests', labelKey: 'nav.jobRequests', built: true },
     { path: '/profiles', labelKey: 'nav.profiles', built: true },
-    { path: '/export', labelKey: 'nav.export' },
+    { path: '/export', labelKey: 'nav.export', built: true },
   ],
   supervisor: [
     { path: '/metrics', labelKey: 'nav.metrics', built: true },
     { path: '/activity', labelKey: 'nav.activity' },
+    { path: '/export-approvals', labelKey: 'nav.exportApprovals', built: true },
   ],
   admin: [
     { path: '/operators', labelKey: 'nav.operators', built: true },
