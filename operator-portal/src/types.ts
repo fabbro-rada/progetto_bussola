@@ -181,6 +181,19 @@ export type ResetPasswordResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+export interface Metrics {
+  total_profiles: number
+  completed_profiles: number
+  average_completeness: number
+  total_job_requests: number
+  matching_runs: number
+}
+export type MetricsResult =
+  | { status: 'ok'; metrics: Metrics }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+
 export interface OperatorClient {
   login(username: string, password: string): Promise<LoginResult>
   me(): Promise<MeResult>
@@ -197,4 +210,5 @@ export interface OperatorClient {
   disableOperator(id: number): Promise<MutateOperatorResult>
   enableOperator(id: number): Promise<MutateOperatorResult>
   resetPassword(id: number): Promise<ResetPasswordResult>
+  getMetrics(): Promise<MetricsResult>
 }

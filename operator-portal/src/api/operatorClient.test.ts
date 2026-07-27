@@ -239,3 +239,17 @@ test('resetPassword: 200→ok{temp_password}; 403→forbidden', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
   expect(await operatorClient.resetPassword(1)).toEqual({ status: 'forbidden' })
 })
+
+test('getMetrics: 200→ok with Bearer; 403→forbidden; network→error', async () => {
+  setToken('tok')
+  const M = { total_profiles: 1, completed_profiles: 1, average_completeness: 1, total_job_requests: 0, matching_runs: 0 }
+  const f = vi.fn().mockResolvedValue(res(200, M))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.getMetrics()).toEqual({ status: 'ok', metrics: M })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/metrics$/)
+  expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.getMetrics()).toEqual({ status: 'forbidden' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.getMetrics()).toEqual({ status: 'error' })
+})

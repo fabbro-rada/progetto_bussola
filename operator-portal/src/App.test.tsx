@@ -96,3 +96,11 @@ test('an authenticated admin can reach the operators section', async () => {
   // «+ Nuovo operatore» is rendered only by OperatorList → proves the route mounted
   expect(await screen.findByRole('button', { name: /Nuovo operatore/ })).toBeInTheDocument()
 })
+
+test('an authenticated supervisor can reach the metrics section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } })
+  renderApp(client, '/metrics')
+  // «Profili totali» is rendered only by MetricsPanel → proves the route mounted
+  expect(await screen.findByText('Profili totali')).toBeInTheDocument()
+})
