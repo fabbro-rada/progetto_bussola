@@ -157,4 +157,12 @@ export const it = {
     copied: 'Copiato',
     close: 'Ho copiato, chiudi',
   },
+  metrics: {
+    title: 'Metriche di qualità',
+    totalProfiles: 'Profili totali',
+    completedProfiles: 'Colloqui completati',
+    averageCompleteness: 'Completezza media',
+    totalJobRequests: 'Richieste di lavoro',
+    matchingRuns: 'Matching eseguiti',
+  },
 }
