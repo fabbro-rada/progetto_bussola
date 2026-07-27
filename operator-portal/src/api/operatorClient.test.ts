@@ -321,3 +321,41 @@ test('downloadExport returns a Blob on 200, not-approved on 409, not-found on 40
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, ok: false, blob: async () => new Blob() }))
   expect(await operatorClient.downloadExport(5)).toEqual({ status: 'not-found' })
 })
+
+test('listAudit sends set filters + before/limit and maps 200→ok', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(200, []))
+  vi.stubGlobal('fetch', f)
+  const r = await operatorClient.listAudit({ actor: 'm.rossi', action: 'profile_viewed', before: 51, limit: 50 })
+  expect(r).toEqual({ status: 'ok', entries: [] })
+  const url = String(f.mock.calls[0][0])
+  expect(url).toContain('/audit?')
+  expect(url).toContain('actor=m.rossi')
+  expect(url).toContain('action=profile_viewed')
+  expect(url).toContain('before=51')
+  expect(url).toContain('limit=50')
+  expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+})
+
+test('listAudit with no filters hits /audit and maps 403/network', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(200, []))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.listAudit({})).toEqual({ status: 'ok', entries: [] })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/audit$/)
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.listAudit({})).toEqual({ status: 'forbidden' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.listAudit({})).toEqual({ status: 'error' })
+})
+
+test('verifyAudit hits /audit/verify and maps 200→ok{verification}, 403→forbidden', async () => {
+  setToken('tok')
+  const v = { ok: true, broken_at: null, reason: null }
+  const f = vi.fn().mockResolvedValue(res(200, v))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.verifyAudit()).toEqual({ status: 'ok', verification: v })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/audit\/verify$/)
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.verifyAudit()).toEqual({ status: 'forbidden' })
+})

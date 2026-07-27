@@ -1,4 +1,7 @@
 import type {
+  AuditEntry,
+  AuditFilters,
+  AuditListResult,
   ChangeResult,
   CreateExportResult,
   CreateJobRequestResult,
@@ -27,6 +30,7 @@ import type {
   ResetPasswordResult,
   Role,
   SearchProfilesResult,
+  VerifyAuditResult,
   WorkProfile,
 } from '../types'
 
@@ -98,6 +102,10 @@ export const EXPORT_REQUEST: ExportRequest = {
   status: 'pending', decided_by: null, decided_at: null, decision_reason: null, created_at: '2026-07-27T10:00:00Z',
 }
 
+export const AUDIT_ENTRY: AuditEntry = {
+  id: 3, occurred_at: '2026-07-27T10:00:00Z', actor: 'm.rossi', action: 'profile_viewed', target_pseudonym: 'P-4F2A', details: {},
+}
+
 // Deterministic fake; each method returns its canned result and records calls.
 export function makeFakeClient(opts: {
   login?: LoginResult
@@ -121,6 +129,9 @@ export function makeFakeClient(opts: {
   approveExp?: MutateExportResult
   denyExp?: MutateExportResult
   download?: DownloadExportResult
+  audit?: AuditListResult
+  auditPages?: AuditListResult[]
+  verify?: VerifyAuditResult
 } = {}): OperatorClient & {
   calls: {
     login: number
@@ -145,6 +156,8 @@ export function makeFakeClient(opts: {
     expApprove: number
     expDeny: number
     expDownload: number
+    audList: number
+    audVerify: number
   }
   created: JobRequestCreate[]
   searched: ProfileFilters[]
@@ -156,11 +169,13 @@ export function makeFakeClient(opts: {
   approvedIds: number[]
   deniedExports: { id: number; reason: string }[]
   downloadedIds: number[]
+  auditQueries: AuditFilters[]
 } {
   const calls = {
     login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0,
     lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0,
     expList: 0, expPending: 0, expCreate: 0, expApprove: 0, expDeny: 0, expDownload: 0,
+    audList: 0, audVerify: 0,
   }
   const created: JobRequestCreate[] = []
   const searched: ProfileFilters[] = []
@@ -172,6 +187,8 @@ export function makeFakeClient(opts: {
   const approvedIds: number[] = []
   const deniedExports: { id: number; reason: string }[] = []
   const downloadedIds: number[] = []
+  const auditQueries: AuditFilters[] = []
+  let auditPageIdx = 0
   return {
     calls,
     created,
@@ -184,6 +201,7 @@ export function makeFakeClient(opts: {
     approvedIds,
     deniedExports,
     downloadedIds,
+    auditQueries,
     async login() {
       calls.login++
       return opts.login ?? { status: 'ok', token: 'tok', operator: OPERATOR, mustChangePassword: false }
@@ -280,6 +298,16 @@ export function makeFakeClient(opts: {
       calls.expDownload++
       downloadedIds.push(id)
       return opts.download ?? { status: 'ok', blob: new Blob(['[]'], { type: 'application/json' }) }
+    },
+    async listAudit(filters) {
+      calls.audList++
+      auditQueries.push(filters)
+      if (opts.auditPages) return opts.auditPages[Math.min(auditPageIdx++, opts.auditPages.length - 1)]
+      return opts.audit ?? { status: 'ok', entries: [AUDIT_ENTRY] }
+    },
+    async verifyAudit() {
+      calls.audVerify++
+      return opts.verify ?? { status: 'ok', verification: { ok: true, broken_at: null, reason: null } }
     },
   }
 }
