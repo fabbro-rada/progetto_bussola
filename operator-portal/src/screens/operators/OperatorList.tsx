@@ -85,10 +85,28 @@ export function OperatorList() {
     <div className="op-admin">
       <div className="op-head">
         <h1>{t('operators.title')}</h1>
-        <button type="button" onClick={() => setShowCreate((s) => !s)}>+ {t('operators.new')}</button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowCreate((s) => !s)
+            setCreateError('')
+          }}
+        >
+          + {t('operators.new')}
+        </button>
       </div>
 
-      {showCreate && <CreateOperatorForm onSubmit={create} onCancel={() => setShowCreate(false)} busy={createBusy} error={createError} />}
+      {showCreate && (
+        <CreateOperatorForm
+          onSubmit={create}
+          onCancel={() => {
+            setShowCreate(false)
+            setCreateError('')
+          }}
+          busy={createBusy}
+          error={createError}
+        />
+      )}
 
       {error && <p className="error" role="alert">{error}</p>}
       {operators === null && !error ? (
