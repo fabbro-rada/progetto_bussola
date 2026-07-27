@@ -99,3 +99,34 @@ def test_download_is_audited_with_count_no_pii(app_conn: psycopg.Connection):
     assert target is None
     assert set(details) <= {"request_id", "filters", "count"}
     assert details.get("count") == "1"
+
+
+def test_create_and_decisions_are_audited(app_conn: psycopg.Connection):
+    svc = ExportService(app_conn)
+    a = svc.create_request(actor="op1", filters=ExportFilters(), reason="r")
+    svc.approve(actor="sup1", request_id=a.id)
+    b = svc.create_request(actor="op1", filters=ExportFilters(), reason="r2")
+    svc.deny(actor="sup1", request_id=b.id, reason="no")
+    with app_conn.cursor() as cur:
+        cur.execute(
+            "SELECT action, actor, target_pseudonym FROM audit.audit_log "
+            "WHERE action IN ('export_requested','export_approved','export_denied') ORDER BY id"
+        )
+        rows = cur.fetchall()
+    actions = [r[0] for r in rows]
+    assert actions.count("export_requested") == 2
+    assert "export_approved" in actions and "export_denied" in actions
+    # decision events record the approver as actor; no pseudonym leaks
+    approved = next(r for r in rows if r[0] == "export_approved")
+    assert approved[1] == "sup1"
+    assert all(r[2] is None for r in rows)
+
+
+def test_list_pending_shows_all_operators_fifo(app_conn: psycopg.Connection):
+    svc = ExportService(app_conn)
+    a = svc.create_request(actor="op1", filters=ExportFilters(), reason="a")
+    b = svc.create_request(actor="op2", filters=ExportFilters(), reason="b")
+    svc.approve(actor="sup1", request_id=a.id)  # a leaves the pending queue
+    # both operators' requests are visible to the approver; only still-pending ones, FIFO
+    c = svc.create_request(actor="op1", filters=ExportFilters(), reason="c")
+    assert [p.id for p in svc.list_pending()] == [b.id, c.id]
