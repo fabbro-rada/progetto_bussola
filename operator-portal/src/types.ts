@@ -85,6 +85,69 @@ export type MatchResultsResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+export type DigitalLiteracy = 'none' | 'basic' | 'intermediate' | 'advanced'
+export type EvidenceGrade = 'stated' | 'demonstrated' | 'certified'
+export type SkillKind = 'technical' | 'soft'
+export type WorkConstraint = 'no_night_shifts' | 'part_time_only' | 'needs_training_first'
+export type OperationalNoteCategory =
+  | 'needs_language_support'
+  | 'needs_literacy_support'
+  | 'limited_availability'
+  | 'prefers_team_work'
+  | 'prefers_solo_work'
+
+export interface LanguageKnown {
+  language: string
+  level: LanguageLevel
+}
+export interface Skill {
+  name: string
+  kind: SkillKind
+  evidence: EvidenceGrade
+}
+export interface WorkExperience {
+  role: string
+  sector: string
+  duration_months: number
+}
+export interface Aspiration {
+  fields_of_interest: string[]
+  availability: Availability | null
+  constraints: WorkConstraint[]
+}
+export interface DesiredTraining {
+  topic: string
+}
+export interface WorkProfile {
+  pseudonym_id: string
+  languages: LanguageKnown[]
+  digital_literacy: DigitalLiteracy | null
+  skills: Skill[]
+  experiences: WorkExperience[]
+  aspiration: Aspiration | null
+  desired_training: DesiredTraining[]
+  operational_notes: OperationalNoteCategory[]
+}
+
+export interface ProfileFilters {
+  availability?: Availability
+  language?: string
+  note?: OperationalNoteCategory
+  skill_query?: string
+}
+
+export type SearchProfilesResult =
+  | { status: 'ok'; profiles: WorkProfile[] }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+export type GetProfileResult =
+  | { status: 'ok'; profile: WorkProfile }
+  | { status: 'not-found' }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+
 export interface OperatorClient {
   login(username: string, password: string): Promise<LoginResult>
   me(): Promise<MeResult>
@@ -94,4 +157,6 @@ export interface OperatorClient {
   getJobRequest(id: number): Promise<GetJobRequestResult>
   createJobRequest(body: JobRequestCreate): Promise<CreateJobRequestResult>
   runMatch(id: number): Promise<MatchResultsResult>
+  searchProfiles(filters: ProfileFilters): Promise<SearchProfilesResult>
+  getProfile(pseudonym: string): Promise<GetProfileResult>
 }
