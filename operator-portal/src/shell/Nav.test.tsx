@@ -35,3 +35,12 @@ test('the built sections render real links; others stay disabled', async () => {
   // 'Export' is not yet built → not a link
   expect(screen.queryByRole('link', { name: /Export/ })).not.toBeInTheDocument()
 })
+
+test('supervisor sees «Metriche» as a real link; «Attività operatori» stays disabled', async () => {
+  setToken('tok')
+  renderWithProviders(<Nav />, {
+    client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } }),
+  })
+  expect(await screen.findByRole('link', { name: /Metriche/ })).toHaveAttribute('href', '/metrics')
+  expect(screen.queryByRole('link', { name: /Attività operatori/ })).not.toBeInTheDocument()
+})
