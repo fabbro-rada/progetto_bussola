@@ -82,3 +82,29 @@ def test_approve_twice_conflicts(client, make_operator):
     assert client.post(f"/exports/{rid}/approve", headers=_auth(stok)).status_code == 204
     assert client.post(f"/exports/{rid}/approve", headers=_auth(stok)).status_code == 409
     assert client.post("/exports/999/approve", headers=_auth(stok)).status_code == 404
+
+
+def test_supervisor_denies_and_operator_cannot(client, make_operator):
+    op, ot = make_operator("op1", Role.OPERATOR)
+    sup, st = make_operator("sup1", Role.SUPERVISOR)
+    otok, stok = _login(client, op, ot), _login(client, sup, st)
+    rid = client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(otok)).json()["id"]
+    # operator cannot deny (needs APPROVE_EXPORTS)
+    assert client.post(f"/exports/{rid}/deny", json={"reason": "no"}, headers=_auth(otok)).status_code == 403
+    # supervisor denies → 204
+    assert client.post(f"/exports/{rid}/deny", json={"reason": "fuori scopo"}, headers=_auth(stok)).status_code == 204
+    # denied request is not downloadable
+    assert client.get(f"/exports/{rid}/download", headers=_auth(otok)).status_code == 409
+    # decision reflected in the owner's list
+    mine = client.get("/exports", headers=_auth(otok)).json()
+    assert mine[0]["status"] == "denied"
+    assert mine[0]["decision_reason"] == "fuori scopo"
+
+
+def test_malformed_create_body_is_rejected(client, make_operator):
+    op, ot = make_operator("op1", Role.OPERATOR)
+    otok = _login(client, op, ot)
+    # extra field forbidden (extra="forbid")
+    assert client.post("/exports", json={"filters": {}, "reason": "r", "x": 1}, headers=_auth(otok)).status_code == 422
+    # empty reason rejected (min_length=1)
+    assert client.post("/exports", json={"filters": {}, "reason": ""}, headers=_auth(otok)).status_code == 422
