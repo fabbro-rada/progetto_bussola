@@ -178,6 +178,7 @@ export const it = {
     colFilters: 'Ambito',
     colStatus: 'Stato',
     colOutcome: 'Esito',
+    colReason: 'Motivo',
     colActions: 'Azioni',
     colRequester: 'Richiedente',
     status_pending: 'In attesa',
