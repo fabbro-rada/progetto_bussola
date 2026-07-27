@@ -8,7 +8,17 @@ from datetime import datetime
 import psycopg
 from pydantic import BaseModel, ConfigDict
 
-_WORK_ACTIONS = ("profile_viewed", "profiles_searched", "matching_run", "export_requested", "export_downloaded")
+# Work actions counted as operator activity. These are operator-exclusive by
+# RBAC (READ_PROFILES / RUN_MATCHING / EXPORT_DATA) — the classification is by
+# ACTION, not by the actor's role, so keep this list to operator-only actions:
+# granting any of these permissions to another role would surface it here.
+_WORK_ACTIONS = (
+    "profile_viewed",
+    "profiles_searched",
+    "matching_run",
+    "export_requested",
+    "export_downloaded",
+)
 
 
 class OperatorActivity(BaseModel):
