@@ -37,3 +37,9 @@ def test_context_exports_counted(app_conn: psycopg.Connection):
     a = compute_operator_activity(app_conn)[0]
     assert a.actor == "op3"
     assert a.exports_requested == 1 and a.exports_downloaded == 1
+
+
+def test_supervisor_and_approver_actions_are_not_counted(app_conn: psycopg.Connection):
+    append_audit(app_conn, action="metrics_viewed", actor="sup1")
+    append_audit(app_conn, action="export_approved", actor="sup1")
+    assert compute_operator_activity(app_conn) == []  # no work actions → no rows
