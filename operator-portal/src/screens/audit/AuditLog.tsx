@@ -20,6 +20,7 @@ export function AuditLog() {
   const [to, setTo] = useState('')
   const [verification, setVerification] = useState<AuditVerification | null>(null)
   const [applied, setApplied] = useState<AuditFilters>({ limit: LIMIT })
+  const [busy, setBusy] = useState(false)
 
   const onErr = useCallback(
     (status: 'unauthorized' | 'forbidden' | 'error') => {
@@ -42,11 +43,16 @@ export function AuditLog() {
     async (filters: AuditFilters) => {
       setError('')
       setApplied(filters)
-      const r = await client.listAudit(filters)
-      if (r.status === 'ok') {
-        setEntries(r.entries)
-        setHasMore(r.entries.length === LIMIT)
-      } else onErr(r.status)
+      setBusy(true)
+      try {
+        const r = await client.listAudit(filters)
+        if (r.status === 'ok') {
+          setEntries(r.entries)
+          setHasMore(r.entries.length === LIMIT)
+        } else onErr(r.status)
+      } finally {
+        setBusy(false)
+      }
     },
     [client, onErr],
   )
@@ -63,19 +69,29 @@ export function AuditLog() {
   async function loadMore() {
     if (!entries || entries.length === 0) return
     const before = entries[entries.length - 1].id
-    const r = await client.listAudit({ ...applied, before })
-    if (r.status === 'ok') {
-      const page = r.entries
-      setEntries((prev) => [...(prev ?? []), ...page])
-      setHasMore(page.length === LIMIT)
-    } else onErr(r.status)
+    setBusy(true)
+    try {
+      const r = await client.listAudit({ ...applied, before })
+      if (r.status === 'ok') {
+        const page = r.entries
+        setEntries((prev) => [...(prev ?? []), ...page])
+        setHasMore(page.length === LIMIT)
+      } else onErr(r.status)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function verify() {
     setError('')
-    const r = await client.verifyAudit()
-    if (r.status === 'ok') setVerification(r.verification)
-    else onErr(r.status)
+    setBusy(true)
+    try {
+      const r = await client.verifyAudit()
+      if (r.status === 'ok') setVerification(r.verification)
+      else onErr(r.status)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -87,15 +103,18 @@ export function AuditLog() {
           <label>{t('audit.filterAction')}<input value={action} onChange={(e) => setAction(e.target.value)} /></label>
           <label>{t('audit.filterFrom')}<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
           <label>{t('audit.filterTo')}<input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
-          <button type="submit">{t('audit.search')}</button>
+          <button type="submit" disabled={busy}>{t('audit.search')}</button>
         </form>
         <div className="audit-verify">
-          <button type="button" onClick={verify}>{t('audit.verify')}</button>
+          <button type="button" onClick={verify} disabled={busy}>{t('audit.verify')}</button>
           {verification &&
             (verification.ok ? (
               <span className="badge-status st-approved">{t('audit.verifyOk')}</span>
             ) : (
-              <span className="badge-danger" role="alert">{t('audit.verifyBroken', { id: verification.broken_at })}</span>
+              <span className="badge-danger" role="alert">
+                {t('audit.verifyBroken', { id: verification.broken_at })}
+                {verification.reason ? ` — ${verification.reason}` : ''}
+              </span>
             ))}
         </div>
       </div>
@@ -132,7 +151,7 @@ export function AuditLog() {
               </tbody>
             </table>
             {hasMore && (
-              <button type="button" className="audit-more" onClick={loadMore}>{t('audit.loadMore')}</button>
+              <button type="button" className="audit-more" onClick={loadMore} disabled={busy}>{t('audit.loadMore')}</button>
             )}
           </>
         ))
