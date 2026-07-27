@@ -70,7 +70,8 @@ test('«Verifica integrità»: red badge with the broken row on a tampered chain
   renderWithProviders(harness(), { client, route: '/audit' })
   await screen.findByText('profile_viewed')
   await userEvent.click(screen.getByRole('button', { name: 'Verifica integrità' }))
-  expect(await screen.findByText('Manomissione rilevata alla riga 7')).toBeInTheDocument()
+  expect(await screen.findByText(/Manomissione rilevata alla riga 7/)).toBeInTheDocument()
+  expect(screen.getByText(/prev_hash mismatch/)).toBeInTheDocument()
 })
 
 test('empty state when the log has no entries', async () => {
