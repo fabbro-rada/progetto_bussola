@@ -24,6 +24,7 @@ class Permission(str, Enum):
     MANAGE_JOB_REQUESTS = "manage_job_requests"
     RUN_MATCHING = "run_matching"
     EXPORT_DATA = "export_data"
+    APPROVE_EXPORTS = "approve_exports"
     VIEW_METRICS = "view_metrics"
     VIEW_OPERATOR_ACTIVITY = "view_operator_activity"
     READ_AUDIT = "read_audit"
@@ -39,7 +40,9 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.EXPORT_DATA,
         }
     ),
-    Role.SUPERVISOR: frozenset({Permission.VIEW_METRICS, Permission.VIEW_OPERATOR_ACTIVITY}),
+    Role.SUPERVISOR: frozenset(
+        {Permission.VIEW_METRICS, Permission.VIEW_OPERATOR_ACTIVITY, Permission.APPROVE_EXPORTS}
+    ),
     Role.ADMIN: frozenset({Permission.MANAGE_OPERATORS, Permission.CONFIGURE_SYSTEM}),
     Role.AUDITOR: frozenset({Permission.READ_AUDIT}),
 }
