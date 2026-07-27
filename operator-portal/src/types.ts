@@ -221,6 +221,34 @@ export type DownloadExportResult =
   | { status: 'unauthorized' } | { status: 'forbidden' }
   | { status: 'not-found' } | { status: 'not-approved' } | { status: 'error' }
 
+export interface AuditEntry {
+  id: number
+  occurred_at: string
+  actor: string | null
+  action: string
+  target_pseudonym: string | null
+  details: Record<string, unknown>
+}
+export interface AuditFilters {
+  before?: number
+  limit?: number
+  actor?: string
+  action?: string
+  from?: string
+  to?: string
+}
+export interface AuditVerification {
+  ok: boolean
+  broken_at: number | null
+  reason: string | null
+}
+export type AuditListResult =
+  | { status: 'ok'; entries: AuditEntry[] }
+  | { status: 'unauthorized' } | { status: 'forbidden' } | { status: 'error' }
+export type VerifyAuditResult =
+  | { status: 'ok'; verification: AuditVerification }
+  | { status: 'unauthorized' } | { status: 'forbidden' } | { status: 'error' }
+
 export interface OperatorClient {
   login(username: string, password: string): Promise<LoginResult>
   me(): Promise<MeResult>
@@ -244,4 +272,6 @@ export interface OperatorClient {
   approveExport(id: number): Promise<MutateExportResult>
   denyExport(id: number, reason: string): Promise<MutateExportResult>
   downloadExport(id: number): Promise<DownloadExportResult>
+  listAudit(filters: AuditFilters): Promise<AuditListResult>
+  verifyAudit(): Promise<VerifyAuditResult>
 }
