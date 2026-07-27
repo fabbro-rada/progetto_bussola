@@ -216,4 +216,14 @@ export const it = {
     verifyOk: 'Catena integra',
     verifyBroken: 'Manomissione rilevata alla riga {{id}}',
   },
+  activity: {
+    title: 'Attività operatori',
+    empty: 'Nessuna attività registrata.',
+    colOperator: 'Operatore',
+    colProfilesViewed: 'Profili consultati',
+    colSearches: 'Ricerche',
+    colMatchings: 'Matching',
+    colExports: 'Export (rich./scar.)',
+    colLastActive: 'Ultima attività',
+  },
 }

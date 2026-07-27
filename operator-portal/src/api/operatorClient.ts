@@ -28,6 +28,8 @@ import type {
   MutateExportResult,
   MutateOperatorResult,
   Operator,
+  OperatorActivity,
+  OperatorActivityResult,
   OperatorClient,
   ProfileFilters,
   ResetPasswordResult,
@@ -437,6 +439,23 @@ async function verifyAudit(): Promise<VerifyAuditResult> {
   }
 }
 
+async function getOperatorActivity(): Promise<OperatorActivityResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/operator-activity`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', activity: (await res.json()) as OperatorActivity[] }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 export const operatorClient: OperatorClient = {
   login,
   me,
@@ -462,4 +481,5 @@ export const operatorClient: OperatorClient = {
   downloadExport,
   listAudit,
   verifyAudit,
+  getOperatorActivity,
 }
