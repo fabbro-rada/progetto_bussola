@@ -21,7 +21,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { path: '/activity', labelKey: 'nav.activity' },
   ],
   admin: [
-    { path: '/operators', labelKey: 'nav.operators' },
+    { path: '/operators', labelKey: 'nav.operators', built: true },
     { path: '/config', labelKey: 'nav.config' },
   ],
   auditor: [{ path: '/audit', labelKey: 'nav.audit' }],
