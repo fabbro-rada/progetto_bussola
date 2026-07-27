@@ -51,6 +51,7 @@ test('«Carica altri» pages with before=<last id> and appends; hides at end', a
   await screen.findByText('a100')
   await userEvent.click(screen.getByRole('button', { name: 'Carica altri' }))
   await waitFor(() => expect(screen.getByText('older')).toBeInTheDocument())
+  expect(screen.getByText('a100')).toBeInTheDocument() // first page still there (appended, not replaced)
   expect(client.auditQueries.at(-1)).toMatchObject({ before: 51 }) // full[49].id = 100-49 = 51
   expect(screen.queryByRole('button', { name: 'Carica altri' })).not.toBeInTheDocument()
 })

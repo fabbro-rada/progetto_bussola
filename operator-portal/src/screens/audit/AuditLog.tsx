@@ -19,6 +19,7 @@ export function AuditLog() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [verification, setVerification] = useState<AuditVerification | null>(null)
+  const [applied, setApplied] = useState<AuditFilters>({ limit: LIMIT })
 
   const onErr = useCallback(
     (status: 'unauthorized' | 'forbidden' | 'error') => {
@@ -40,6 +41,7 @@ export function AuditLog() {
   const runSearch = useCallback(
     async (filters: AuditFilters) => {
       setError('')
+      setApplied(filters)
       const r = await client.listAudit(filters)
       if (r.status === 'ok') {
         setEntries(r.entries)
@@ -61,7 +63,7 @@ export function AuditLog() {
   async function loadMore() {
     if (!entries || entries.length === 0) return
     const before = entries[entries.length - 1].id
-    const r = await client.listAudit({ ...currentFilters(), before })
+    const r = await client.listAudit({ ...applied, before })
     if (r.status === 'ok') {
       const page = r.entries
       setEntries((prev) => [...(prev ?? []), ...page])
