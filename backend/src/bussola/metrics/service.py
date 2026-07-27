@@ -5,14 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 import psycopg
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # The 4 list-valued key sections; `aspiration` is the 5th (an object).
 _ARRAY_SECTIONS = ("languages", "skills", "experiences", "desired_training")
-_TOTAL_SECTIONS = 5
+_TOTAL_SECTIONS = len(_ARRAY_SECTIONS) + 1  # the 4 arrays + aspiration
 
 
 class Metrics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     total_profiles: int
     completed_profiles: int
     average_completeness: float
