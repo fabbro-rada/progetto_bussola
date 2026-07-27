@@ -88,3 +88,11 @@ test('an authenticated operator can reach the profiles section', async () => {
   // «Cerca» is rendered only by ProfileSearch → proves the route mounted (not just the Nav link)
   expect(await screen.findByRole('button', { name: 'Cerca' })).toBeInTheDocument()
 })
+
+test('an authenticated admin can reach the operators section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'admin' }) } })
+  renderApp(client, '/operators')
+  // «+ Nuovo operatore» is rendered only by OperatorList → proves the route mounted
+  expect(await screen.findByRole('button', { name: /Nuovo operatore/ })).toBeInTheDocument()
+})
