@@ -12,6 +12,8 @@ import { ProfileSearch } from './screens/profiles/ProfileSearch'
 import { ProfileDetail } from './screens/profiles/ProfileDetail'
 import { OperatorList } from './screens/operators/OperatorList'
 import { MetricsPanel } from './screens/metrics/MetricsPanel'
+import { ExportRequests } from './screens/exports/ExportRequests'
+import { ExportApprovals } from './screens/exports/ExportApprovals'
 
 export function App() {
   return (
@@ -42,6 +44,8 @@ export function App() {
         <Route path="profiles/:pseudonym" element={<ProfileDetail />} />
         <Route path="operators" element={<OperatorList />} />
         <Route path="metrics" element={<MetricsPanel />} />
+        <Route path="export" element={<ExportRequests />} />
+        <Route path="export-approvals" element={<ExportApprovals />} />
         {/* later sub-projects add nested section routes here */}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
