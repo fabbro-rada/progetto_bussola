@@ -120,3 +120,11 @@ test('a supervisor can reach the export-approvals section', async () => {
   // scope to the heading role so this proves the route mounted, not just the Nav link.
   expect(await screen.findByRole('heading', { name: 'Approvazioni export' })).toBeInTheDocument()
 })
+
+test('an authenticated auditor can reach the audit log section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'auditor' }) } })
+  renderApp(client, '/audit')
+  // «Verifica integrità» is rendered only by AuditLog → proves the route mounted
+  expect(await screen.findByRole('button', { name: 'Verifica integrità' })).toBeInTheDocument()
+})
