@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 function defaultCopy(text: string): Promise<void> {
-  return navigator.clipboard?.writeText(text) ?? Promise.resolve()
+  if (!navigator.clipboard) return Promise.reject(new Error('clipboard unavailable'))
+  return navigator.clipboard.writeText(text)
 }
 
 export function TempPasswordModal({
@@ -19,8 +20,12 @@ export function TempPasswordModal({
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   async function doCopy() {
-    await copy(password)
-    setCopied(true)
+    try {
+      await copy(password)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
   }
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={t('operators.tempPasswordTitle')}>
