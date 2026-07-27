@@ -13,6 +13,8 @@ import type {
   MatchResult,
   MatchResultsResult,
   MeResult,
+  Metrics,
+  MetricsResult,
   MutateOperatorResult,
   Operator,
   OperatorClient,
@@ -82,6 +84,10 @@ export const PROFILE: WorkProfile = {
   operational_notes: ['needs_language_support'],
 }
 
+export const METRICS: Metrics = {
+  total_profiles: 5, completed_profiles: 3, average_completeness: 0.6, total_job_requests: 2, matching_runs: 4,
+}
+
 // Deterministic fake; each method returns its canned result and records calls.
 export function makeFakeClient(opts: {
   login?: LoginResult
@@ -98,6 +104,7 @@ export function makeFakeClient(opts: {
   disable?: MutateOperatorResult
   enable?: MutateOperatorResult
   reset?: ResetPasswordResult
+  metrics?: MetricsResult
 } = {}): OperatorClient & {
   calls: {
     login: number
@@ -115,6 +122,7 @@ export function makeFakeClient(opts: {
     opdisable: number
     openable: number
     opreset: number
+    metrics: number
   }
   created: JobRequestCreate[]
   searched: ProfileFilters[]
@@ -125,7 +133,7 @@ export function makeFakeClient(opts: {
 } {
   const calls = {
     login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0,
-    lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0,
+    lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0,
   }
   const created: JobRequestCreate[] = []
   const searched: ProfileFilters[] = []
@@ -205,6 +213,10 @@ export function makeFakeClient(opts: {
       calls.opreset++
       resetIds.push(id)
       return opts.reset ?? { status: 'ok', temp_password: 'NEW-pw-123' }
+    },
+    async getMetrics() {
+      calls.metrics++
+      return opts.metrics ?? { status: 'ok', metrics: METRICS }
     },
   }
 }

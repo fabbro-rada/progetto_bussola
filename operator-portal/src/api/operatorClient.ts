@@ -15,6 +15,8 @@ import type {
   MatchResult,
   MatchResultsResult,
   MeResult,
+  Metrics,
+  MetricsResult,
   MutateOperatorResult,
   Operator,
   OperatorClient,
@@ -278,6 +280,23 @@ async function resetPassword(id: number): Promise<ResetPasswordResult> {
   }
 }
 
+async function getMetrics(): Promise<MetricsResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/metrics`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', metrics: (await res.json()) as Metrics }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 export const operatorClient: OperatorClient = {
   login,
   me,
@@ -294,4 +313,5 @@ export const operatorClient: OperatorClient = {
   disableOperator,
   enableOperator,
   resetPassword,
+  getMetrics,
 }
