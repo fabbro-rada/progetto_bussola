@@ -249,6 +249,19 @@ export type VerifyAuditResult =
   | { status: 'ok'; verification: AuditVerification }
   | { status: 'unauthorized' } | { status: 'forbidden' } | { status: 'error' }
 
+export interface OperatorActivity {
+  actor: string
+  profiles_viewed: number
+  profiles_searched: number
+  matchings_run: number
+  exports_requested: number
+  exports_downloaded: number
+  last_active: string
+}
+export type OperatorActivityResult =
+  | { status: 'ok'; activity: OperatorActivity[] }
+  | { status: 'unauthorized' } | { status: 'forbidden' } | { status: 'error' }
+
 export interface OperatorClient {
   login(username: string, password: string): Promise<LoginResult>
   me(): Promise<MeResult>
@@ -274,4 +287,5 @@ export interface OperatorClient {
   downloadExport(id: number): Promise<DownloadExportResult>
   listAudit(filters: AuditFilters): Promise<AuditListResult>
   verifyAudit(): Promise<VerifyAuditResult>
+  getOperatorActivity(): Promise<OperatorActivityResult>
 }

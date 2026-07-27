@@ -359,3 +359,17 @@ test('verifyAudit hits /audit/verify and maps 200→ok{verification}, 403→forb
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
   expect(await operatorClient.verifyAudit()).toEqual({ status: 'forbidden' })
 })
+
+test('getOperatorActivity: 200→ok with Bearer; 403→forbidden; network→error', async () => {
+  setToken('tok')
+  const A = [{ actor: 'op1', profiles_viewed: 2, profiles_searched: 1, matchings_run: 0, exports_requested: 0, exports_downloaded: 0, last_active: '2026-07-27T10:00:00Z' }]
+  const f = vi.fn().mockResolvedValue(res(200, A))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.getOperatorActivity()).toEqual({ status: 'ok', activity: A })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/operator-activity$/)
+  expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.getOperatorActivity()).toEqual({ status: 'forbidden' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.getOperatorActivity()).toEqual({ status: 'error' })
+})
