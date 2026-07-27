@@ -18,6 +18,7 @@ test('shows the pending queue with requester, readable scope, and reason', async
   expect(await screen.findByText('m.rossi')).toBeInTheDocument()
   expect(screen.getByText('cucina')).toBeInTheDocument()
   expect(screen.getByText('Azienda X')).toBeInTheDocument()
+  expect(screen.getByText('Motivo')).toBeInTheDocument()
 })
 
 test('empty filters render as «Tutti i profili»', async () => {

@@ -70,7 +70,7 @@ export function ExportApprovals() {
               <tr>
                 <th>{t('exports.colRequester')}</th>
                 <th>{t('exports.colFilters')}</th>
-                <th>{t('exports.colOutcome')}</th>
+                <th>{t('exports.colReason')}</th>
                 <th>{t('exports.colDate')}</th>
                 <th>{t('exports.colActions')}</th>
               </tr>
