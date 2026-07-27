@@ -1,12 +1,16 @@
 import type {
   ChangeResult,
+  CreateExportResult,
   CreateJobRequestResult,
   CreateOperatorRequest,
   CreateOperatorResult,
+  DownloadExportResult,
+  ExportRequest,
   GetJobRequestResult,
   GetProfileResult,
   JobRequest,
   JobRequestCreate,
+  ListExportsResult,
   ListJobRequestsResult,
   ListOperatorsResult,
   LoginResult,
@@ -15,6 +19,7 @@ import type {
   MeResult,
   Metrics,
   MetricsResult,
+  MutateExportResult,
   MutateOperatorResult,
   Operator,
   OperatorClient,
@@ -88,6 +93,11 @@ export const METRICS: Metrics = {
   total_profiles: 5, completed_profiles: 3, average_completeness: 0.6, total_job_requests: 2, matching_runs: 4,
 }
 
+export const EXPORT_REQUEST: ExportRequest = {
+  id: 1, requested_by: 'm.rossi', filters: { skill_query: 'cucina' }, reason: 'Azienda X',
+  status: 'pending', decided_by: null, decided_at: null, decision_reason: null, created_at: '2026-07-27T10:00:00Z',
+}
+
 // Deterministic fake; each method returns its canned result and records calls.
 export function makeFakeClient(opts: {
   login?: LoginResult
@@ -105,6 +115,12 @@ export function makeFakeClient(opts: {
   enable?: MutateOperatorResult
   reset?: ResetPasswordResult
   metrics?: MetricsResult
+  exports?: ListExportsResult
+  pending?: ListExportsResult
+  createExp?: CreateExportResult
+  approveExp?: MutateExportResult
+  denyExp?: MutateExportResult
+  download?: DownloadExportResult
 } = {}): OperatorClient & {
   calls: {
     login: number
@@ -123,6 +139,12 @@ export function makeFakeClient(opts: {
     openable: number
     opreset: number
     metrics: number
+    expList: number
+    expPending: number
+    expCreate: number
+    expApprove: number
+    expDeny: number
+    expDownload: number
   }
   created: JobRequestCreate[]
   searched: ProfileFilters[]
@@ -130,10 +152,15 @@ export function makeFakeClient(opts: {
   disabledIds: number[]
   enabledIds: number[]
   resetIds: number[]
+  createdExports: { filters: ProfileFilters; reason: string }[]
+  approvedIds: number[]
+  deniedExports: { id: number; reason: string }[]
+  downloadedIds: number[]
 } {
   const calls = {
     login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0,
     lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0,
+    expList: 0, expPending: 0, expCreate: 0, expApprove: 0, expDeny: 0, expDownload: 0,
   }
   const created: JobRequestCreate[] = []
   const searched: ProfileFilters[] = []
@@ -141,6 +168,10 @@ export function makeFakeClient(opts: {
   const disabledIds: number[] = []
   const enabledIds: number[] = []
   const resetIds: number[] = []
+  const createdExports: { filters: ProfileFilters; reason: string }[] = []
+  const approvedIds: number[] = []
+  const deniedExports: { id: number; reason: string }[] = []
+  const downloadedIds: number[] = []
   return {
     calls,
     created,
@@ -149,6 +180,10 @@ export function makeFakeClient(opts: {
     disabledIds,
     enabledIds,
     resetIds,
+    createdExports,
+    approvedIds,
+    deniedExports,
+    downloadedIds,
     async login() {
       calls.login++
       return opts.login ?? { status: 'ok', token: 'tok', operator: OPERATOR, mustChangePassword: false }
@@ -217,6 +252,34 @@ export function makeFakeClient(opts: {
     async getMetrics() {
       calls.metrics++
       return opts.metrics ?? { status: 'ok', metrics: METRICS }
+    },
+    async createExport(filters, reason) {
+      calls.expCreate++
+      createdExports.push({ filters, reason })
+      return opts.createExp ?? { status: 'ok', request: EXPORT_REQUEST }
+    },
+    async listExports() {
+      calls.expList++
+      return opts.exports ?? { status: 'ok', requests: [EXPORT_REQUEST] }
+    },
+    async listPendingExports() {
+      calls.expPending++
+      return opts.pending ?? { status: 'ok', requests: [EXPORT_REQUEST] }
+    },
+    async approveExport(id) {
+      calls.expApprove++
+      approvedIds.push(id)
+      return opts.approveExp ?? { status: 'ok' }
+    },
+    async denyExport(id, reason) {
+      calls.expDeny++
+      deniedExports.push({ id, reason })
+      return opts.denyExp ?? { status: 'ok' }
+    },
+    async downloadExport(id) {
+      calls.expDownload++
+      downloadedIds.push(id)
+      return opts.download ?? { status: 'ok', blob: new Blob(['[]'], { type: 'application/json' }) }
     },
   }
 }
