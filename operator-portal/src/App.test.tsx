@@ -104,3 +104,19 @@ test('an authenticated supervisor can reach the metrics section', async () => {
   // «Profili totali» is rendered only by MetricsPanel → proves the route mounted
   expect(await screen.findByText('Profili totali')).toBeInTheDocument()
 })
+
+test('an operator can reach the export section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } })
+  renderApp(client, '/export')
+  expect(await screen.findByRole('button', { name: /Nuova richiesta/ })).toBeInTheDocument()
+})
+
+test('a supervisor can reach the export-approvals section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } })
+  renderApp(client, '/export-approvals')
+  // The Nav link and the page <h1> share the same i18n string («Approvazioni export»);
+  // scope to the heading role so this proves the route mounted, not just the Nav link.
+  expect(await screen.findByRole('heading', { name: 'Approvazioni export' })).toBeInTheDocument()
+})

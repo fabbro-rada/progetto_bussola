@@ -1,14 +1,18 @@
 import { getToken } from '../auth/session'
 import type {
   ChangeResult,
+  CreateExportResult,
   CreateJobRequestResult,
   CreateOperatorRequest,
   CreateOperatorResult,
   CreatedOperator,
+  DownloadExportResult,
+  ExportRequest,
   GetJobRequestResult,
   GetProfileResult,
   JobRequest,
   JobRequestCreate,
+  ListExportsResult,
   ListJobRequestsResult,
   ListOperatorsResult,
   LoginResult,
@@ -17,6 +21,7 @@ import type {
   MeResult,
   Metrics,
   MetricsResult,
+  MutateExportResult,
   MutateOperatorResult,
   Operator,
   OperatorClient,
@@ -297,6 +302,94 @@ async function getMetrics(): Promise<MetricsResult> {
   }
 }
 
+async function createExport(filters: ProfileFilters, reason: string): Promise<CreateExportResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/exports`, { method: 'POST', headers: headers(true), body: JSON.stringify({ filters, reason }) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', request: (await res.json()) as ExportRequest }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function listExportsAt(path: string): Promise<ListExportsResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', requests: (await res.json()) as ExportRequest[] }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+function listExports(): Promise<ListExportsResult> {
+  return listExportsAt('/exports')
+}
+
+function listPendingExports(): Promise<ListExportsResult> {
+  return listExportsAt('/exports/pending')
+}
+
+async function decideExport(id: number, action: 'approve' | 'deny', reason?: string): Promise<MutateExportResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/exports/${id}/${action}`, {
+      method: 'POST',
+      headers: headers(reason !== undefined),
+      body: reason !== undefined ? JSON.stringify({ reason }) : undefined,
+    })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 404) return { status: 'not-found' }
+  if (res.status === 409) return { status: 'conflict' }
+  if (res.status === 204 || res.ok) return { status: 'ok' }
+  return { status: 'error' }
+}
+
+function approveExport(id: number): Promise<MutateExportResult> {
+  return decideExport(id, 'approve')
+}
+
+function denyExport(id: number, reason: string): Promise<MutateExportResult> {
+  return decideExport(id, 'deny', reason)
+}
+
+async function downloadExport(id: number): Promise<DownloadExportResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/exports/${id}/download`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 404) return { status: 'not-found' }
+  if (res.status === 409) return { status: 'not-approved' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', blob: await res.blob() }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 export const operatorClient: OperatorClient = {
   login,
   me,
@@ -314,4 +407,10 @@ export const operatorClient: OperatorClient = {
   enableOperator,
   resetPassword,
   getMetrics,
+  createExport,
+  listExports,
+  listPendingExports,
+  approveExport,
+  denyExport,
+  downloadExport,
 }
