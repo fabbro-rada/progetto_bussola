@@ -11,6 +11,7 @@ import { JobRequestDetail } from './screens/jobRequests/JobRequestDetail'
 import { ProfileSearch } from './screens/profiles/ProfileSearch'
 import { ProfileDetail } from './screens/profiles/ProfileDetail'
 import { OperatorList } from './screens/operators/OperatorList'
+import { MetricsPanel } from './screens/metrics/MetricsPanel'
 
 export function App() {
   return (
@@ -40,6 +41,7 @@ export function App() {
         <Route path="profiles" element={<ProfileSearch />} />
         <Route path="profiles/:pseudonym" element={<ProfileDetail />} />
         <Route path="operators" element={<OperatorList />} />
+        <Route path="metrics" element={<MetricsPanel />} />
         {/* later sub-projects add nested section routes here */}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
