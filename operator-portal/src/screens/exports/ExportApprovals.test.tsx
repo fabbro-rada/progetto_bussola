@@ -34,6 +34,8 @@ test('approve asks for confirmation then calls approveExport and reloads', async
   renderWithProviders(<ExportApprovals />, { client, route: '/export-approvals' })
   await screen.findByText('m.rossi')
   await userEvent.click(screen.getByRole('button', { name: 'Approva' }))
+  expect(screen.getByText(/Ambito: cucina/)).toBeInTheDocument()
+  expect(screen.getByText(/Motivo: Azienda X/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Conferma' }))
   await waitFor(() => expect(client.approvedIds).toEqual([1]))
   await waitFor(() => expect(client.calls.expPending).toBe(2))
