@@ -77,3 +77,8 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--bor
 .metric-card { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; min-width: 150px; }
 .metric-value { font-size: 28px; font-weight: 800; }
 .metric-label { color: var(--muted); font-size: 13px; }
+.badge-status { border-radius: 10px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
+.st-pending { background: #fef3c7; color: #92400e; }
+.st-approved { background: #dcfce7; color: #15803d; }
+.st-denied { background: #f3f4f6; color: #4b5563; }
+.op-create textarea { padding: 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; min-height: 60px; }
