@@ -262,6 +262,23 @@ export type OperatorActivityResult =
   | { status: 'ok'; activity: OperatorActivity[] }
   | { status: 'unauthorized' } | { status: 'forbidden' } | { status: 'error' }
 
+export interface SystemConfig {
+  llm_model: string
+  llm_base_url: string
+  llm_timeout: number
+  llm_reachable: boolean
+  languages: string[]
+  stt_model: string
+  tts_voices: Record<string, boolean>
+  session_ttl_seconds: number
+  session_idle_seconds: number
+  max_failed_attempts: number
+  lockout_seconds: number
+}
+export type SystemConfigResult =
+  | { status: 'ok'; config: SystemConfig }
+  | { status: 'unauthorized' } | { status: 'forbidden' } | { status: 'error' }
+
 export interface OperatorClient {
   login(username: string, password: string): Promise<LoginResult>
   me(): Promise<MeResult>
@@ -288,4 +305,5 @@ export interface OperatorClient {
   listAudit(filters: AuditFilters): Promise<AuditListResult>
   verifyAudit(): Promise<VerifyAuditResult>
   getOperatorActivity(): Promise<OperatorActivityResult>
+  getSystemConfig(): Promise<SystemConfigResult>
 }

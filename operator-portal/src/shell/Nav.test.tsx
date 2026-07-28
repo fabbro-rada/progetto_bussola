@@ -17,14 +17,13 @@ test('operator sees operator sections, not admin ones', async () => {
   expect(screen.queryByText('Gestione utenze')).not.toBeInTheDocument()
 })
 
-test('admin sees admin sections; «Gestione utenze» is a real link, Config stays disabled', async () => {
+test('admin sees «Gestione utenze» and «Configurazione» as real links', async () => {
   setToken('tok')
   renderWithProviders(<Nav />, {
     client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'admin' }) } }),
   })
   expect(await screen.findByRole('link', { name: /Gestione utenze/ })).toHaveAttribute('href', '/operators')
-  expect(screen.queryByText('Richieste di lavoro')).not.toBeInTheDocument()
-  expect(screen.queryByRole('link', { name: /Configurazione/ })).not.toBeInTheDocument()
+  expect(await screen.findByRole('link', { name: /Configurazione/ })).toHaveAttribute('href', '/config')
 })
 
 test('the built sections render real links; Export is built too', async () => {

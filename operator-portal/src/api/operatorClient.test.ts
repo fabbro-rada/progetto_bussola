@@ -373,3 +373,17 @@ test('getOperatorActivity: 200→ok with Bearer; 403→forbidden; network→erro
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
   expect(await operatorClient.getOperatorActivity()).toEqual({ status: 'error' })
 })
+
+test('getSystemConfig: 200→ok with Bearer; 403→forbidden; network→error', async () => {
+  setToken('tok')
+  const C = { llm_model: 'qwen2.5-7b-instruct', llm_base_url: 'http://127.0.0.1:8080', llm_timeout: 120, llm_reachable: true, languages: ['it','en','fr','es','ar'], stt_model: 'large-v3-turbo', tts_voices: { it: true, en: true, fr: true, es: true, ar: false }, session_ttl_seconds: 43200, session_idle_seconds: 1800, max_failed_attempts: 5, lockout_seconds: 900 }
+  const f = vi.fn().mockResolvedValue(res(200, C))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.getSystemConfig()).toEqual({ status: 'ok', config: C })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/system-config$/)
+  expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.getSystemConfig()).toEqual({ status: 'forbidden' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.getSystemConfig()).toEqual({ status: 'error' })
+})
