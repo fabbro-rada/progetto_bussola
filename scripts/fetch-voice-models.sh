@@ -11,7 +11,7 @@ BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main"
 mkdir -p "$VOICE_DIR"
 
 # language : relative path on the piper-voices repo (voice .onnx + .onnx.json)
-# NOTE: confirm the exact voice + license before committing to it (§3).
+# When ADDING or CHANGING a voice below, re-verify its licence per the header.
 download() {
   local rel="$1" name="$2"
   for ext in onnx onnx.json; do
