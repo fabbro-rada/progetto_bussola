@@ -18,7 +18,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
   supervisor: [
     { path: '/metrics', labelKey: 'nav.metrics', built: true },
-    { path: '/activity', labelKey: 'nav.activity' },
+    { path: '/activity', labelKey: 'nav.activity', built: true },
     { path: '/export-approvals', labelKey: 'nav.exportApprovals', built: true },
   ],
   admin: [

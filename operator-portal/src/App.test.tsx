@@ -128,3 +128,11 @@ test('an authenticated auditor can reach the audit log section', async () => {
   // «Verifica integrità» is rendered only by AuditLog → proves the route mounted
   expect(await screen.findByRole('button', { name: 'Verifica integrità' })).toBeInTheDocument()
 })
+
+test('an authenticated supervisor can reach the operator-activity section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } })
+  renderApp(client, '/activity')
+  // «Profili consultati» is a column rendered only by OperatorActivityPanel → proves the route mounted
+  expect(await screen.findByText('Profili consultati')).toBeInTheDocument()
+})

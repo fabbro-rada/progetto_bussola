@@ -35,13 +35,13 @@ test('the built sections render real links; Export is built too', async () => {
   expect(await screen.findByRole('link', { name: /Export/ })).toHaveAttribute('href', '/export')
 })
 
-test('supervisor sees «Metriche» as a real link; «Attività operatori» stays disabled', async () => {
+test('supervisor sees «Metriche» and «Attività operatori» as real links', async () => {
   setToken('tok')
   renderWithProviders(<Nav />, {
     client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } }),
   })
   expect(await screen.findByRole('link', { name: /Metriche/ })).toHaveAttribute('href', '/metrics')
-  expect(screen.queryByRole('link', { name: /Attività operatori/ })).not.toBeInTheDocument()
+  expect(await screen.findByRole('link', { name: /Attività operatori/ })).toHaveAttribute('href', '/activity')
 })
 
 test('supervisor sees «Approvazioni export» as a real link', async () => {

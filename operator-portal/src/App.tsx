@@ -15,6 +15,7 @@ import { MetricsPanel } from './screens/metrics/MetricsPanel'
 import { ExportRequests } from './screens/exports/ExportRequests'
 import { ExportApprovals } from './screens/exports/ExportApprovals'
 import { AuditLog } from './screens/audit/AuditLog'
+import { OperatorActivityPanel } from './screens/activity/OperatorActivityPanel'
 
 export function App() {
   return (
@@ -48,6 +49,7 @@ export function App() {
         <Route path="export" element={<ExportRequests />} />
         <Route path="export-approvals" element={<ExportApprovals />} />
         <Route path="audit" element={<AuditLog />} />
+        <Route path="activity" element={<OperatorActivityPanel />} />
         {/* later sub-projects add nested section routes here */}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
