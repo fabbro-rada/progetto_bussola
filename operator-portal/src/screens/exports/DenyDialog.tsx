@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export function DenyDialog({
@@ -12,10 +12,11 @@ export function DenyDialog({
 }) {
   const { t } = useTranslation()
   const [reason, setReason] = useState('')
+  const titleId = useId()
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="modal">
-        <h2>{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <label>{t('exports.denyReason')}
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
