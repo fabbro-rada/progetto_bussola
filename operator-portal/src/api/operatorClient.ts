@@ -35,6 +35,8 @@ import type {
   ResetPasswordResult,
   ResetResponse,
   SearchProfilesResult,
+  SystemConfig,
+  SystemConfigResult,
   VerifyAuditResult,
   WorkProfile,
 } from '../types'
@@ -456,6 +458,23 @@ async function getOperatorActivity(): Promise<OperatorActivityResult> {
   }
 }
 
+async function getSystemConfig(): Promise<SystemConfigResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/system-config`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', config: (await res.json()) as SystemConfig }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 export const operatorClient: OperatorClient = {
   login,
   me,
@@ -482,4 +501,5 @@ export const operatorClient: OperatorClient = {
   listAudit,
   verifyAudit,
   getOperatorActivity,
+  getSystemConfig,
 }
