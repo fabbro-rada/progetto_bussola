@@ -32,6 +32,8 @@ import type {
   ResetPasswordResult,
   Role,
   SearchProfilesResult,
+  SystemConfig,
+  SystemConfigResult,
   VerifyAuditResult,
   WorkProfile,
 } from '../types'
@@ -112,6 +114,13 @@ export const ACTIVITY: OperatorActivity[] = [
   { actor: 'm.rossi', profiles_viewed: 4, profiles_searched: 2, matchings_run: 1, exports_requested: 1, exports_downloaded: 0, last_active: '2026-07-27T10:00:00Z' },
 ]
 
+export const SYSTEM_CONFIG: SystemConfig = {
+  llm_model: 'qwen2.5-7b-instruct', llm_base_url: 'http://127.0.0.1:8080', llm_timeout: 120, llm_reachable: true,
+  languages: ['it', 'en', 'fr', 'es', 'ar'], stt_model: 'large-v3-turbo',
+  tts_voices: { it: true, en: true, fr: true, es: true, ar: false },
+  session_ttl_seconds: 43200, session_idle_seconds: 1800, max_failed_attempts: 5, lockout_seconds: 900,
+}
+
 // Deterministic fake; each method returns its canned result and records calls.
 export function makeFakeClient(opts: {
   login?: LoginResult
@@ -139,6 +148,7 @@ export function makeFakeClient(opts: {
   auditPages?: AuditListResult[]
   verify?: VerifyAuditResult
   activity?: OperatorActivityResult
+  systemConfig?: SystemConfigResult
 } = {}): OperatorClient & {
   calls: {
     login: number
@@ -166,6 +176,7 @@ export function makeFakeClient(opts: {
     audList: number
     audVerify: number
     activity: number
+    systemConfig: number
   }
   created: JobRequestCreate[]
   searched: ProfileFilters[]
@@ -183,7 +194,7 @@ export function makeFakeClient(opts: {
     login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0,
     lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0,
     expList: 0, expPending: 0, expCreate: 0, expApprove: 0, expDeny: 0, expDownload: 0,
-    audList: 0, audVerify: 0, activity: 0,
+    audList: 0, audVerify: 0, activity: 0, systemConfig: 0,
   }
   const created: JobRequestCreate[] = []
   const searched: ProfileFilters[] = []
@@ -320,6 +331,10 @@ export function makeFakeClient(opts: {
     async getOperatorActivity() {
       calls.activity++
       return opts.activity ?? { status: 'ok', activity: ACTIVITY }
+    },
+    async getSystemConfig() {
+      calls.systemConfig++
+      return opts.systemConfig ?? { status: 'ok', config: SYSTEM_CONFIG }
     },
   }
 }

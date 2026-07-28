@@ -23,7 +23,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
   admin: [
     { path: '/operators', labelKey: 'nav.operators', built: true },
-    { path: '/config', labelKey: 'nav.config' },
+    { path: '/config', labelKey: 'nav.config', built: true },
   ],
   auditor: [{ path: '/audit', labelKey: 'nav.audit', built: true }],
 }
