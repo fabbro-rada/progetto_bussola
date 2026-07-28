@@ -6,10 +6,9 @@ export interface NavItem {
   built?: boolean
 }
 
-// UX-only nav skeleton (§6). The server remains the authority (403). Section
-// pages arrive in later sub-projects; until then, items render as disabled
-// placeholders. Once a section's screen exists, mark it `built` to render a
-// real link.
+// UX-only nav skeleton (§6). The server remains the authority (403). Every
+// section is currently built; the `built` flag stays so a future not-yet-built
+// section can render as a disabled placeholder instead of a real link.
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   operator: [
     { path: '/job-requests', labelKey: 'nav.jobRequests', built: true },
