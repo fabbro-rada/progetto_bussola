@@ -1,30 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
-import { useApiError } from '../../hooks/useApiError'
-import type { Metrics } from '../../types'
+import { useFetchOnMount } from '../../hooks/useFetchOnMount'
 
 export function MetricsPanel() {
   const { t } = useTranslation()
   const { client } = useAuth()
-  const handleError = useApiError()
-  const [metrics, setMetrics] = useState<Metrics | null>(null)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-    void client.getMetrics().then((r) => {
-      if (!active) return
-      if (r.status === 'ok') setMetrics(r.metrics)
-      else {
-        const outcome = handleError(r.status)
-        if (outcome !== 'handled') setError(t(outcome === 'forbidden' ? 'errors.forbidden' : 'errors.generic'))
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [client, handleError, t])
+  const fetchMetrics = useCallback(() => client.getMetrics(), [client])
+  const { data: metrics, error } = useFetchOnMount(fetchMetrics, (r) => r.metrics)
 
   return (
     <div className="metrics">
