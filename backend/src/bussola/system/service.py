@@ -12,10 +12,10 @@ import httpx
 from pydantic import BaseModel, ConfigDict
 
 from bussola.auth import config as auth_config
+from bussola.languages import SUPPORTED_LANGUAGES
 from bussola.llm import config as llm_config
 from bussola.voice import config as voice_config
 
-SUPPORTED_LANGUAGES = ("it", "en", "fr", "es", "ar")
 _HEALTH_TIMEOUT = 2.0
 
 

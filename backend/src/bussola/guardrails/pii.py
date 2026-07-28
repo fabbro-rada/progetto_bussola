@@ -36,13 +36,14 @@ from presidio_analyzer import AnalyzerEngine
 from presidio_analyzer.nlp_engine import SpacyNlpEngine
 from presidio_anonymizer import AnonymizerEngine
 
+from bussola.languages import SUPPORTED_LANGUAGES
 from bussola.profile.models import WorkProfile
 
 # CLAUDE.md §8: the five supported languages, full stop. English gets full
 # (MIT) NER; the rest get pattern-only (blank pipeline) redaction — see the
 # module docstring. Every one of the five MUST be registered: an unhandled
 # language would make `redact()` raise instead of degrading gracefully.
-_SUPPORTED_LANGUAGES = ["it", "en", "fr", "es", "ar"]
+_SUPPORTED_LANGUAGES = list(SUPPORTED_LANGUAGES)
 _BLANK_PIPELINE_LANGUAGES = ["it", "fr", "es", "ar"]
 _ENTITIES = [
     "PERSON",
