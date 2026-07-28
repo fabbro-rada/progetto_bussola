@@ -51,7 +51,7 @@ Se una funzionalità proposta rischia di violare una di queste linee, va fermata
 ## 3. Vincoli non negoziabili
 
 - **Locale / on-premise.** I modelli e i dati vivono su infrastruttura interna. Nessun dato esce verso terze parti. Nessun servizio cloud a pagamento, nessuna API esterna per l'inferenza.
-- **Open source.** L'intero stack — dialogo, voce, dati, portale — usa componenti a licenza aperta e permissiva.
+- **Open source.** L'intero stack — dialogo, voce, dati, portale — usa componenti a licenza aperta e permissiva. **Unica eccezione, documentata e approvata dalla Direzione (2026-07-28):** il motore di **sintesi vocale** ha licenza **copyleft (GPL-3.0)**, non permissiva. È ammesso perché resta open-source, gratuito e locale (i vincoli «open source», «budget nullo» e «locale/on-premise» restano pienamente soddisfatti) e perché il pilota gira **on-premise senza distribuzione a terzi**: gli obblighi copyleft della GPL si attivano sulla distribuzione, che qui non avviene. **Da rivalutare** se il software venisse distribuito all'esterno o usato commercialmente. Tutto il resto dello stack resta permissivo; il dettaglio tecnico è in `STATO_TECNICO.md`.
 - **Budget nullo.** Nessun costo di licenza o di servizio. Il prototipo deve girare su hardware già disponibile.
 - **Privacy by design.** Minimizzazione, pseudonimizzazione, segregazione, cifratura, controlli di accesso e audit sono parte della progettazione, non aggiunte finali.
 - **Prima il testo, la voce come potenziamento, degrado elegante.** L'esperienza testuale deve sempre funzionare ed essere reattiva. La voce arricchisce l'interazione; se non è disponibile o è lenta, il sistema ripiega con naturalezza sul testo, senza mai bloccarsi.
