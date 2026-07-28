@@ -25,7 +25,9 @@ export function LanguagePicker({ onSelect }: { onSelect: (code: string) => void 
           </button>
         ))}
       </div>
-      <footer className="picker-credits" lang="en">
+      {/* Explicit role: a <footer> nested in App's <main> loses its implicit
+          contentinfo landmark (HTML-ARIA), so screen readers wouldn't expose it. */}
+      <footer className="picker-credits" role="contentinfo" lang="en">
         French voice: “SIWIS French Speech Synthesis Database” — CSTR, University
         of Edinburgh. Licensed CC BY 4.0
         (https://creativecommons.org/licenses/by/4.0/); voice modified. Full
