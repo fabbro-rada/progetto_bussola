@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import { useFetchOnMount } from '../../hooks/useFetchOnMount'
+import { formatTimestamp } from '../../util/formatTimestamp'
 
 export function OperatorActivityPanel() {
   const { t } = useTranslation()
@@ -39,7 +40,7 @@ export function OperatorActivityPanel() {
                   <td>{a.profiles_searched}</td>
                   <td>{a.matchings_run}</td>
                   <td>{a.exports_requested}/{a.exports_downloaded}</td>
-                  <td>{a.last_active.replace('T', ' ').slice(0, 16)}</td>
+                  <td>{formatTimestamp(a.last_active)}</td>
                 </tr>
               ))}
             </tbody>
