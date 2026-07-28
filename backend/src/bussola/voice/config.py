@@ -23,7 +23,10 @@ VOICE_MODEL_DIR = os.environ.get("BUSSOLA_VOICE_MODEL_DIR", "models/voice")
 # (text fallback) until validated on the pilot (§8).
 PIPER_VOICES: dict[str, str] = {
     "it": os.environ.get("BUSSOLA_PIPER_VOICE_IT", "it_IT-paola-medium.onnx"),
-    "en": os.environ.get("BUSSOLA_PIPER_VOICE_EN", "en_US-lessac-medium.onnx"),
+    # ljspeech, not lessac: lessac's Blizzard-2013 dataset is research-only
+    # (non-permissive, §3). ljspeech is LJ Speech (public domain), trained
+    # from scratch. Verified 2026-07-28 (STATO_TECNICO §14).
+    "en": os.environ.get("BUSSOLA_PIPER_VOICE_EN", "en_US-ljspeech-medium.onnx"),
     "fr": os.environ.get("BUSSOLA_PIPER_VOICE_FR", "fr_FR-siwis-medium.onnx"),
     "es": os.environ.get("BUSSOLA_PIPER_VOICE_ES", "es_ES-davefx-medium.onnx"),
 }
