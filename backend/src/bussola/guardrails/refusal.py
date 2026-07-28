@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-SUPPORTED_LANGUAGES: tuple[str, ...] = ("it", "en", "fr", "es", "ar")
+from bussola.languages import SUPPORTED_LANGUAGES as SUPPORTED_LANGUAGES
 
 
 class RefusalCategory(str, Enum):

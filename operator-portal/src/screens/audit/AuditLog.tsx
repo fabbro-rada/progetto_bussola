@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import { useApiError } from '../../hooks/useApiError'
 import type { AuditEntry, AuditFilters, AuditVerification } from '../../types'
+import { formatTimestamp } from '../../util/formatTimestamp'
 import { detailsSummary } from './detailsSummary'
 
 export const LIMIT = 50
@@ -141,7 +142,7 @@ export function AuditLog() {
               <tbody>
                 {entries.map((e) => (
                   <tr key={e.id}>
-                    <td>{e.occurred_at.replace('T', ' ').slice(0, 16)}</td>
+                    <td>{formatTimestamp(e.occurred_at)}</td>
                     <td>{e.actor ?? t('audit.none')}</td>
                     <td>{e.action}</td>
                     <td>{e.target_pseudonym ?? t('audit.none')}</td>
