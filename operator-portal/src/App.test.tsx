@@ -136,3 +136,11 @@ test('an authenticated supervisor can reach the operator-activity section', asyn
   // «Profili consultati» is a column rendered only by OperatorActivityPanel → proves the route mounted
   expect(await screen.findByText('Profili consultati')).toBeInTheDocument()
 })
+
+test('an authenticated admin can reach the system-config section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'admin' }) } })
+  renderApp(client, '/config')
+  // «Modello linguistico» is a section heading rendered only by SystemConfigPanel → proves the route mounted
+  expect(await screen.findByText('Modello linguistico')).toBeInTheDocument()
+})
