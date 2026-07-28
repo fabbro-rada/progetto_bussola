@@ -1,30 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
-import { useApiError } from '../../hooks/useApiError'
-import type { OperatorActivity } from '../../types'
+import { useFetchOnMount } from '../../hooks/useFetchOnMount'
 
 export function OperatorActivityPanel() {
   const { t } = useTranslation()
   const { client } = useAuth()
-  const handleError = useApiError()
-  const [activity, setActivity] = useState<OperatorActivity[] | null>(null)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-    void client.getOperatorActivity().then((r) => {
-      if (!active) return
-      if (r.status === 'ok') setActivity(r.activity)
-      else {
-        const outcome = handleError(r.status)
-        if (outcome !== 'handled') setError(t(outcome === 'forbidden' ? 'errors.forbidden' : 'errors.generic'))
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [client, handleError, t])
+  const fetchActivity = useCallback(() => client.getOperatorActivity(), [client])
+  const { data: activity, error } = useFetchOnMount(fetchActivity, (r) => r.activity)
 
   return (
     <div className="activity">

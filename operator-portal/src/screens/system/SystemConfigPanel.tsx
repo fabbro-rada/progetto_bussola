@@ -1,30 +1,13 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
-import { useApiError } from '../../hooks/useApiError'
-import type { SystemConfig } from '../../types'
+import { useFetchOnMount } from '../../hooks/useFetchOnMount'
 
 export function SystemConfigPanel() {
   const { t } = useTranslation()
   const { client } = useAuth()
-  const handleError = useApiError()
-  const [config, setConfig] = useState<SystemConfig | null>(null)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-    void client.getSystemConfig().then((r) => {
-      if (!active) return
-      if (r.status === 'ok') setConfig(r.config)
-      else {
-        const outcome = handleError(r.status)
-        if (outcome !== 'handled') setError(t(outcome === 'forbidden' ? 'errors.forbidden' : 'errors.generic'))
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [client, handleError, t])
+  const fetchConfig = useCallback(() => client.getSystemConfig(), [client])
+  const { data: config, error } = useFetchOnMount(fetchConfig, (r) => r.config)
 
   return (
     <div className="system-config">
