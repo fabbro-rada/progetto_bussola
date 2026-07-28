@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import { useApiError } from '../../hooks/useApiError'
@@ -58,10 +58,10 @@ export function SystemConfigPanel() {
               <dl>
                 <dt>{t('system.sttModel')}</dt><dd>{config.stt_model}</dd>
                 {config.languages.map((lang) => (
-                  <div key={lang}>
+                  <Fragment key={lang}>
                     <dt>{lang}</dt>
                     <dd>{config.tts_voices[lang] ? t('system.ttsAvailable') : t('system.ttsTextOnly')}</dd>
-                  </div>
+                  </Fragment>
                 ))}
               </dl>
             </section>
