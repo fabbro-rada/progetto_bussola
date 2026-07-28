@@ -8,9 +8,12 @@ con **autore, licenza e link**, in conformità con `CLAUDE.md` §3 (stack open s
 (sono scaricati on-premise); qui sono comunque attribuiti perché fanno parte dello stack
 distribuito con il sistema.
 
-Salvo l'unica eccezione indicata (motore TTS Piper), tutti i componenti hanno licenza
-**permissiva**. Dove una licenza **richiede l'attribuzione** (CC-BY) o è **copyleft**
-(GPL/LGPL), è segnalato esplicitamente.
+La **maggior parte** dei componenti ha licenza **permissiva** (MIT/BSD/Apache). Due
+scostamenti, entrambi segnalati esplicitamente: il driver DB `psycopg` è **LGPL-3.0**
+(copyleft *debole*, a link dinamico — già ammesso come interpretazione larga di §3,
+decisione 2026-07-21) e il motore TTS **Piper** è **GPL-3.0** (copyleft *forte* —
+eccezione a §3 approvata dalla Direzione il 2026-07-28). Dove una licenza **richiede
+l'attribuzione** (CC-BY) è indicato in evidenza.
 
 ---
 
@@ -104,8 +107,9 @@ Il motore **Piper** (`piper-tts` 1.x, riscrittura `OHF-Voice/piper1-gpl`) è
 a sua volta GPL. Il vecchio `rhasspy/piper` (0.x) era MIT, da cui l'assunzione iniziale
 poi corretta.
 
-Questa è l'**unica eccezione** alla clausola «permissiva» di §3, **approvata dalla
-Direzione (2026-07-28)** con la procedura di governance §0. È ammessa perché:
+Questa è l'unica eccezione di **copyleft forte** alla clausola «permissiva» di §3 (il
+driver DB `psycopg` è copyleft *debole*/LGPL, già ammesso il 2026-07-21), **approvata
+dalla Direzione (2026-07-28)** con la procedura di governance §0. È ammessa perché:
 
 - GPL resta **open source, gratuito e locale** → i vincoli §3 «open source», «budget
   nullo» e «locale/on-premise» restano pienamente soddisfatti;
