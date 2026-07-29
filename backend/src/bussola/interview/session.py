@@ -176,32 +176,63 @@ class InterviewSession:
 class FollowupInterviewSession(InterviewSession):
     """Follow-up mode: starts on an EXISTING profile (not a fresh one), walks
     the reduced `FOLLOWUP_SECTIONS` order, and merges with append/upgrade
-    semantics — prior data is never lost or downgraded (nucleo §5)."""
+    semantics — prior data is never lost or downgraded (nucleo §5).
+
+    `merge()` can run MORE THAN ONCE for the same section: the person may see
+    the summary, reject it ("no, correggi"), and re-answer — `Interview._submit`
+    re-asks the SAME section without advancing, and each new answer merges
+    again. Because append/upgrade is not naturally idempotent (a plain append
+    would accumulate the rejected answer's contribution on top of the
+    corrected one), `merge()` always recomputes from a BASELINE snapshot of
+    the profile taken ONCE at construction (the prior-confirmed state, before
+    this follow-up session touched anything) plus the CURRENT extraction —
+    never from `self.profile`'s already-merged state. A re-answer therefore
+    REPLACES the previous (rejected) delta instead of stacking on it, while
+    everything the person confirmed before this follow-up interview started
+    is still preserved."""
 
     def __init__(self, profile: WorkProfile, language: str) -> None:
         self.language = language
         self.profile = profile
         self.section_index = 0
         self._sections = FOLLOWUP_SECTIONS
+        # Baseline snapshot (prior-confirmed data), frozen at construction.
+        # Independent list copies: mutating `self.profile` afterwards (new
+        # lists are assigned, never appended to in place) never mutates these.
+        self._baseline_experiences = list(profile.experiences)
+        self._baseline_skills = list(profile.skills)
+        self._baseline_languages = list(profile.languages)
+        self._baseline_digital_literacy = profile.digital_literacy
+        self._baseline_fields_of_interest = (
+            list(profile.aspiration.fields_of_interest) if profile.aspiration else []
+        )
+        self._baseline_desired_training = list(profile.desired_training)
 
     def merge(self, extracted: BaseModel) -> None:
         """Apply an extracted section model to the EXISTING profile
-        (follow-up semantics: APPEND/UPGRADE, never overwrite or drop)."""
+        (follow-up semantics: APPEND/UPGRADE from the baseline snapshot,
+        never overwrite, drop, or accumulate across re-answers)."""
         if isinstance(extracted, ExperiencesExtraction):
-            # Append: every past experience remains, plus the new ones.
-            self.profile.experiences = self.profile.experiences + extracted.experiences
+            # Append the current extraction's delta onto the frozen prior
+            # baseline (NOT onto `self.profile.experiences`, which may still
+            # hold a rejected answer's delta from an earlier merge() call in
+            # this same section) — a re-answer replaces, never stacks.
+            self.profile.experiences = self._baseline_experiences + extracted.experiences
         elif isinstance(extracted, SkillsExtraction):
-            self.profile.skills = _merge_skills(self.profile.skills, extracted.skills)
-            self.profile.languages = _merge_languages(self.profile.languages, extracted.languages)
-            if extracted.digital_literacy is not None:
-                self.profile.digital_literacy = extracted.digital_literacy
+            self.profile.skills = _merge_skills(self._baseline_skills, extracted.skills)
+            self.profile.languages = _merge_languages(self._baseline_languages, extracted.languages)
+            self.profile.digital_literacy = (
+                extracted.digital_literacy
+                if extracted.digital_literacy is not None
+                else self._baseline_digital_literacy
+            )
         elif isinstance(extracted, AspirationsExtraction):
             asp = self._aspiration()
             asp.fields_of_interest = _merge_strings(
-                asp.fields_of_interest, extracted.fields_of_interest
+                self._baseline_fields_of_interest, extracted.fields_of_interest
             )
             self.profile.desired_training = _merge_desired_training(
-                self.profile.desired_training, extracted.desired_training
+                self._baseline_desired_training, extracted.desired_training
             )
         else:  # pragma: no cover - defensive: follow-up only walks the
             # sections above (experiences, skills, aspirations).
