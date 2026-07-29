@@ -60,3 +60,11 @@ test('403 on mount shows the error, not a stuck spinner', async () => {
   expect(await screen.findByText('Non hai i permessi per questa azione.')).toBeInTheDocument()
   expect(screen.queryByText('Caricamento…')).not.toBeInTheDocument()
 })
+
+test('a kind="report" request renders «Report aggregato» instead of the (empty) profile filters', async () => {
+  setToken('tok')
+  const reportRequest = { ...EXPORT_REQUEST, id: 2, kind: 'report' as const, filters: {}, reason: 'report finale' }
+  renderWithProviders(<ExportApprovals />, { client: sup({ pending: { status: 'ok', requests: [reportRequest] } }), route: '/export-approvals' })
+  expect(await screen.findByText('Report aggregato')).toBeInTheDocument()
+  expect(screen.queryByText('Tutti i profili')).not.toBeInTheDocument()
+})

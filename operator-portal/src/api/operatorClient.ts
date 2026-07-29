@@ -32,6 +32,8 @@ import type {
   OperatorActivityResult,
   OperatorClient,
   ProfileFilters,
+  Report,
+  ReportResult,
   ResetPasswordResult,
   ResetResponse,
   SearchProfilesResult,
@@ -311,6 +313,40 @@ async function getMetrics(): Promise<MetricsResult> {
   }
 }
 
+async function getReport(): Promise<ReportResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/report`, { headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', report: (await res.json()) as Report }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function createReportExport(): Promise<CreateExportResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/report/export`, { method: 'POST', headers: headers(false) })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    return { status: 'ok', request: (await res.json()) as ExportRequest }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 async function createExport(filters: ProfileFilters, reason: string): Promise<CreateExportResult> {
   let res: Response
   try {
@@ -492,6 +528,8 @@ export const operatorClient: OperatorClient = {
   enableOperator,
   resetPassword,
   getMetrics,
+  getReport,
+  createReportExport,
   createExport,
   listExports,
   listPendingExports,

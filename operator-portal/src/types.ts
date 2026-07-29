@@ -194,7 +194,46 @@ export type MetricsResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+// Aggregate/anonymous report (S28). A suppressed small cell (k=5 small-cell
+// suppression, anonymity enforced server-side) arrives as the STRING "<5" —
+// render it verbatim, never compute/expand it client-side.
+export type Count = number | '<5'
+export interface Coverage {
+  total_profiles: number
+  completed_profiles: number
+  average_completeness: number
+  completeness_histogram: Record<string, Count>
+}
+export interface MatchingAgg {
+  runs: number
+  evaluated: number
+  compatible: number
+  compatible_rate: number
+  top_gaps: Record<string, Count>
+}
+export interface Trends {
+  profiles_by_week: Record<string, Count>
+  job_requests_by_week: Record<string, Count>
+}
+export interface Report {
+  coverage: Coverage
+  languages: Record<string, Count>
+  skill_kinds: Record<string, Count>
+  skill_evidence: Record<string, Count>
+  availability: Record<string, Count>
+  constraints: Record<string, Count>
+  total_job_requests: number
+  matching: MatchingAgg
+  trends: Trends
+}
+export type ReportResult =
+  | { status: 'ok'; report: Report }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+
 export type ExportStatus = 'pending' | 'approved' | 'denied'
+export type ExportKind = 'profiles' | 'report'
 export interface ExportRequest {
   id: number
   requested_by: string
@@ -205,6 +244,7 @@ export interface ExportRequest {
   decided_at: string | null
   decision_reason: string | null
   created_at: string
+  kind: ExportKind
 }
 export type CreateExportResult =
   | { status: 'ok'; request: ExportRequest }
@@ -296,6 +336,8 @@ export interface OperatorClient {
   enableOperator(id: number): Promise<MutateOperatorResult>
   resetPassword(id: number): Promise<ResetPasswordResult>
   getMetrics(): Promise<MetricsResult>
+  getReport(): Promise<ReportResult>
+  createReportExport(): Promise<CreateExportResult>
   createExport(filters: ProfileFilters, reason: string): Promise<CreateExportResult>
   listExports(): Promise<ListExportsResult>
   listPendingExports(): Promise<ListExportsResult>

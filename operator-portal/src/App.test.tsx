@@ -105,6 +105,14 @@ test('an authenticated supervisor can reach the metrics section', async () => {
   expect(await screen.findByText('Profili totali')).toBeInTheDocument()
 })
 
+test('an authenticated supervisor can reach the report section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } })
+  renderApp(client, '/report')
+  // «Esporta report» is rendered only by ReportPanel → proves the route mounted
+  expect(await screen.findByRole('button', { name: 'Esporta report' })).toBeInTheDocument()
+})
+
 test('an operator can reach the export section', async () => {
   setToken('tok')
   const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } })

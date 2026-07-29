@@ -43,6 +43,12 @@ test('supervisor sees «Metriche» and «Attività operatori» as real links', a
   expect(await screen.findByRole('link', { name: /Attività operatori/ })).toHaveAttribute('href', '/activity')
 })
 
+test('supervisor sees «Report» as a real link', async () => {
+  setToken('tok')
+  renderWithProviders(<Nav />, { client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } }) })
+  expect(await screen.findByRole('link', { name: /Report/ })).toHaveAttribute('href', '/report')
+})
+
 test('supervisor sees «Approvazioni export» as a real link', async () => {
   setToken('tok')
   renderWithProviders(<Nav />, { client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } }) })
