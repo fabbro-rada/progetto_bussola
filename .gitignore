@@ -9,6 +9,12 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env
 
+# Playwright e2e output (browser binaries live in ~/.cache, outside the repo)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/
+
 operator-portal/node_modules/
 operator-portal/dist/
 operator-portal/.env
