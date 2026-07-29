@@ -51,3 +51,27 @@ def test_auditor_cannot_use_matching_schema(auditor_conn: psycopg.Connection):
     with auditor_conn.cursor() as cur:
         cur.execute("SELECT has_schema_privilege('bussola_auditor', 'matching', 'USAGE')")
         assert cur.fetchone()[0] is False
+
+
+def test_0008_adds_followup_token_without_identity_columns(owner_conn: psycopg.Connection):
+    from bussola.data.migrate import apply_migrations
+
+    # Migrations already applied once via the session-scoped `test_database`
+    # fixture; re-running here on an already-migrated DB checks idempotency.
+    apply_migrations(owner_conn)
+    with owner_conn.cursor() as cur:
+        cur.execute(
+            "SELECT token_hash, pseudonym_id, created_at, expires_at, used_at "
+            "FROM followup.followup_token WHERE false"
+        )
+        cur.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema='followup' AND table_name='followup_token'"
+        )
+        cols = {r[0] for r in cur.fetchall()}
+        assert cols == {"token_hash", "pseudonym_id", "created_at", "expires_at", "used_at"}
+        # §5: the profile/token store must never carry identity data.
+        assert not cols & {"name", "surname", "person", "anagraphic", "identity", "cf"}
+        # deny-by-omission: auditor gets no USAGE on the followup schema at all.
+        cur.execute("SELECT has_schema_privilege('bussola_auditor', 'followup', 'USAGE')")
+        assert cur.fetchone()[0] is False
