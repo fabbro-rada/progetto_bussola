@@ -29,6 +29,7 @@ class Permission(str, Enum):
     VIEW_OPERATOR_ACTIVITY = "view_operator_activity"
     READ_AUDIT = "read_audit"
     CONFIGURE_SYSTEM = "configure_system"
+    PROVISION_FOLLOWUP = "provision_followup"
 
 
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
@@ -38,6 +39,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.MANAGE_JOB_REQUESTS,
             Permission.RUN_MATCHING,
             Permission.EXPORT_DATA,
+            Permission.PROVISION_FOLLOWUP,
         }
     ),
     Role.SUPERVISOR: frozenset(
