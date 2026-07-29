@@ -122,13 +122,14 @@ def test_report_suppresses_rare_languages(app_conn: psycopg.Connection) -> None:
     from bussola.report.service import compute_report
 
     rep = compute_report(app_conn, k=5)
-    # a language with only 1 profile must NEVER show up as a bare number 1..4
-    assert all(
-        v == "<5" or v == 0 or (isinstance(v, int) and v >= 5)
-        for v in rep.languages.values()
-    )
-    ti = next((v for kk, v in rep.languages.items() if kk.startswith("ti")), None)
-    assert ti in (None, "<5")  # Tigrinya suppressed or absent
+    # `languages` is free-text-keyed: a count < k must not appear at all —
+    # not even as the "<5" sentinel, because the KEY itself (a rare
+    # language) is what would single someone out (§2/§5).
+    assert all(isinstance(v, int) and v >= 5 for v in rep.languages.values())
+    assert not any(kk.startswith("ti") for kk in rep.languages)  # Tigrinya key absent
+    # a language with >= k speakers IS present, with its exact number
+    it = next((v for kk, v in rep.languages.items() if kk.startswith("it")), None)
+    assert it == 5
     # and no pseudonym / free text leaking anywhere in the dump
     dump = rep.model_dump_json()
     assert "pseudonym" not in dump
@@ -137,15 +138,16 @@ def test_report_suppresses_rare_languages(app_conn: psycopg.Connection) -> None:
 
 def test_unique_language_not_identifiable(app_conn: psycopg.Connection) -> None:
     """Adversarial: every profile has a DIFFERENT language (n=1 each). Not one
-    of them may be identifiable via a raw count in the output."""
+    of them may be identifiable via a raw count in the output — and since
+    every language here is unique, the correct anonymity-preserving result
+    is an EMPTY `languages` map: no rare key may be emitted at all."""
     _seed_profiles(app_conn, langs=["fr", "es", "ar", "en", "de"])
     from bussola.report.service import compute_report
 
     rep = compute_report(app_conn, k=5)
-    assert rep.languages  # something was recorded
-    for value in rep.languages.values():
-        assert value != 1 and value != 2 and value != 3 and value != 4
-        assert value == "<5" or value == 0 or (isinstance(value, int) and value >= 5)
+    assert rep.languages == {}  # every language is rare (n=1) -> all keys dropped
+    for lang in ("fr", "es", "ar", "en", "de"):
+        assert not any(kk.startswith(lang) for kk in rep.languages)
 
 
 def test_zero_profiles_gives_empty_report(app_conn: psycopg.Connection) -> None:
@@ -222,9 +224,11 @@ def test_matching_aggregate_rate_and_top_gaps(app_conn: psycopg.Connection) -> N
     assert rep.matching.evaluated == 15
     assert rep.matching.compatible == 7
     assert rep.matching.compatible_rate == pytest.approx(7 / 15)
-    # top_gaps counts ARE suppressed per-key
-    assert rep.matching.top_gaps["HACCP"] == 6  # 3 + 3 >= k -> exact
-    assert rep.matching.top_gaps["muletto"] == "<5"  # 1 -> suppressed
+    # top_gaps is free-text-keyed (recommended_training): a count < k must
+    # not appear at all — the KEY itself (a rare training gap) would single
+    # someone out, so it is DROPPED, never shown as "<5" (§2/§5).
+    assert rep.matching.top_gaps["HACCP"] == 6  # 3 + 3 >= k -> exact, present
+    assert "muletto" not in rep.matching.top_gaps  # 1 -> key dropped entirely
 
 
 def test_weekly_trends(app_conn: psycopg.Connection) -> None:
