@@ -1,9 +1,12 @@
 """Matching orchestration: deterministic hard-constraint gate first, then the
 grounded semantic judgment on the survivors, then transparent scoring + gaps.
-Computed on-demand (not persisted); each run is audited."""
+Per-match results are computed on-demand (not persisted) and returned as-is;
+only an aggregate outcome (counts + gap frequencies, no pseudonym) is
+persisted per run, alongside the audit entry (§5)."""
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Callable
 
 import psycopg
@@ -14,6 +17,7 @@ from bussola.llm.client import LlmClient
 from bussola.matching import gaps as gaps_mod
 from bussola.matching import hard_constraints, scoring, semantic
 from bussola.matching.errors import JobRequestNotFound
+from bussola.matching.match_runs import record_match_run
 from bussola.matching.models import MatchResult
 from bussola.matching.requests import JobRequestRepository
 
@@ -42,7 +46,9 @@ class MatchingService:
         if job is None:
             raise JobRequestNotFound(str(job_id))
         results: list[MatchResult] = []
-        for profile in self._profiles.list_all():
+        profiles = self._profiles.list_all()
+        evaluated = len(profiles)
+        for profile in profiles:
             outcome = hard_constraints.evaluate(profile, job)
             if not outcome.compatible:
                 continue  # excluded by a hard constraint (privacy-minimal: not surfaced)
@@ -62,6 +68,14 @@ class MatchingService:
                 action="matching_run",
                 actor=actor,
                 details={"job_request_id": str(job_id), "candidates": str(len(results))},
+            )
+            gaps_freq = Counter(g.recommended_training for r in results for g in r.gaps)
+            record_match_run(
+                self._conn,
+                job_request_id=job_id,
+                evaluated_count=evaluated,
+                compatible_count=len(results),
+                gaps=dict(gaps_freq),
             )
             self._conn.commit()
         return results
