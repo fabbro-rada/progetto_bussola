@@ -7,6 +7,7 @@ import { makeFakeClient, operatorWith, ADMIN, MATCH } from './test/fakeClient'
 import { setToken } from './auth/session'
 
 import { MetricsPanel } from './screens/metrics/MetricsPanel'
+import { ReportPanel } from './screens/report/ReportPanel'
 import { OperatorActivityPanel } from './screens/activity/OperatorActivityPanel'
 import { SystemConfigPanel } from './screens/system/SystemConfigPanel'
 import { AuditLog } from './screens/audit/AuditLog'
@@ -49,6 +50,19 @@ test('MetricsPanel (loaded) has no a11y violations', async () => {
       <Route path="/metrics" element={<MetricsPanel />} />
     </Routes>,
     { client, route: '/metrics' },
+  )
+  await screen.findByText('60%')
+  await expectNoA11yViolations(container)
+})
+
+test('ReportPanel (loaded) has no a11y violations', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } })
+  const { container } = renderWithProviders(
+    <Routes>
+      <Route path="/report" element={<ReportPanel />} />
+    </Routes>,
+    { client, route: '/report' },
   )
   await screen.findByText('60%')
   await expectNoA11yViolations(container)
