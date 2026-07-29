@@ -32,13 +32,21 @@ def test_provision_followup_requires_operator(client, make_operator):
     assert r.json()["token"]
 
 
-def test_provision_is_audited(client, make_operator, app_conn: psycopg.Connection):
+def test_provision_is_audited(client, make_operator, owner_conn: psycopg.Connection):
+    # Use an INDEPENDENT connection (not the `app_conn` the handler writes
+    # through) so this assertion is genuinely commit-sensitive: `client`
+    # overrides `get_conn` to hand the handler `app_conn` itself, so reading
+    # back via `app_conn` would see the handler's writes via read-your-own-
+    # writes even if the handler never committed. `owner_conn` is a separate
+    # session/connection, so it only sees rows once the handler's `conn.commit()`
+    # has actually happened — if that commit were ever dropped, these SELECTs
+    # would find nothing and the test would fail.
     op, op_temp = make_operator("op1", Role.OPERATOR)
     op_tok = _login(client, op, op_temp)
     r = client.post("/followups", json={"pseudonym_id": "P-x"}, headers=_auth(op_tok))
     assert r.status_code == 201
 
-    with app_conn.cursor() as cur:
+    with owner_conn.cursor() as cur:
         cur.execute(
             "SELECT actor, target_pseudonym FROM audit.audit_log "
             "WHERE action = 'followup_provisioned' ORDER BY id DESC LIMIT 1"
@@ -48,6 +56,7 @@ def test_provision_is_audited(client, make_operator, app_conn: psycopg.Connectio
     assert row[0] == op
     assert row[1] == "P-x"
 
-    with app_conn.cursor() as cur:
+    with owner_conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM followup.followup_token")
         assert cur.fetchone()[0] == 1
+    owner_conn.rollback()
