@@ -285,6 +285,87 @@ def test_start_followup_unknown_pseudonym_is_unavailable(make_fake_json_llm):
     assert step.kind == "unavailable"
 
 
+class AuditRecorder:
+    """Records every audit call verbatim (as kwargs), so tests can assert
+    exactly which actions fired and with what `target_pseudonym`."""
+
+    def __init__(self) -> None:
+        self.events: list[dict] = []
+
+    def __call__(self, **kwargs: object) -> None:
+        self.events.append(kwargs)
+
+
+EMPTY_ASPIRATION = {"fields_of_interest": [], "desired_training": []}
+
+
+def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_llm):
+    """§7.3 accountability: an auditor must be able to tell a follow-up ran to
+    completion apart from "confirmed some sections and walked away". Drives
+    all three follow-up sections (empty answers, just to reach completion)
+    then asserts exactly one `followup_completed` event, targeting the right
+    pseudonym."""
+    repo = FakeRepo({"P-x": _existing_profile()})
+    json_responses = [
+        EMPTY_EXPERIENCE,
+        CONFIRM,
+        SKILL_STATED,
+        CONFIRM,
+        EMPTY_ASPIRATION,
+        CONFIRM,
+        {"has_incongruence": False, "clarification": ""},
+    ]
+    text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    audit = AuditRecorder()
+    itw = Interview(client, ScopeGuard(client), repo, language="it", audit=audit)
+
+    itw.start_followup("P-x")
+    final = None
+    for _ in range(3):
+        itw.submit("una risposta")
+        final = itw.submit("sì")
+    assert final is not None and final.kind == "completed"
+
+    completed = [e for e in audit.events if e["action"] == "followup_completed"]
+    assert len(completed) == 1
+    assert completed[0]["target_pseudonym"] == "P-x"
+
+
+def test_first_interview_completion_does_not_emit_followup_completed_audit(make_fake_json_llm):
+    """S4's first-interview flow must stay unaffected: it never emitted a
+    completion audit before this task and still doesn't -- only a follow-up
+    session's completion gets `followup_completed`. `interview_section_confirmed`
+    (pre-existing, per confirmed section) is unaffected and still fires."""
+    repo = FakeRepo()
+    json_responses: list[dict] = []
+    text_responses: list[str] = []
+    empty_first_interview_extractions = [
+        {"skills": [], "languages": [], "digital_literacy": None},
+        {"experiences": []},
+        {"fields_of_interest": [], "desired_training": []},
+        {"availability": None, "constraints": []},
+        {"operational_notes": []},
+    ]
+    for extraction in empty_first_interview_extractions:
+        text_responses.extend([ALLOW, "Riepilogo. Giusto?"])
+        json_responses.extend([extraction, CONFIRM])
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    audit = AuditRecorder()
+    itw = Interview(client, ScopeGuard(client), repo, language="it", audit=audit)
+
+    itw.start()
+    final = None
+    for _ in range(5):
+        itw.submit("una risposta")
+        final = itw.submit("sì")
+    assert final is not None and final.kind == "completed"
+
+    assert not any(e["action"] == "followup_completed" for e in audit.events)
+    assert len([e for e in audit.events if e["action"] == "interview_section_confirmed"]) == 5
+
+
 def test_first_interview_mode_unchanged(make_fake_json_llm):
     # Smoke test: start() still creates a fresh pseudonym and walks the full
     # (5-section) SECTIONS order with overwrite merge — follow-up mode must
