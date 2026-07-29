@@ -69,6 +69,7 @@ test('consent screen — Arabic (RTL)', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'العربية' }).click()
+  await expect(page.locator('.big-confirm')).toBeVisible() // on the Consent screen (not a fallback)
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await audit(page, 'consent-ar-rtl')
 })

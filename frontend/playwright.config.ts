@@ -19,7 +19,9 @@ export default defineConfig({
     // Build once and serve the production bundle (closest to what ships).
     command: 'npm run build && npm run preview -- --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',
-    reuseExistingServer: true,
+    // Reuse a running preview locally for fast iteration, but never in CI —
+    // there a stale server would silently audit an old build.
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     // Build-time env: the token is irrelevant (routes are mocked), API base is
     // same-origin so requests hit paths Playwright intercepts.
