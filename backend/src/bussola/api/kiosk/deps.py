@@ -65,3 +65,36 @@ def build_interview(language: str) -> tuple[Interview, Callable[[], None]]:
         audit=audit,
     )
     return interview, conn.close
+
+
+def open_kiosk_conn() -> psycopg.Connection:
+    """Open a bare DB connection for a follow-up kiosk session.
+
+    Unlike `build_interview` (which opens its own connection AND builds the
+    Interview in one step), the follow-up start endpoint needs the
+    connection *before* the Interview exists: it consumes the one-time
+    follow-up token and commits the single-use mark first, then hands this
+    SAME connection to `build_followup_interview` so the whole session (token
+    consume + profile load/save) runs on one connection, exactly like
+    `build_interview` does for a first interview."""
+    return psycopg.connect(db_config.dsn("app"))
+
+
+def build_followup_interview(conn: psycopg.Connection, language: str) -> Interview:
+    """Build the Interview for a follow-up session bound to an ALREADY-OPEN
+    connection (see `open_kiosk_conn`). Wiring mirrors `build_interview`
+    exactly, minus opening the connection itself."""
+    redactor = _shared_redactor()
+    llm = HttpxLlmClient()
+
+    def audit(**kwargs: object) -> None:
+        append_audit(conn, actor="kiosk", **kwargs)  # type: ignore[arg-type]
+
+    return Interview(
+        llm,
+        ScopeGuard(llm),
+        ProfileRepository(conn, redactor, language),
+        language=language,
+        redactor=redactor,
+        audit=audit,
+    )
