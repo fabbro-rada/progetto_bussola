@@ -8,8 +8,15 @@ from __future__ import annotations
 
 from bussola.guardrails.scope import ScopeGuard
 from bussola.interview.interview import Interview
-from bussola.profile.enums import EvidenceGrade, SkillKind
-from bussola.profile.models import Skill, WorkExperience, WorkProfile
+from bussola.profile.enums import DigitalLiteracy, EvidenceGrade, LanguageLevel, SkillKind
+from bussola.profile.models import (
+    Aspiration,
+    DesiredTraining,
+    LanguageKnown,
+    Skill,
+    WorkExperience,
+    WorkProfile,
+)
 
 
 class FakeRepo:
@@ -144,6 +151,130 @@ def test_followup_never_downgrades_or_drops(make_fake_json_llm):
     assert _evidence_of(saved, "cucina") == EvidenceGrade.DEMONSTRATED
     # A prior skill absent from the follow-up extraction is preserved too.
     assert any(s.name == "giardinaggio" for s in saved.skills)
+
+
+def test_followup_reject_and_reanswer_never_accumulates_or_leaks_rejected_data(make_fake_json_llm):
+    """§5-critical: the person may see the summary, REJECT it, and RE-ANSWER
+    the SAME section before confirming (interview.py re-asks without
+    advancing, so `merge()` runs more than once for that section). The
+    rejected answer's contribution must be fully REPLACED by the corrected
+    one — never stacked (experiences), and never left behind as a stale
+    skill/language/aspiration/digital_literacy from the rejected attempt —
+    while the prior (pre-follow-up) baseline is still preserved and evidence
+    upgrades still never downgrade."""
+    existing = WorkProfile(
+        pseudonym_id="P-x",
+        experiences=[WorkExperience(role="magazziniere", sector="logistica", duration_months=12)],
+        skills=[
+            Skill(name="giardinaggio", kind=SkillKind.TECHNICAL, evidence=EvidenceGrade.STATED),
+            Skill(name="cucina", kind=SkillKind.TECHNICAL, evidence=EvidenceGrade.DEMONSTRATED),
+        ],
+        languages=[LanguageKnown(language="italiano", level=LanguageLevel.NATIVE)],
+        aspiration=Aspiration(fields_of_interest=["ristorazione"]),
+        desired_training=[DesiredTraining(topic="sicurezza sul lavoro")],
+    )
+    repo = FakeRepo({"P-x": existing})
+
+    # experiences: rejected "cameriere 6 mesi" -> corrected "cuoco 8 mesi"
+    exp_rejected = {
+        "experiences": [{"role": "cameriere", "sector": "ristorazione", "duration_months": 6}]
+    }
+    exp_final = {"experiences": [{"role": "cuoco", "sector": "ristorazione", "duration_months": 8}]}
+    # skills: rejected adds a bogus skill, over-claims "cucina" evidence
+    # (certified), a wrong language, and a too-high digital_literacy.
+    skills_rejected = {
+        "skills": [
+            {"name": "barista", "kind": "technical", "evidence": "stated"},
+            {"name": "cucina", "kind": "technical", "evidence": "certified"},
+        ],
+        "languages": [{"language": "spagnolo", "level": "basic"}],
+        "digital_literacy": "advanced",
+    }
+    skills_final = {
+        "skills": [{"name": "cucina", "kind": "technical", "evidence": "stated"}],
+        "languages": [{"language": "francese", "level": "intermediate"}],
+        "digital_literacy": "basic",
+    }
+    # aspirations: rejected field/course -> corrected field/course.
+    asp_rejected = {
+        "fields_of_interest": ["edilizia"],
+        "desired_training": [{"topic": "corso saldatura"}],
+    }
+    asp_final = {
+        "fields_of_interest": ["catering"],
+        "desired_training": [{"topic": "corso HACCP"}],
+    }
+
+    json_responses = [
+        exp_rejected,
+        {"confirmed": False},
+        exp_final,
+        {"confirmed": True},
+        skills_rejected,
+        {"confirmed": False},
+        skills_final,
+        {"confirmed": True},
+        asp_rejected,
+        {"confirmed": False},
+        asp_final,
+        {"confirmed": True},
+        {"has_incongruence": False, "clarification": ""},
+    ]
+    text_responses = [ALLOW, "Riepilogo. Giusto?"] * 6
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+
+    itw.start_followup("P-x")
+
+    # experiences: answer -> reject -> re-answer -> confirm
+    assert itw.submit("ho fatto il cameriere per 6 mesi").kind == "summary"
+    assert itw.submit("no, non è corretto").kind == "question"
+    assert itw.submit("scusa, in realtà ho fatto il cuoco per 8 mesi").kind == "summary"
+    assert itw.submit("sì, corretto").kind == "question"
+
+    # skills: answer -> reject -> re-answer -> confirm
+    assert itw.submit("faccio il barista e parlo spagnolo").kind == "summary"
+    assert itw.submit("no").kind == "question"
+    assert itw.submit("scusa, correggo: so cucinare e parlo francese").kind == "summary"
+    assert itw.submit("sì").kind == "question"
+
+    # aspirations: answer -> reject -> re-answer -> confirm (last section)
+    assert itw.submit("mi piacerebbe l'edilizia, corso di saldatura").kind == "summary"
+    assert itw.submit("no").kind == "question"
+    assert itw.submit("scusa, mi interessa il catering, corso HACCP").kind == "summary"
+    final = itw.submit("sì, confermo")
+    assert final.kind == "completed"
+
+    saved = repo.get("P-x")
+    assert saved is not None
+
+    # experiences: baseline + ONLY the corrected answer, no accumulation of
+    # the rejected "cameriere" experience.
+    assert len(saved.experiences) == 2
+    assert {e.role for e in saved.experiences} == {"magazziniere", "cuoco"}
+
+    # skills: no stale "barista" from the rejected answer; "cucina"'s
+    # evidence reflects the TRUE baseline (demonstrated) — neither
+    # downgraded by the corrected (weaker, "stated") answer nor left at the
+    # rejected (higher, bogus) "certified" grade.
+    skill_names = {s.name for s in saved.skills}
+    assert skill_names == {"giardinaggio", "cucina"}
+    assert _evidence_of(saved, "cucina") == EvidenceGrade.DEMONSTRATED
+
+    # languages: baseline preserved, rejected "spagnolo" absent, corrected
+    # "francese" present.
+    language_names = {lang.language for lang in saved.languages}
+    assert language_names == {"italiano", "francese"}
+
+    # digital_literacy: the corrected value, not the rejected one.
+    assert saved.digital_literacy == DigitalLiteracy.BASIC
+
+    # aspirations: baseline preserved, rejected field/course absent,
+    # corrected field/course present.
+    assert saved.aspiration is not None
+    assert saved.aspiration.fields_of_interest == ["ristorazione", "catering"]
+    training_topics = {t.topic for t in saved.desired_training}
+    assert training_topics == {"sicurezza sul lavoro", "corso HACCP"}
 
 
 def test_start_followup_unknown_pseudonym_is_unavailable(make_fake_json_llm):
