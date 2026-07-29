@@ -79,6 +79,10 @@ def db(test_database: None) -> Iterator[None]:
             job_request_tbl = cur.fetchone()[0]
             if job_request_tbl is not None:
                 cur.execute("TRUNCATE matching.job_request RESTART IDENTITY")
+            cur.execute("SELECT to_regclass('matching.match_run')")
+            match_run_tbl = cur.fetchone()[0]
+            if match_run_tbl is not None:
+                cur.execute("TRUNCATE matching.match_run RESTART IDENTITY")
             cur.execute("SELECT to_regclass('export.export_request')")
             export_tbl = cur.fetchone()[0]
             if export_tbl is not None:
