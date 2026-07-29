@@ -1,8 +1,12 @@
 """Export-request workflow: create → approve/deny → download (on-demand).
 
 State transitions and their audit records commit in ONE transaction
-(pattern S5). The download re-runs the profile search — no payload is ever
-stored (minimization, §5/§7.3)."""
+(pattern S5). The `kind` column (default 'profiles') discriminates what the
+download materializes: `kind='profiles'` re-runs the profile search — no
+payload is ever stored (minimization, §5/§7.3); `kind='report'` recomputes
+the aggregate/anonymous report on demand instead. The state machine itself
+(pending → approved/denied, ownership, audit) stays kind-agnostic — only
+`generate_payload`'s materialization step branches on it."""
 
 from __future__ import annotations
 
@@ -16,10 +20,12 @@ from bussola.export.errors import ExportNotApproved, ExportNotFound, ExportNotPe
 from bussola.export.models import ExportFilters, ExportRequest
 from bussola.guardrails.pii import PiiRedactor
 from bussola.profile.models import WorkProfile
+from bussola.report.models import Report
+from bussola.report.service import compute_report
 
 _COLUMNS = (
     "id, requested_by, filters, reason, status, "
-    "decided_by, decided_at, decision_reason, created_at"
+    "decided_by, decided_at, decision_reason, created_at, kind"
 )
 
 
@@ -34,6 +40,7 @@ def _row_to_request(row: tuple[Any, ...]) -> ExportRequest:
         decided_at=row[6],
         decision_reason=row[7],
         created_at=row[8],
+        kind=row[9],
     )
 
 
@@ -54,14 +61,16 @@ class ExportService:
     def __init__(self, conn: psycopg.Connection) -> None:
         self._conn = conn
 
-    def create_request(self, *, actor: str, filters: ExportFilters, reason: str) -> ExportRequest:
+    def create_request(
+        self, *, actor: str, filters: ExportFilters, reason: str, kind: str = "profiles"
+    ) -> ExportRequest:
         from psycopg.types.json import Jsonb
 
         with self._conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO export.export_request (requested_by, filters, reason) "
-                "VALUES (%s, %s, %s) RETURNING " + _COLUMNS,
-                (actor, Jsonb(filters.model_dump(mode="json", exclude_none=True)), reason),
+                "INSERT INTO export.export_request (requested_by, filters, reason, kind) "
+                "VALUES (%s, %s, %s, %s) RETURNING " + _COLUMNS,
+                (actor, Jsonb(filters.model_dump(mode="json", exclude_none=True)), reason, kind),
             )
             row = cur.fetchone()
         assert row is not None
@@ -122,10 +131,25 @@ class ExportService:
         )
         self._conn.commit()
 
-    def generate_payload(self, *, actor: str, request_id: int) -> list[WorkProfile]:
+    def peek_kind(self, *, request_id: int) -> str | None:
+        """The request's `kind`, or None if it doesn't exist.
+
+        Used by the download route to pick the permission required
+        BEFORE the approved+ownership gate below: a `kind='report'`
+        request needs APPROVE_EXPORTS, not EXPORT_DATA (the supervisor
+        must never gain EXPORT_DATA, which would open raw-profile
+        export — §2/§6). Read-only, no audit: revealing a bare `kind`
+        string carries no profile data.
+        """
+        with self._conn.cursor() as cur:
+            cur.execute("SELECT kind FROM export.export_request WHERE id = %s", (request_id,))
+            row = cur.fetchone()
+        return row[0] if row else None
+
+    def generate_payload(self, *, actor: str, request_id: int) -> list[WorkProfile] | Report:
         with self._conn.cursor() as cur:
             cur.execute(
-                "SELECT requested_by, filters, status FROM export.export_request WHERE id = %s",
+                "SELECT requested_by, filters, status, kind FROM export.export_request WHERE id = %s",
                 (request_id,),
             )
             row = cur.fetchone()
@@ -133,6 +157,15 @@ class ExportService:
             raise ExportNotFound(str(request_id))
         if row[2] != "approved":
             raise ExportNotApproved(str(request_id))
+        if row[3] == "report":
+            report = compute_report(self._conn)
+            append_audit(
+                self._conn,
+                action="export_downloaded",
+                actor=actor,
+                details={"request_id": str(request_id), "kind": "report"},
+            )
+            return report
         filters = ExportFilters.model_validate(row[1])
         profiles = ProfileRepository(self._conn, PiiRedactor()).search(
             availability=filters.availability,
