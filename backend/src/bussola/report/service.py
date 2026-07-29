@@ -6,6 +6,19 @@ enumerated fields, plus a handful of global (non-identifying) totals. Every
 distribution count, histogram bucket, top-gap count, and weekly-trend count
 passes through `suppress` — the single k-anonymity choke point in the whole
 system. Nothing here ever carries a pseudonym or a per-person value (§2/§5).
+
+Two distributions are keyed by FREE TEXT rather than a fixed, public enum:
+`languages` (keys built from the free-text `language` field) and
+`matching.top_gaps` (keys = free-text `recommended_training`). For those, a
+rare key is itself identifying — showing `{"tigrinya (fluent)": "<5"}` still
+discloses that someone (1..4 people) speaks Tigrinya, singling them out by a
+rare attribute even though the *count* is masked (§2/§5). So for these two
+maps ONLY, a count below k causes the KEY to be dropped entirely (see
+`_suppress_and_drop_rare_keys`), not merely masked to `"<5"`. Every other
+distribution here (`skill_kinds`, `skill_evidence`, `availability`,
+`constraints`, `completeness_histogram`, `trends.*`) is keyed by a fixed,
+non-identifying vocabulary (an enum, a completeness bucket, or a week), so
+`suppress`'s `"<5"` sentinel is safe there and is left unchanged.
 """
 
 from __future__ import annotations
@@ -43,6 +56,20 @@ def suppress(n: int, k: int = 5) -> Count:
 
 def _suppress_map(counts: dict[str, int], k: int) -> dict[str, Count]:
     return {key: suppress(value, k) for key, value in counts.items()}
+
+
+def _suppress_and_drop_rare_keys(counts: dict[str, int], k: int) -> dict[str, Count]:
+    """The k-anonymity choke point for FREE-TEXT-keyed distributions
+    (`languages`, `matching.top_gaps`) — see the module docstring.
+
+    Unlike `_suppress_map`, a count below k does not surface as the `"<5"`
+    sentinel: the entry is dropped entirely, so the key itself (a rare
+    language, a rare training gap) never reaches the caller. Every
+    surviving value is a bare `int >= k` — the return type is `dict[str,
+    Count]` only to match the DTO field type; the `"<5"` sentinel is a
+    member of `Count` that this function never actually produces.
+    """
+    return {key: value for key, value in counts.items() if value >= k}
 
 
 def _histogram_bucket(score: float) -> str:
@@ -139,7 +166,7 @@ def compute_report(conn: psycopg.Connection, *, k: int = 5) -> Report:
             average_completeness=average,
             completeness_histogram=_suppress_map(histogram, k),
         ),
-        languages=_suppress_map(languages, k),
+        languages=_suppress_and_drop_rare_keys(languages, k),
         skill_kinds=_suppress_map(skill_kinds, k),
         skill_evidence=_suppress_map(skill_evidence, k),
         availability=_suppress_map(availability, k),
@@ -150,7 +177,7 @@ def compute_report(conn: psycopg.Connection, *, k: int = 5) -> Report:
             evaluated=evaluated,
             compatible=compatible,
             compatible_rate=compatible_rate,
-            top_gaps=_suppress_map(top_gaps, k),
+            top_gaps=_suppress_and_drop_rare_keys(top_gaps, k),
         ),
         trends=Trends(
             profiles_by_week=_suppress_map(profiles_by_week, k),
