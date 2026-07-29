@@ -27,6 +27,7 @@ class Step:
 class ProfileStore(Protocol):
     def create_new(self) -> str: ...
     def save(self, profile: WorkProfile) -> WorkProfile: ...
+    def get(self, pseudonym_id: str) -> WorkProfile | None: ...
 
 
 class TextRedactor(Protocol):
@@ -81,6 +82,19 @@ class Interview:
     def start(self) -> Step:
         pseudonym = self._repo.create_new()
         self._session = InterviewSession(pseudonym, self._language)
+        self._awaiting_confirmation = False
+        self._awaiting_final_clarification = False
+        return self._question_step()
+
+    def start_followup(self, pseudonym_id: str) -> Step:
+        """Start a follow-up interview on an EXISTING pseudonym's profile:
+        a reduced section order, append/upgrade merge (§5, never lose prior
+        data). Fails closed on an unknown pseudonym — never raises to the
+        caller."""
+        profile = self._repo.get(pseudonym_id)
+        if profile is None:
+            return self._unavailable()
+        self._session = InterviewSession.for_followup(profile, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
         return self._question_step()
