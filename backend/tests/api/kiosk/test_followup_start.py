@@ -23,6 +23,7 @@ from bussola.api.kiosk.routers import interview as interview_router
 from bussola.data import config as db_config
 from bussola.data.profiles import ProfileRepository
 from bussola.followup.service import FollowupTokenService
+from bussola.interview.sections import SECTIONS, base_question
 
 pytestmark = pytest.mark.usefixtures("db")
 
@@ -62,6 +63,46 @@ def issued_token_for_p(app_conn: psycopg.Connection, existing_pseudonym: str) ->
     token = FollowupTokenService(app_conn).issue(existing_pseudonym, actor="op-test")
     app_conn.commit()
     return token
+
+
+# Follow-up mode's reduced section order starts with "experiences" (Task 4);
+# the language tests below assert the first step's text against the SAME
+# `base_question` the interview itself uses, rather than hardcoding a
+# transcription of the localized string.
+_EXPERIENCES_SECTION = next(s for s in SECTIONS if s.key == "experiences")
+
+
+def test_start_followup_with_language_builds_that_locale(
+    kiosk_client: TestClient, app_conn: psycopg.Connection, existing_pseudonym: str
+) -> None:
+    # §7.1 multilingua: the person's chosen language (from the kiosk's
+    # LanguagePicker, threaded through the request body) must drive the
+    # follow-up question text, not a hardcoded default.
+    token = FollowupTokenService(app_conn).issue(existing_pseudonym, actor="op-test")
+    app_conn.commit()
+    r = kiosk_client.post(
+        "/kiosk/interview/start-followup",
+        headers=_h(),
+        json={"token": token, "language": "ar"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["step"]["text"] == base_question(_EXPERIENCES_SECTION, "ar")
+    REGISTRY.discard(body["session_token"])
+
+
+def test_start_followup_default_language_is_italian(
+    kiosk_client: TestClient, issued_token_for_p: str
+) -> None:
+    # No `language` field at all -> defaults to "it" (safety default; Task 6's
+    # kiosk always supplies the person's chosen language explicitly).
+    r = kiosk_client.post(
+        "/kiosk/interview/start-followup", headers=_h(), json={"token": issued_token_for_p}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["step"]["text"] == base_question(_EXPERIENCES_SECTION, "it")
+    REGISTRY.discard(body["session_token"])
 
 
 def test_start_followup_with_valid_token_starts_that_profiles_session(

@@ -18,11 +18,6 @@ from bussola.interview.interview import Interview
 
 router = APIRouter(prefix="/kiosk/interview", tags=["kiosk"], dependencies=[Depends(require_kiosk)])
 
-# Follow-up tokens don't carry a language selection (a work profile has no
-# language field — §5), so the follow-up interview defaults the same way
-# `ProfileRepository`'s own `language` parameter does elsewhere.
-_FOLLOWUP_LANGUAGE = "it"
-
 
 class StartRequest(BaseModel):
     language: str = Field(min_length=2, max_length=5)
@@ -30,6 +25,13 @@ class StartRequest(BaseModel):
 
 class StartFollowupRequest(BaseModel):
     token: str = Field(min_length=1, max_length=200)
+    # A follow-up token itself carries no language (a work profile has no
+    # language field — §5): the person's chosen language must come from the
+    # kiosk UI at follow-up time, same as `StartRequest.language` does for a
+    # first interview (Task 6 wires the kiosk's LanguagePicker through here).
+    # Defaults to "it" for safety if omitted, matching `/start`'s field
+    # constraints exactly (no stricter/looser validation than first-interview).
+    language: str = Field(default="it", min_length=2, max_length=5)
 
 
 class SubmitRequest(BaseModel):
@@ -81,7 +83,7 @@ def start_followup(body: StartFollowupRequest) -> StartResponse:
     # mark would roll back, and the token would become reusable — defeating
     # single-use.
     conn.commit()
-    interview = build_followup_interview(conn, _FOLLOWUP_LANGUAGE)
+    interview = build_followup_interview(conn, body.language)
     try:
         step = interview.start_followup(pseudonym)
     except Exception:

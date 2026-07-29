@@ -13,7 +13,7 @@ from bussola.interview.confirm import interpret_confirmation, summarize
 from bussola.interview.extraction import extract_section
 from bussola.interview.incongruence import find_incongruence
 from bussola.interview.sections import base_question
-from bussola.interview.session import InterviewSession
+from bussola.interview.session import FollowupInterviewSession, InterviewSession
 from bussola.llm.client import LlmClient, LlmUnavailable
 from bussola.profile.models import WorkProfile
 
@@ -107,6 +107,26 @@ class Interview:
         if clarification is not None:
             self._awaiting_final_clarification = True
             return Step("clarification", self._redact(clarification))
+        return self._complete()
+
+    def _complete(self) -> Step:
+        """Common completion path (reached either directly from `_finalize`,
+        or after the person clears a final clarification in `_submit`).
+
+        A FOLLOW-UP session additionally gets a `followup_completed` audit
+        event (§7.3 accountability): an auditor must be able to tell "this
+        follow-up ran to completion" apart from "confirmed some sections and
+        walked away", which the existing per-section
+        `interview_section_confirmed` audit alone cannot distinguish. The
+        first-interview flow is deliberately unaffected — it never emitted a
+        completion audit before this and still doesn't, so S4 behavior is
+        unchanged."""
+        session = self._session
+        if self._audit is not None and isinstance(session, FollowupInterviewSession):
+            self._audit(
+                action="followup_completed",
+                target_pseudonym=session.profile.pseudonym_id,
+            )
         return Step("completed", _final_summary(self._language))
 
     def submit(self, answer: str) -> Step:
@@ -134,7 +154,7 @@ class Interview:
                     ),
                 )
             self._awaiting_final_clarification = False
-            return Step("completed", _final_summary(self._language))
+            return self._complete()
 
         if self._awaiting_confirmation:
             if interpret_confirmation(self._client, answer, self._language):
