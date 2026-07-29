@@ -35,3 +35,4 @@ class ExportRequest(BaseModel):
     decided_at: datetime | None = None
     decision_reason: str | None = None
     created_at: datetime
+    kind: str = "profiles"
