@@ -12,6 +12,7 @@ import { ProfileSearch } from './screens/profiles/ProfileSearch'
 import { ProfileDetail } from './screens/profiles/ProfileDetail'
 import { OperatorList } from './screens/operators/OperatorList'
 import { MetricsPanel } from './screens/metrics/MetricsPanel'
+import { ReportPanel } from './screens/report/ReportPanel'
 import { ExportRequests } from './screens/exports/ExportRequests'
 import { ExportApprovals } from './screens/exports/ExportApprovals'
 import { AuditLog } from './screens/audit/AuditLog'
@@ -47,6 +48,7 @@ export function App() {
         <Route path="profiles/:pseudonym" element={<ProfileDetail />} />
         <Route path="operators" element={<OperatorList />} />
         <Route path="metrics" element={<MetricsPanel />} />
+        <Route path="report" element={<ReportPanel />} />
         <Route path="export" element={<ExportRequests />} />
         <Route path="export-approvals" element={<ExportApprovals />} />
         <Route path="audit" element={<AuditLog />} />

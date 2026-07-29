@@ -254,6 +254,41 @@ test('getMetrics: 200→ok with Bearer; 403→forbidden; network→error', async
   expect(await operatorClient.getMetrics()).toEqual({ status: 'error' })
 })
 
+test('getReport: 200→ok with Bearer; 403→forbidden; network→error', async () => {
+  setToken('tok')
+  const R = {
+    coverage: { total_profiles: 5, completed_profiles: 3, average_completeness: 0.6, completeness_histogram: { '0-25%': '<5' } },
+    languages: {}, skill_kinds: {}, skill_evidence: {}, availability: {}, constraints: {},
+    total_job_requests: 2,
+    matching: { runs: 4, evaluated: 4, compatible: 3, compatible_rate: 0.75, top_gaps: {} },
+    trends: { profiles_by_week: {}, job_requests_by_week: {} },
+  }
+  const f = vi.fn().mockResolvedValue(res(200, R))
+  vi.stubGlobal('fetch', f)
+  expect(await operatorClient.getReport()).toEqual({ status: 'ok', report: R })
+  expect(String(f.mock.calls[0][0])).toMatch(/\/report$/)
+  expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.getReport()).toEqual({ status: 'forbidden' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.getReport()).toEqual({ status: 'error' })
+})
+
+test('createReportExport POSTs to /report/export with no body and maps 201→ok', async () => {
+  setToken('tok')
+  const REQ = { id: 2, requested_by: 'g.bianchi', filters: {}, reason: 'report finale', status: 'pending', decided_by: null, decided_at: null, decision_reason: null, created_at: '2026-07-27T10:00:00Z', kind: 'report' }
+  const f = vi.fn().mockResolvedValue(res(201, REQ))
+  vi.stubGlobal('fetch', f)
+  const r = await operatorClient.createReportExport()
+  expect(r).toEqual({ status: 'ok', request: REQ })
+  const [url, init] = f.mock.calls[0]
+  expect(String(url)).toMatch(/\/report\/export$/)
+  expect((init as RequestInit).method).toBe('POST')
+  expect((init!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.createReportExport()).toEqual({ status: 'forbidden' })
+})
+
 test('createExport POSTs {filters, reason} and maps 201→ok', async () => {
   setToken('tok')
   const REQ = { id: 1, requested_by: 'm.rossi', filters: { skill_query: 'cucina' }, reason: 'Azienda X', status: 'pending', decided_by: null, decided_at: null, decision_reason: null, created_at: '2026-07-27T10:00:00Z' }

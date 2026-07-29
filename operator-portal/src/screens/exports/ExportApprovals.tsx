@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import { useApiError } from '../../hooks/useApiError'
@@ -6,6 +7,14 @@ import type { ExportRequest } from '../../types'
 import { ConfirmDialog } from '../operators/ConfirmDialog'
 import { DenyDialog } from './DenyDialog'
 import { filterSummary } from './filterSummary'
+
+// `kind='report'` requests carry no profile filters (§ the payload is the
+// anonymous/aggregate report, not a profile selection) — showing
+// filterSummary's empty-filters fallback («Tutti i profili») would be
+// misleading, so render a dedicated, readable label instead.
+function requestScope(req: ExportRequest, t: TFunction): string {
+  return req.kind === 'report' ? t('exports.kindReport') : filterSummary(req.filters, t)
+}
 
 export function ExportApprovals() {
   const { t } = useTranslation()
@@ -79,7 +88,7 @@ export function ExportApprovals() {
               {pending.map((req) => (
                 <tr key={req.id}>
                   <td>{req.requested_by}</td>
-                  <td>{filterSummary(req.filters, t)}</td>
+                  <td>{requestScope(req, t)}</td>
                   <td>{req.reason}</td>
                   <td>{req.created_at.slice(0, 10)}</td>
                   <td className="op-actions">
@@ -97,7 +106,7 @@ export function ExportApprovals() {
         <ConfirmDialog
           message={t('exports.confirmApprove', {
             who: approving.requested_by,
-            scope: filterSummary(approving.filters, t),
+            scope: requestScope(approving, t),
             reason: approving.reason,
           })}
           confirmLabel={t('exports.confirm')}

@@ -29,6 +29,8 @@ import type {
   OperatorActivityResult,
   OperatorClient,
   ProfileFilters,
+  Report,
+  ReportResult,
   ResetPasswordResult,
   Role,
   SearchProfilesResult,
@@ -104,6 +106,19 @@ export const METRICS: Metrics = {
 export const EXPORT_REQUEST: ExportRequest = {
   id: 1, requested_by: 'm.rossi', filters: { skill_query: 'cucina' }, reason: 'Azienda X',
   status: 'pending', decided_by: null, decided_at: null, decision_reason: null, created_at: '2026-07-27T10:00:00Z',
+  kind: 'profiles',
+}
+
+export const REPORT: Report = {
+  coverage: { total_profiles: 5, completed_profiles: 3, average_completeness: 0.6, completeness_histogram: { '0-25%': '<5', '75-100%': 3 } },
+  languages: { 'it (fluent)': 5, 'ar (native)': '<5' },
+  skill_kinds: { technical: 4, soft: 3 },
+  skill_evidence: { stated: 2, demonstrated: 2, certified: 1 },
+  availability: { full_time: 3, part_time: '<5' },
+  constraints: { no_night_shifts: '<5' },
+  total_job_requests: 2,
+  matching: { runs: 4, evaluated: 4, compatible: 3, compatible_rate: 0.75, top_gaps: { 'Attestato HACCP': '<5' } },
+  trends: { profiles_by_week: { '2026-W10': 2 }, job_requests_by_week: { '2026-W10': 1 } },
 }
 
 export const AUDIT_ENTRY: AuditEntry = {
@@ -138,6 +153,8 @@ export function makeFakeClient(opts: {
   enable?: MutateOperatorResult
   reset?: ResetPasswordResult
   metrics?: MetricsResult
+  report?: ReportResult
+  createReportExp?: CreateExportResult
   exports?: ListExportsResult
   pending?: ListExportsResult
   createExp?: CreateExportResult
@@ -167,6 +184,8 @@ export function makeFakeClient(opts: {
     openable: number
     opreset: number
     metrics: number
+    report: number
+    reportExport: number
     expList: number
     expPending: number
     expCreate: number
@@ -192,7 +211,7 @@ export function makeFakeClient(opts: {
 } {
   const calls = {
     login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0,
-    lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0,
+    lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0, report: 0, reportExport: 0,
     expList: 0, expPending: 0, expCreate: 0, expApprove: 0, expDeny: 0, expDownload: 0,
     audList: 0, audVerify: 0, activity: 0, systemConfig: 0,
   }
@@ -289,6 +308,14 @@ export function makeFakeClient(opts: {
     async getMetrics() {
       calls.metrics++
       return opts.metrics ?? { status: 'ok', metrics: METRICS }
+    },
+    async getReport() {
+      calls.report++
+      return opts.report ?? { status: 'ok', report: REPORT }
+    },
+    async createReportExport() {
+      calls.reportExport++
+      return opts.createReportExp ?? { status: 'ok', request: { ...EXPORT_REQUEST, kind: 'report' } }
     },
     async createExport(filters, reason) {
       calls.expCreate++
