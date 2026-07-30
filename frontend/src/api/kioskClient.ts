@@ -29,6 +29,28 @@ async function startInterview(language: string): Promise<StartResult> {
   return { status: 'ok', sessionToken: data.session_token, step: data.step }
 }
 
+async function startFollowup(token: string, language: string): Promise<StartResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/kiosk/interview/start-followup`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ token, language }),
+    })
+  } catch {
+    return { status: 'unavailable' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (!res.ok) return { status: 'unavailable' }
+  let data: { session_token: string; step: Step }
+  try {
+    data = (await res.json()) as { session_token: string; step: Step }
+  } catch {
+    return { status: 'unavailable' }
+  }
+  return { status: 'ok', sessionToken: data.session_token, step: data.step }
+}
+
 async function submitAnswer(sessionToken: string, answer: string): Promise<SubmitResult> {
   let res: Response
   try {
@@ -52,4 +74,4 @@ async function submitAnswer(sessionToken: string, answer: string): Promise<Submi
   return { status: 'ok', step: data.step }
 }
 
-export const kioskClient: KioskClient = { startInterview, submitAnswer }
+export const kioskClient: KioskClient = { startInterview, submitAnswer, startFollowup }

@@ -22,9 +22,10 @@ export type SubmitResult =
   | { status: 'unauthorized' }
   | { status: 'unavailable' }
 
-export type Screen = 'language' | 'consent' | StepKind | 'unauthorized'
+export type Screen = 'language' | 'consent' | 'followupEntry' | 'followupConsent' | StepKind | 'unauthorized'
 
 export interface KioskClient {
   startInterview(language: string): Promise<StartResult>
   submitAnswer(sessionToken: string, answer: string): Promise<SubmitResult>
+  startFollowup(token: string, language: string): Promise<StartResult>
 }

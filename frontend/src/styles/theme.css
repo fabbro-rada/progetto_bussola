@@ -64,6 +64,19 @@ textarea {
   margin-top: 28px; max-width: 640px; color: #4b5563;
   font-size: calc(13px * var(--text-scale)); line-height: 1.5;
 }
+.language-tile[aria-pressed='true'] { background: #e5e7eb; border-color: #64748b; }
+/* Discreet on purpose (§4 — an option, not a prompt): text-link styling, not
+   a button, so it doesn't compete with the primary language tiles above it. */
+.followup-link {
+  display: block; margin-top: 24px; background: none; border: 0; padding: 4px 0;
+  font: inherit; font-size: calc(15px * var(--text-scale)); color: var(--accent);
+  text-decoration: underline; cursor: pointer;
+}
+.followup-entry label { display: block; font-weight: 600; margin-top: 20px; margin-bottom: 8px; }
+.followup-entry input[type='text'] {
+  width: 100%; padding: 14px; border: 2px solid #9ca3af; border-radius: 10px;
+  font: inherit; font-size: calc(18px * var(--text-scale));
+}
 .pending { color: var(--muted); font-weight: 600; }
 .voice-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block: 12px; padding: 10px 12px; background: #f3f4f6; border-radius: 12px; }
 .voice-btn { font: inherit; font-size: calc(16px * var(--text-scale)); font-weight: 700; padding: 12px 16px; border-radius: 10px; border: 2px solid #2563eb; background: #fff; color: #2563eb; cursor: pointer; }

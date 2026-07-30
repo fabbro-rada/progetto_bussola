@@ -6,7 +6,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from bussola.api.kiosk.deps import REGISTRY, build_interview, require_kiosk
+from bussola.api.kiosk.deps import (
+    REGISTRY,
+    build_followup_interview,
+    build_interview,
+    open_kiosk_conn,
+    require_kiosk,
+)
+from bussola.followup.service import FollowupTokenService
 from bussola.interview.interview import Interview
 
 router = APIRouter(prefix="/kiosk/interview", tags=["kiosk"], dependencies=[Depends(require_kiosk)])
@@ -14,6 +21,17 @@ router = APIRouter(prefix="/kiosk/interview", tags=["kiosk"], dependencies=[Depe
 
 class StartRequest(BaseModel):
     language: str = Field(min_length=2, max_length=5)
+
+
+class StartFollowupRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=200)
+    # A follow-up token itself carries no language (a work profile has no
+    # language field — §5): the person's chosen language must come from the
+    # kiosk UI at follow-up time, same as `StartRequest.language` does for a
+    # first interview (Task 6 wires the kiosk's LanguagePicker through here).
+    # Defaults to "it" for safety if omitted, matching `/start`'s field
+    # constraints exactly (no stricter/looser validation than first-interview).
+    language: str = Field(default="it", min_length=2, max_length=5)
 
 
 class SubmitRequest(BaseModel):
@@ -44,6 +62,34 @@ def start(body: StartRequest) -> StartResponse:
         on_evict()
         raise
     token = REGISTRY.create(interview, on_evict=on_evict)
+    return StartResponse(session_token=token, step=StepOut(kind=step.kind, text=step.text))
+
+
+@router.post("/start-followup", response_model=StartResponse)
+def start_followup(body: StartFollowupRequest) -> StartResponse:
+    conn = open_kiosk_conn()
+    pseudonym = FollowupTokenService(conn).consume(body.token)
+    if pseudonym is None:
+        # Fail-closed: unknown/used/expired token -> no session, no leak
+        # about which of the three it was.
+        conn.close()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid or expired token")
+    # LOAD-BEARING (single-use durability): `consume()` marks the token used
+    # via an UPDATE but does NOT commit (the caller owns the transaction,
+    # like every other service in this codebase — see auth.service.authenticate
+    # for the same commit-right-after idiom). Commit HERE, immediately, and
+    # BEFORE any subsequent step that could raise. If anything below raised
+    # first, the connection would close without committing, the `used_at`
+    # mark would roll back, and the token would become reusable — defeating
+    # single-use.
+    conn.commit()
+    interview = build_followup_interview(conn, body.language)
+    try:
+        step = interview.start_followup(pseudonym)
+    except Exception:
+        conn.close()
+        raise
+    token = REGISTRY.create(interview, on_evict=conn.close)
     return StartResponse(session_token=token, step=StepOut(kind=step.kind, text=step.text))
 
 

@@ -87,6 +87,10 @@ def db(test_database: None) -> Iterator[None]:
             export_tbl = cur.fetchone()[0]
             if export_tbl is not None:
                 cur.execute("TRUNCATE export.export_request RESTART IDENTITY")
+            cur.execute("SELECT to_regclass('followup.followup_token')")
+            followup_tbl = cur.fetchone()[0]
+            if followup_tbl is not None:
+                cur.execute("TRUNCATE followup.followup_token")
         owner.commit()
     yield
 

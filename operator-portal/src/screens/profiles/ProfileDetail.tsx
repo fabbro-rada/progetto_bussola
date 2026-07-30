@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { useApiError } from '../../hooks/useApiError'
 import type { WorkProfile } from '../../types'
+import { FollowupTokenModal } from './FollowupTokenModal'
 import { SkillBadge } from './SkillBadge'
 
 export function ProfileDetail() {
@@ -13,6 +14,8 @@ export function ProfileDetail() {
   const handleError = useApiError()
   const [profile, setProfile] = useState<WorkProfile | null>(null)
   const [error, setError] = useState('')
+  const [followupError, setFollowupError] = useState('')
+  const [followupToken, setFollowupToken] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -30,6 +33,16 @@ export function ProfileDetail() {
     return () => { active = false }
   }, [client, handleError, pseudonym, t])
 
+  async function requestFollowup(pseudonymId: string) {
+    setFollowupError('')
+    const r = await client.createFollowup(pseudonymId)
+    if (r.status === 'ok') setFollowupToken(r.token)
+    else {
+      const outcome = handleError(r.status)
+      if (outcome !== 'handled') setFollowupError(t(outcome === 'forbidden' ? 'errors.forbidden' : 'errors.generic'))
+    }
+  }
+
   if (error) return <p className="error" role="alert">{error}</p>
   if (profile === null) return <p>{t('common.loading')}</p>
 
@@ -37,9 +50,13 @@ export function ProfileDetail() {
     <div className="profile-detail">
       <p><Link to="/profiles">← {t('profiles.title')}</Link></p>
       <div className="pd-head">
-        <h1>{profile.pseudonym_id}</h1>
-        <span>{t('profiles.digitalLiteracy')}: {profile.digital_literacy ? t(`pl.digital_${profile.digital_literacy}`) : t('profiles.none')}</span>
+        <div>
+          <h1>{profile.pseudonym_id}</h1>
+          <span>{t('profiles.digitalLiteracy')}: {profile.digital_literacy ? t(`pl.digital_${profile.digital_literacy}`) : t('profiles.none')}</span>
+        </div>
+        <button type="button" onClick={() => void requestFollowup(profile.pseudonym_id)}>{t('followups.new')}</button>
       </div>
+      {followupError && <p className="error" role="alert">{followupError}</p>}
 
       <h2>{t('profiles.skills')}</h2>
       <ul className="skills">
@@ -77,6 +94,14 @@ export function ProfileDetail() {
           <h2>{t('profiles.notes')}</h2>
           <ul>{profile.operational_notes.map((n, i) => <li key={i}>{t(`pl.note_${n}`)}</li>)}</ul>
         </>
+      )}
+
+      {followupToken && (
+        <FollowupTokenModal
+          token={followupToken}
+          subtitle={t('followups.tokenSubtitle', { pseudonym: profile.pseudonym_id })}
+          onClose={() => setFollowupToken(null)}
+        />
       )}
     </div>
   )

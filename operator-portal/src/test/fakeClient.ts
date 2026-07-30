@@ -4,6 +4,7 @@ import type {
   AuditListResult,
   ChangeResult,
   CreateExportResult,
+  CreateFollowupResult,
   CreateJobRequestResult,
   CreateOperatorRequest,
   CreateOperatorResult,
@@ -147,6 +148,7 @@ export function makeFakeClient(opts: {
   match?: MatchResultsResult
   profiles?: SearchProfilesResult
   profile?: GetProfileResult
+  createFollowup?: CreateFollowupResult
   operators?: ListOperatorsResult
   createOp?: CreateOperatorResult
   disable?: MutateOperatorResult
@@ -178,6 +180,7 @@ export function makeFakeClient(opts: {
     match: number
     psearch: number
     pget: number
+    followupCreate: number
     lops: number
     opcreate: number
     opdisable: number
@@ -199,6 +202,7 @@ export function makeFakeClient(opts: {
   }
   created: JobRequestCreate[]
   searched: ProfileFilters[]
+  followupPseudonyms: string[]
   createdOperators: CreateOperatorRequest[]
   disabledIds: number[]
   enabledIds: number[]
@@ -211,12 +215,14 @@ export function makeFakeClient(opts: {
 } {
   const calls = {
     login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0,
+    followupCreate: 0,
     lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0, report: 0, reportExport: 0,
     expList: 0, expPending: 0, expCreate: 0, expApprove: 0, expDeny: 0, expDownload: 0,
     audList: 0, audVerify: 0, activity: 0, systemConfig: 0,
   }
   const created: JobRequestCreate[] = []
   const searched: ProfileFilters[] = []
+  const followupPseudonyms: string[] = []
   const createdOperators: CreateOperatorRequest[] = []
   const disabledIds: number[] = []
   const enabledIds: number[] = []
@@ -231,6 +237,7 @@ export function makeFakeClient(opts: {
     calls,
     created,
     searched,
+    followupPseudonyms,
     createdOperators,
     disabledIds,
     enabledIds,
@@ -280,6 +287,11 @@ export function makeFakeClient(opts: {
     async getProfile() {
       calls.pget++
       return opts.profile ?? { status: 'ok', profile: PROFILE }
+    },
+    async createFollowup(pseudonymId) {
+      calls.followupCreate++
+      followupPseudonyms.push(pseudonymId)
+      return opts.createFollowup ?? { status: 'ok', token: 'FUP-9K2M-7QRT' }
     },
     async listOperators() {
       calls.lops++

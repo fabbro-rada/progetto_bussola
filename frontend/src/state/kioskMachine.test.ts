@@ -92,6 +92,74 @@ test('submitted unauthorized/unavailable clear pending too', () => {
   expect(reducer(base, { type: 'submitted', result: { status: 'unavailable' } }).pending).toBe(false)
 })
 
+// --- Follow-up path (Sottosistema 29, Task 6): additive on top of the above,
+// none of which changed.
+
+test('openFollowupEntry moves to the follow-up entry screen from anywhere', () => {
+  const s = reducer(initialState, { type: 'openFollowupEntry' })
+  expect(s.screen).toBe('followupEntry')
+})
+
+test('submitFollowupCredentials stores the token and language and moves to follow-up consent', () => {
+  const s = reducer({ ...initialState, screen: 'followupEntry' }, {
+    type: 'submitFollowupCredentials',
+    token: 'F-123',
+    language: 'ar',
+  })
+  expect(s.screen).toBe('followupConsent')
+  expect(s.followupToken).toBe('F-123')
+  expect(s.language).toBe('ar')
+})
+
+test('previewFollowupLanguage updates the language without changing the screen (fix round 1, §4 voice retargeting)', () => {
+  const s = reducer({ ...initialState, screen: 'followupEntry' }, {
+    type: 'previewFollowupLanguage',
+    language: 'ar',
+  })
+  expect(s.screen).toBe('followupEntry')
+  expect(s.language).toBe('ar')
+})
+
+test('declining follow-up consent resets to the initial state (reuses declineConsent)', () => {
+  const mid = { ...initialState, screen: 'followupConsent' as const, followupToken: 'F-123', language: 'ar' }
+  expect(reducer(mid, { type: 'declineConsent' })).toEqual(initialState)
+})
+
+test('startedFollowup ok derives the screen from the step kind and stores the session token', () => {
+  const s = reducer({ ...initialState, followupToken: 'F-123', language: 'ar', pending: true }, {
+    type: 'startedFollowup',
+    result: { status: 'ok', sessionToken: 'tok', step: { kind: 'question', text: 'Bentornato' } },
+  })
+  expect(s).toMatchObject({ screen: 'question', sessionToken: 'tok', step: { kind: 'question', text: 'Bentornato' } })
+})
+
+test('startedFollowup unauthorized (bad/expired/used token) routes to the gentle unavailable screen, not "unauthorized"', () => {
+  const base = { ...initialState, followupToken: 'F-123', pending: true }
+  const s = reducer(base, { type: 'startedFollowup', result: { status: 'unauthorized' } })
+  expect(s.screen).toBe('unavailable')
+  expect(s.pending).toBe(false)
+})
+
+test('startedFollowup unavailable (backend down) also routes to the unavailable screen', () => {
+  const base = { ...initialState, followupToken: 'F-123', pending: true }
+  const s = reducer(base, { type: 'startedFollowup', result: { status: 'unavailable' } })
+  expect(s.screen).toBe('unavailable')
+  expect(s.pending).toBe(false)
+})
+
+test('a late startedFollowup after a reset is ignored (pending=false → no-op)', () => {
+  const late = reducer(initialState, {
+    type: 'startedFollowup',
+    result: { status: 'ok', sessionToken: 'tok', step: { kind: 'question', text: 'Q' } },
+  })
+  expect(late).toEqual(initialState)
+})
+
+test('stop resets the follow-up path too (Ferma from followupEntry/followupConsent)', () => {
+  const mid = { ...initialState, screen: 'followupEntry' as const, followupToken: 'F-123', language: 'ar' }
+  expect(reducer(mid, { type: 'stop' })).toEqual(initialState)
+})
+
 test('a late started/submitted after a reset is ignored (pending=false → no-op)', () => {
   // initialState has pending:false, screen:'language'
   const lateStarted = reducer(initialState, {

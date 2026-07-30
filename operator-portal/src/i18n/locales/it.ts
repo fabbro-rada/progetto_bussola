@@ -115,6 +115,16 @@ export const it = {
     months: '{{n}} mesi',
     none: '—',
   },
+  followups: {
+    new: 'Nuovo follow-up',
+    tokenTitle: 'Codice di follow-up',
+    tokenSubtitle: 'Follow-up per «{{pseudonym}}».',
+    tokenWarning: 'Mostrato una sola volta. Consegnalo ora alla persona: non sarà più visibile.',
+    tokenInstructions: 'Il codice è a uso singolo e scade dopo un periodo limitato: la persona lo userà per riprendere il colloquio di follow-up.',
+    copy: 'Copia',
+    copied: 'Copiato',
+    close: 'Ho copiato, chiudi',
+  },
   pl: {
     level_basic: 'Base', level_intermediate: 'Intermedio', level_fluent: 'Fluente', level_native: 'Madrelingua',
     digital_none: 'Nessuna', digital_basic: 'Base', digital_intermediate: 'Intermedia', digital_advanced: 'Avanzata',

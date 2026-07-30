@@ -11,6 +11,8 @@ import { VoiceProvider } from './voice/VoiceContext'
 import type { VoiceClient } from './voice/voiceClient'
 import { LanguagePicker } from './screens/LanguagePicker'
 import { Consent } from './screens/Consent'
+import { FollowupEntry } from './screens/FollowupEntry'
+import { FollowupConsent } from './screens/FollowupConsent'
 import { Question } from './screens/Question'
 import { Summary } from './screens/Summary'
 import { Clarification } from './screens/Clarification'
@@ -38,6 +40,29 @@ export function App({
     dispatch({ type: 'started', result })
   }, [client, state.language])
 
+  const openFollowupEntry = useCallback(() => {
+    dispatch({ type: 'openFollowupEntry' })
+  }, [])
+
+  // Fix round 1 (§4): keeps voice narration on the follow-up entry screen
+  // targeting the language just tapped, not whatever `state.language` was
+  // before. `FollowupEntry` already applies the language to i18n/dir itself;
+  // this only updates the field `VoiceProvider`'s `language` prop reads below.
+  const previewFollowupLanguage = useCallback((code: string) => {
+    dispatch({ type: 'previewFollowupLanguage', language: code })
+  }, [])
+
+  const submitFollowupCredentials = useCallback((token: string, language: string) => {
+    dispatch({ type: 'submitFollowupCredentials', token, language })
+  }, [])
+
+  const startFollowup = useCallback(async () => {
+    if (!state.followupToken || !state.language) return
+    dispatch({ type: 'starting' })
+    const result = await client.startFollowup(state.followupToken, state.language)
+    dispatch({ type: 'startedFollowup', result })
+  }, [client, state.followupToken, state.language])
+
   const submit = useCallback(
     async (answer: string) => {
       if (!state.sessionToken) return
@@ -51,10 +76,12 @@ export function App({
   const retry = useCallback(async () => {
     if (state.sessionToken && state.lastAnswer !== null) {
       await submit(state.lastAnswer)
+    } else if (state.followupToken) {
+      await startFollowup()
     } else {
       await start()
     }
-  }, [state.sessionToken, state.lastAnswer, submit, start])
+  }, [state.sessionToken, state.lastAnswer, state.followupToken, submit, start, startFollowup])
 
   const stop = useCallback(() => {
     applyLanguage('it')
@@ -69,9 +96,13 @@ export function App({
   function renderScreen() {
     switch (state.screen) {
       case 'language':
-        return <LanguagePicker onSelect={selectLanguage} />
+        return <LanguagePicker onSelect={selectLanguage} onFollowupEntry={openFollowupEntry} />
       case 'consent':
         return <Consent onAccept={start} onDecline={decline} busy={state.pending} />
+      case 'followupEntry':
+        return <FollowupEntry onSubmit={submitFollowupCredentials} onLanguageChange={previewFollowupLanguage} />
+      case 'followupConsent':
+        return <FollowupConsent onAccept={startFollowup} onDecline={decline} busy={state.pending} />
       case 'question':
         return <Question text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'summary':

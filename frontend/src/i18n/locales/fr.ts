@@ -11,6 +11,24 @@ export const fr = {
     accept: "J'ai compris, commençons",
     decline: 'Pas maintenant',
   },
+  followupEntry: {
+    title: 'As-tu un code de suivi ?',
+    languageGroupLabel: 'Langue',
+    tokenLabel: "Saisis le code qu'un opérateur t'a donné",
+    tokenPlaceholder: 'Code…',
+    submit: 'Continuer',
+  },
+  followupConsent: {
+    title: 'On met à jour ton profil ? 👋',
+    point: {
+      recent: 'Je vais te poser quelques questions sur ta dernière expérience de travail.',
+      onlyWork: "Je ne mets à jour que des choses sur le travail. Pas d'infractions, pas de santé, pas de famille.",
+      voluntary: "C'est libre : tu peux t'arrêter quand tu veux avec le bouton « Arrêter », ou dire non maintenant.",
+      local: 'Tes données restent ici. Elles ne sortent pas.',
+    },
+    accept: 'Oui, mettons à jour',
+    decline: 'Pas maintenant',
+  },
   prompt: { placeholder: 'Écris ta réponse ici…', next: 'Suivant' },
   confirm: {
     yes: "Oui, c'est correct",

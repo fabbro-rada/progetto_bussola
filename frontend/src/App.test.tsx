@@ -11,6 +11,24 @@ async function chooseItalianAndConsent() {
   await userEvent.click(await screen.findByRole('button', { name: 'Ho capito, iniziamo' }))
 }
 
+// Follow-up path helper (Sottosistema 29, Task 6): opens the discreet link
+// from the language picker, picks a language + types a code on the new
+// follow-up entry screen, and submits — landing on the follow-up
+// consent/recap. Mirrors `chooseItalianAndConsent` above but stops one screen
+// earlier so callers can assert on accept/decline separately (the whole
+// point of that screen being a first-class, consequence-free choice, §4).
+// The submit button is looked up positionally (last button in the DOM):
+// its label is in whatever language was just chosen, which after an Arabic
+// tile tap is Arabic script, not a fixed string.
+async function openFollowupWithCode(languageName: string, code: string) {
+  await userEvent.click(await screen.findByRole('button', { name: /follow-up/i }))
+  await userEvent.click(await screen.findByRole('button', { name: languageName }))
+  const input = document.querySelector('#followup-token') as HTMLInputElement
+  await userEvent.type(input, code)
+  const buttons = screen.getAllByRole('button')
+  await userEvent.click(buttons[buttons.length - 1])
+}
+
 test('happy path: language -> consent -> question -> summary -> completed', async () => {
   const client = makeFakeClient({
     start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Che lavoro sai fare?') },
@@ -109,6 +127,7 @@ test('«Ferma» during an in-flight submit is not undone by the late response', 
       return { status: 'ok', sessionToken: 'tok', step: step('summary', 'RECAP PRIVATO') }
     },
     async submitAnswer() { return inFlight },
+    async startFollowup() { return { status: 'unavailable' } },
   }
   renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
@@ -135,6 +154,7 @@ test('does not double-submit while a request is in flight; shows pending, disabl
       submitCalls++
       return inFlight
     },
+    async startFollowup() { return { status: 'unavailable' } },
   }
   renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
@@ -167,4 +187,91 @@ test('auto-reads the interview question via synthesize when a step appears', asy
   await waitFor(() =>
     expect(fakeVoice.calls.synthesize.some((c) => c.text === 'Che lavoro sai fare?' && c.language === 'it')).toBe(true),
   )
+})
+
+// --- Follow-up path (Sottosistema 29, Task 6) -------------------------------
+// Additive: a discreet link on the language picker, a token+language entry
+// screen, and a follow-up-specific consent/recap — none of it touches the
+// first-interview flow exercised by the tests above.
+
+test('follow-up: valid code -> consent recap -> accept sends BOTH the token and the chosen language, reaches the first question', async () => {
+  const client = makeFakeClient({
+    startFollowup: { status: 'ok', sessionToken: 'tok', step: step('question', 'Come è andata di recente?') },
+  })
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
+
+  await openFollowupWithCode('Italiano', 'F-ABC123')
+
+  // Voluntariness (§4): a recap/consent screen, with an accept action, shows
+  // BEFORE anything is sent.
+  expect(client.calls.followup).toBeNull()
+  await userEvent.click(await screen.findByRole('button', { name: 'Sì, aggiorniamo' }))
+
+  expect(await screen.findByText('Come è andata di recente?')).toBeInTheDocument()
+  expect(client.calls.followup).toEqual({ token: 'F-ABC123', language: 'it' })
+})
+
+test('follow-up: declining the recap returns to the neutral entry — no session started, no submit ever sent', async () => {
+  const client = makeFakeClient({})
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
+
+  await openFollowupWithCode('Italiano', 'F-ABC123')
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Non ora' }))
+  expect(await screen.findByRole('button', { name: 'Italiano' })).toBeInTheDocument()
+  expect(client.calls.followup).toBeNull() // start-followup was never called
+  expect(client.calls.answers).toEqual([]) // and nothing was ever submitted
+})
+
+test('follow-up: an invalid/expired/used token fails closed to the gentle unavailable screen (no crash, no leak of why)', async () => {
+  const client = makeFakeClient({ startFollowup: { status: 'unauthorized' } })
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
+
+  await openFollowupWithCode('Italiano', 'F-BAD')
+  await userEvent.click(await screen.findByRole('button', { name: 'Sì, aggiorniamo' }))
+
+  expect(await screen.findByText(/Un momento, ci riprovo/)).toBeInTheDocument()
+  // Specifically NOT the station-not-authorized screen — that would
+  // misdirect the person (and any operator helping them) toward a device
+  // problem that doesn't exist.
+  expect(screen.queryByText(/Questa postazione non è autorizzata/)).not.toBeInTheDocument()
+})
+
+test('«Ferma» resets from mid-follow-up-entry back to the language picker', async () => {
+  renderWithProviders(<App client={makeFakeClient({})} voiceClient={noopVoiceClient} />)
+  await openFollowupWithCode('Italiano', 'F-ABC123')
+  await userEvent.click(screen.getByRole('button', { name: /Ferma/ }))
+  expect(screen.getByRole('button', { name: 'Italiano' })).toBeInTheDocument()
+})
+
+test('follow-up: choosing Arabic on the entry screen sets rtl; declining the recap resets to ltr', async () => {
+  renderWithProviders(<App client={makeFakeClient({})} voiceClient={noopVoiceClient} />)
+  await openFollowupWithCode('العربية', 'F-1')
+  expect(document.documentElement.dir).toBe('rtl')
+
+  await userEvent.click(await screen.findByRole('button', { name: /ليس الآن|Non ora/ }))
+  expect(document.documentElement.dir).toBe('ltr')
+})
+
+test('the default language-picker tap still starts a brand new first interview, unaffected by the follow-up entry point', async () => {
+  const client = makeFakeClient({
+    start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Che lavoro sai fare?') },
+  })
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
+  await chooseItalianAndConsent()
+  expect(await screen.findByText('Che lavoro sai fare?')).toBeInTheDocument()
+  expect(client.calls.followup).toBeNull()
+})
+
+// Fix round 1 (§4 accessibility): FollowupEntry now narrates via VoiceBar.
+// This proves the deeper wiring behind it — picking a tile there retargets
+// the app's actual voice-narration language immediately (not only once the
+// whole form is submitted), the same way `auto-reads the interview question
+// via synthesize` above proves it for the first-interview LanguagePicker.
+test('follow-up: picking Arabic on the entry screen narrates in Arabic right away, before the code is even submitted', async () => {
+  const fakeVoice = makeVoiceClient({ audio: null })
+  renderWithProviders(<App client={makeFakeClient({})} voiceClient={fakeVoice} />)
+  await userEvent.click(await screen.findByRole('button', { name: /follow-up/i }))
+  await userEvent.click(await screen.findByRole('button', { name: 'العربية' }))
+  await waitFor(() => expect(fakeVoice.calls.synthesize.some((c) => c.language === 'ar')).toBe(true))
 })
