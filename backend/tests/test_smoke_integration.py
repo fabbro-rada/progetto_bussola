@@ -82,6 +82,8 @@ def test_full_stack_wiring_smoke(
     )
     assert r.status_code == 204, r.text
     r = client.post("/auth/login", json={"username": "smoke_op", "password": "op-new-pw-123"})
+    assert r.status_code == 200, r.text
+    assert r.json()["must_change_password"] is False
     op_auth = {"Authorization": f"Bearer {r.json()['token']}"}
 
     # 7. Operator performs an authenticated write that COMMITS.
