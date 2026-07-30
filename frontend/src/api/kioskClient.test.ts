@@ -70,3 +70,36 @@ test('submit maps a 2xx response with an unparsable body to unavailable', async 
   vi.stubGlobal('fetch', mockFetchBadJson(200))
   expect(await kioskClient.submitAnswer('tok', 'x')).toEqual({ status: 'unavailable' })
 })
+
+// startFollowup(token, language): mirrors startInterview's fail-closed shape
+// exactly, but ALSO sends the person-chosen language (Task 6 correction —
+// StartFollowupRequest carries both `token` and `language`, same field
+// constraints as `/start`). A follow-up token carries no language of its
+// own (§5), so dropping this would silently force the person back to
+// Italian regardless of what they picked.
+test('startFollowup posts both the token and the language, and sends the kiosk token header', async () => {
+  const fetchMock = mockFetch(200, { session_token: 'tok', step: { kind: 'question', text: 'Bentornato' } })
+  vi.stubGlobal('fetch', fetchMock)
+  const res = await kioskClient.startFollowup('follow-tok', 'ar')
+  expect(res).toEqual({ status: 'ok', sessionToken: 'tok', step: { kind: 'question', text: 'Bentornato' } })
+  const [url, init] = fetchMock.mock.calls[0]
+  expect(String(url)).toContain('/kiosk/interview/start-followup')
+  expect((init as RequestInit).method).toBe('POST')
+  expect((init!.headers as Record<string, string>)['X-Kiosk-Token']).toBeDefined()
+  expect(JSON.parse((init as RequestInit).body as string)).toEqual({ token: 'follow-tok', language: 'ar' })
+})
+
+test('startFollowup maps 401 (invalid/used/expired token) to unauthorized', async () => {
+  vi.stubGlobal('fetch', mockFetch(401))
+  expect(await kioskClient.startFollowup('bad-tok', 'it')).toEqual({ status: 'unauthorized' })
+})
+
+test('startFollowup maps a thrown fetch (backend down) to unavailable', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')))
+  expect(await kioskClient.startFollowup('tok', 'it')).toEqual({ status: 'unavailable' })
+})
+
+test('startFollowup maps a 2xx response with an unparsable body to unavailable', async () => {
+  vi.stubGlobal('fetch', mockFetchBadJson(200))
+  expect(await kioskClient.startFollowup('tok', 'it')).toEqual({ status: 'unavailable' })
+})

@@ -11,6 +11,24 @@ export const ar = {
     accept: 'فهمت، لنبدأ',
     decline: 'ليس الآن',
   },
+  followupEntry: {
+    title: 'هل لديك رمز متابعة؟',
+    languageGroupLabel: 'اللغة',
+    tokenLabel: 'أدخل الرمز الذي أعطاك إياه أحد الموظفين',
+    tokenPlaceholder: 'الرمز…',
+    submit: 'متابعة',
+  },
+  followupConsent: {
+    title: 'هل نحدّث ملفك؟ 👋',
+    point: {
+      recent: 'سأطرح عليك بعض الأسئلة عن أحدث خبرة عمل لك.',
+      onlyWork: 'أحدّث فقط أمورًا تتعلق بالعمل. لا جرائم، لا صحة، لا عائلة.',
+      voluntary: 'المشاركة حرة: يمكنك التوقف متى شئت بزر «إيقاف»، أو رفض الآن.',
+      local: 'بياناتك تبقى هنا. لا تخرج.',
+    },
+    accept: 'نعم، لنحدّث',
+    decline: 'ليس الآن',
+  },
   prompt: { placeholder: 'اكتب إجابتك هنا…', next: 'التالي' },
   confirm: {
     yes: 'نعم، هذا صحيح',

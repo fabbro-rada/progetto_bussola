@@ -30,3 +30,20 @@ test('shows the required CC BY attribution for the French (siwis) voice', () => 
   // the licence URL is plain text, not a navigable link (kiosk is locked, §7.1)
   expect(within(credits).queryByRole('link')).toBeNull()
 })
+
+// Follow-up entry point (Sottosistema 29, Task 6): additive and OPTIONAL — the
+// first-interview path (onSelect only, no onFollowupEntry) must render
+// exactly as before, see the two tests above which pass no such prop.
+test('without onFollowupEntry, no follow-up link is rendered (first-interview path unchanged)', () => {
+  renderWithProviders(<LanguagePicker onSelect={vi.fn()} />)
+  expect(screen.queryByText(/follow-up/i)).not.toBeInTheDocument()
+})
+
+test('with onFollowupEntry, a discreet follow-up link is offered and fires the callback', async () => {
+  const onSelect = vi.fn()
+  const onFollowupEntry = vi.fn()
+  renderWithProviders(<LanguagePicker onSelect={onSelect} onFollowupEntry={onFollowupEntry} />)
+  await userEvent.click(screen.getByRole('button', { name: /follow-up/i }))
+  expect(onFollowupEntry).toHaveBeenCalledOnce()
+  expect(onSelect).not.toHaveBeenCalled()
+})

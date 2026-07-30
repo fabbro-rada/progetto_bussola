@@ -11,6 +11,24 @@ export const es = {
     accept: 'Entendido, empecemos',
     decline: 'Ahora no',
   },
+  followupEntry: {
+    title: '¿Tienes un código de seguimiento?',
+    languageGroupLabel: 'Idioma',
+    tokenLabel: 'Introduce el código que te dio un operador',
+    tokenPlaceholder: 'Código…',
+    submit: 'Continuar',
+  },
+  followupConsent: {
+    title: '¿Actualizamos tu perfil? 👋',
+    point: {
+      recent: 'Te haré algunas preguntas sobre tu experiencia laboral más reciente.',
+      onlyWork: 'Solo actualizo cosas sobre el trabajo. Nada de delitos, nada de salud, nada de familia.',
+      voluntary: 'Es libre: puedes parar cuando quieras con el botón «Detener», o decir que no ahora mismo.',
+      local: 'Tus datos se quedan aquí. No salen.',
+    },
+    accept: 'Sí, actualicemos',
+    decline: 'Ahora no',
+  },
   prompt: { placeholder: 'Escribe aquí tu respuesta…', next: 'Siguiente' },
   confirm: {
     yes: 'Sí, es correcto',
