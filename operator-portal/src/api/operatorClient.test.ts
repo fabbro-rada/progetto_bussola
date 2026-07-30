@@ -179,6 +179,25 @@ test('getProfile maps 200→ok and 404→not-found', async () => {
   expect(await operatorClient.getProfile('P-4F2A')).toEqual({ status: 'not-found' })
 })
 
+test('createFollowup POSTs {pseudonym_id} with Bearer and maps 201→ok{token}; 403→forbidden; network→error', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(201, { token: 'FUP-9K2M-7QRT' }))
+  vi.stubGlobal('fetch', f)
+  const r = await operatorClient.createFollowup('P-4F2A')
+  expect(r).toEqual({ status: 'ok', token: 'FUP-9K2M-7QRT' })
+  const [url, init] = f.mock.calls[0]
+  expect(String(url)).toMatch(/\/followups$/)
+  expect((init as RequestInit).method).toBe('POST')
+  expect(JSON.parse((init as RequestInit).body as string)).toEqual({ pseudonym_id: 'P-4F2A' })
+  expect((init!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(401)))
+  expect(await operatorClient.createFollowup('P-4F2A')).toEqual({ status: 'unauthorized' })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.createFollowup('P-4F2A')).toEqual({ status: 'forbidden' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.createFollowup('P-4F2A')).toEqual({ status: 'error' })
+})
+
 const OPS = [
   { id: 1, username: 'm.rossi', display_name: 'Maria Rossi', role: 'operator', is_active: true, must_change_password: false },
   { id: 3, username: 'a.verdi', display_name: 'Aldo Verdi', role: 'operator', is_active: false, must_change_password: false },

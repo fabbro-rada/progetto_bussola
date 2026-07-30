@@ -17,6 +17,7 @@ import { JobRequestList } from './screens/jobRequests/JobRequestList'
 import { JobRequestDetail } from './screens/jobRequests/JobRequestDetail'
 import { ProfileSearch } from './screens/profiles/ProfileSearch'
 import { ProfileDetail } from './screens/profiles/ProfileDetail'
+import { FollowupTokenModal } from './screens/profiles/FollowupTokenModal'
 import { OperatorList } from './screens/operators/OperatorList'
 
 import { Login } from './screens/Login'
@@ -282,6 +283,15 @@ test('TempPasswordModal has no a11y violations', async () => {
     <TempPasswordModal password="7Kq9-mZ2t-Rf4x" subtitle="Operatore «x» creato." onClose={noop} copy={copy} />,
   )
   await screen.findByText('7Kq9-mZ2t-Rf4x')
+  await expectNoA11yViolations(container)
+})
+
+test('FollowupTokenModal has no a11y violations', async () => {
+  const copy = vi.fn().mockResolvedValue(undefined)
+  const { container } = renderWithProviders(
+    <FollowupTokenModal token="FUP-9K2M-7QRT" subtitle="Follow-up per «P-4F2A»." onClose={noop} copy={copy} />,
+  )
+  await screen.findByText('FUP-9K2M-7QRT')
   await expectNoA11yViolations(container)
 })
 
