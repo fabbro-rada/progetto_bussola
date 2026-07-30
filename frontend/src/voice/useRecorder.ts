@@ -57,31 +57,45 @@ export function useRecorder({ onText }: { onText: (text: string) => void }) {
     }
     streamRef.current = stream
     chunksRef.current = []
-    const rec = new MediaRecorder(stream)
-    recorderRef.current = rec
-    rec.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data)
-    }
-    rec.onstop = async () => {
+    try {
+      const rec = new MediaRecorder(stream)
+      recorderRef.current = rec
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      rec.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop())
+        streamRef.current = null
+        if (!mountedRef.current) {
+          busyRef.current = false
+          return
+        }
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' })
+        setState('transcribing')
+        const res = await client.transcribe(blob, language)
+        busyRef.current = false
+        if (!mountedRef.current) return
+        if (res.status === 'ok') {
+          onText(res.text)
+          setState('idle')
+        } else {
+          setState('unavailable')
+        }
+      }
+      rec.start()
+    } catch {
+      // MediaRecorder construction or start() threw (getUserMedia had already
+      // succeeded): release the mic so it's never left hot, clear refs, and reset
+      // the re-entrancy guard so a later attempt can proceed. Fall back to text
+      // (§3/§7.1). onstop won't fire (the recorder never started), so cleanup
+      // must happen here.
       stream.getTracks().forEach((track) => track.stop())
       streamRef.current = null
-      if (!mountedRef.current) {
-        busyRef.current = false
-        return
-      }
-      const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' })
-      setState('transcribing')
-      const res = await client.transcribe(blob, language)
+      recorderRef.current = null
       busyRef.current = false
-      if (!mountedRef.current) return
-      if (res.status === 'ok') {
-        onText(res.text)
-        setState('idle')
-      } else {
-        setState('unavailable')
-      }
+      if (mountedRef.current) setState('unavailable')
+      return
     }
-    rec.start()
     setState('recording')
   }, [client, language, onText])
 
