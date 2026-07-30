@@ -28,7 +28,7 @@ fail() { printf '  FAIL %s\n' "$1"; exit 1; }
 wait_http() {
   local url="$1" what="$2" tries="${3:-40}"
   for _ in $(seq 1 "$tries"); do
-    if curl -fsS -o /dev/null "$url" 2>/dev/null; then pass "$what"; return 0; fi
+    if curl -fsS --connect-timeout 2 --max-time 5 -o /dev/null "$url" 2>/dev/null; then pass "$what"; return 0; fi
     sleep 1
   done
   fail "$what (timeout on $url)"
@@ -47,15 +47,15 @@ wait_http "http://127.0.0.1:$PORTAL_PORT" "operator portal serves ($PORTAL_PORT)
 
 # 3. Functional auth probe: real login (does NOT change the password) + one
 #    authenticated call. Proves app + DB + auth are wired end to end.
-LOGIN="$(curl -fsS -X POST "$BACKEND/auth/login" \
+LOGIN="$(curl -fsS --connect-timeout 2 --max-time 10 -X POST "$BACKEND/auth/login" \
   -H 'Content-Type: application/json' \
   -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PW\"}")" \
   || fail "login request"
 TOKEN="$(printf '%s' "$LOGIN" | "$PYTHON" -c 'import sys, json; print(json.load(sys.stdin)["token"])')" \
   || fail "login returned no token (is this a fresh stack with the default admin?)"
 pass "login as $ADMIN_USER"
-curl -fsS -o /dev/null "$BACKEND/auth/me" -H "Authorization: Bearer $TOKEN" \
-  || fail "authenticated GET /me"
-pass "authenticated GET /me"
+curl -fsS --connect-timeout 2 --max-time 10 -o /dev/null "$BACKEND/auth/me" -H "Authorization: Bearer $TOKEN" \
+  || fail "authenticated GET /auth/me"
+pass "authenticated GET /auth/me"
 
 echo "==> SMOKE OK — stack comes up and the critical paths work."
