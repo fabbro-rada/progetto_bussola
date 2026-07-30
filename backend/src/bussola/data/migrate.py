@@ -10,6 +10,8 @@ from pathlib import Path
 
 import psycopg
 
+from bussola.data import config
+
 _MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
@@ -42,3 +44,26 @@ def apply_migrations(conn: psycopg.Connection, migrations_dir: Path | None = Non
         conn.commit()
         newly_applied.append(path.name)
     return newly_applied
+
+
+def main(dsn: str | None = None) -> int:
+    """CLI entry point: apply pending migrations as the owner role.
+
+    Run with ``python -m bussola.data.migrate`` (used by scripts/run-stack.sh).
+    Connects as the DDL-privileged owner and applies any pending migration,
+    printing what it did. `dsn` is injectable for tests; production uses the
+    configured owner DSN.
+    """
+    with psycopg.connect(dsn or config.dsn("owner")) as conn:
+        applied = apply_migrations(conn)
+    if applied:
+        for name in applied:
+            print(f"applied {name}")
+        print(f"{len(applied)} migration(s) applied")
+    else:
+        print("database is up to date")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

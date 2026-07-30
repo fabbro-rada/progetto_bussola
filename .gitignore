@@ -18,3 +18,6 @@ frontend/playwright/.cache/
 operator-portal/node_modules/
 operator-portal/dist/
 operator-portal/.env
+
+# run-stack.sh runtime (pids/logs)
+.run-stack/
