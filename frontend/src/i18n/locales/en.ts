@@ -11,6 +11,24 @@ export const en = {
     accept: "I understand, let's start",
     decline: 'Not now',
   },
+  followupEntry: {
+    title: 'Do you have a follow-up code?',
+    languageGroupLabel: 'Language',
+    tokenLabel: 'Enter the code an operator gave you',
+    tokenPlaceholder: 'Code…',
+    submit: 'Continue',
+  },
+  followupConsent: {
+    title: 'Shall we update your profile? 👋',
+    point: {
+      recent: "I'll ask you a few questions about your most recent work experience.",
+      onlyWork: 'I only update things about work. No offences, no health, no family.',
+      voluntary: "It's free: you can stop whenever you want with the «Stop» button, or say no right now.",
+      local: "Your data stays here. It doesn't leave.",
+    },
+    accept: "Yes, let's update",
+    decline: 'Not now',
+  },
   prompt: { placeholder: 'Type your answer here…', next: 'Next' },
   confirm: {
     yes: "Yes, that's correct",

@@ -3,6 +3,8 @@ import { renderWithProviders } from './test/utils'
 import { expectNoA11yViolations } from './test/axe'
 import { LanguagePicker } from './screens/LanguagePicker'
 import { Consent } from './screens/Consent'
+import { FollowupEntry } from './screens/FollowupEntry'
+import { FollowupConsent } from './screens/FollowupConsent'
 import { Question } from './screens/Question'
 import { Clarification } from './screens/Clarification'
 import { Summary } from './screens/Summary'
@@ -28,6 +30,16 @@ test('LanguagePicker has no a11y violations', async () => {
 
 test('Consent has no a11y violations', async () => {
   const { container } = renderWithProviders(<Consent onAccept={noop} onDecline={noop} />)
+  await expectNoA11yViolations(container)
+})
+
+test('FollowupEntry has no a11y violations', async () => {
+  const { container } = renderWithProviders(<FollowupEntry onSubmit={noop} />)
+  await expectNoA11yViolations(container)
+})
+
+test('FollowupConsent has no a11y violations', async () => {
+  const { container } = renderWithProviders(<FollowupConsent onAccept={noop} onDecline={noop} />)
   await expectNoA11yViolations(container)
 })
 
