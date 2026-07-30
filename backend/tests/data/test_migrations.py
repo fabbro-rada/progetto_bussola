@@ -4,6 +4,19 @@ from .conftest import requires_db
 
 pytestmark = requires_db
 
+_TEST_DB = "bussola_test"  # session test DB (see tests/conftest.py)
+
+
+def test_migrate_main_is_idempotent_on_migrated_db(db: None, capsys):
+    # The CLI (`python -m bussola.data.migrate`, used by scripts/run-stack.sh)
+    # connects by DSN and applies pending migrations. On the already-migrated
+    # test DB it applies nothing and reports so — proving connect+delegate+report.
+    from bussola.data import config, migrate
+
+    rc = migrate.main(config.dsn("owner", dbname=_TEST_DB))
+    assert rc == 0
+    assert "up to date" in capsys.readouterr().out
+
 
 def test_schemas_exist(owner_conn: psycopg.Connection):
     with owner_conn.cursor() as cur:
