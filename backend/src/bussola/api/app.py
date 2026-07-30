@@ -12,6 +12,7 @@ from bussola.api.routers import audit as audit_router
 from bussola.api.routers import auth as auth_router
 from bussola.api.routers import exports as exports_router
 from bussola.api.routers import followups as followups_router
+from bussola.api.routers import health as health_router
 from bussola.api.routers import job_requests as job_requests_router
 from bussola.api.routers import matching as matching_router
 from bussola.api.routers import metrics as metrics_router
@@ -24,6 +25,7 @@ from bussola.api.routers import system as system_router
 def create_app() -> FastAPI:
     app = FastAPI(title="Bussola — Auth API")
     register_error_handlers(app)
+    app.include_router(health_router.router)
     app.include_router(auth_router.router)
     app.include_router(activity_router.router)
     app.include_router(audit_router.router)
