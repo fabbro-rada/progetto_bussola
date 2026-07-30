@@ -23,6 +23,18 @@ def test_english_voice_is_permissive_ljspeech_not_lessac():
     assert "lessac" not in config.PIPER_VOICES["en"]
 
 
+def test_voice_model_dir_default_is_absolute_and_cwd_independent():
+    # Regression (STATO_TECNICO §14): the Piper voices live at <repo>/models/voice,
+    # but the backend runs with CWD=backend/ (uvicorn `cd backend`; pytest too). A
+    # CWD-relative default ("models/voice") made PiperVoice.load miss the models ->
+    # read-aloud silently degraded to text (§1). The default MUST be an absolute
+    # path so it resolves regardless of the working directory.
+    import os
+
+    assert os.path.isabs(config.VOICE_MODEL_DIR), config.VOICE_MODEL_DIR
+    assert config.VOICE_MODEL_DIR.endswith(os.path.join("models", "voice"))
+
+
 def test_voice_unavailable_is_exception():
     assert issubclass(VoiceUnavailable, Exception)
 
