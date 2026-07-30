@@ -6,6 +6,7 @@ import type {
   AuditVerification,
   ChangeResult,
   CreateExportResult,
+  CreateFollowupResult,
   CreateJobRequestResult,
   CreateOperatorRequest,
   CreateOperatorResult,
@@ -219,6 +220,28 @@ async function getProfile(pseudonym: string): Promise<GetProfileResult> {
   if (!res.ok) return { status: 'error' }
   try {
     return { status: 'ok', profile: (await res.json()) as WorkProfile }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function createFollowup(pseudonymId: string): Promise<CreateFollowupResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/followups`, {
+      method: 'POST',
+      headers: headers(true),
+      body: JSON.stringify({ pseudonym_id: pseudonymId }),
+    })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    const data = (await res.json()) as { token: string }
+    return { status: 'ok', token: data.token }
   } catch {
     return { status: 'error' }
   }
@@ -522,6 +545,7 @@ export const operatorClient: OperatorClient = {
   runMatch,
   searchProfiles,
   getProfile,
+  createFollowup,
   listOperators,
   createOperator,
   disableOperator,

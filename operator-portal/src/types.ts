@@ -148,6 +148,14 @@ export type GetProfileResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+// One-time follow-up provisioning token (S29): clear-text only in this
+// response, shown once in the UI and never persisted client-side.
+export type CreateFollowupResult =
+  | { status: 'ok'; token: string }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+
 export interface CreateOperatorRequest {
   username: string
   display_name: string
@@ -330,6 +338,7 @@ export interface OperatorClient {
   runMatch(id: number): Promise<MatchResultsResult>
   searchProfiles(filters: ProfileFilters): Promise<SearchProfilesResult>
   getProfile(pseudonym: string): Promise<GetProfileResult>
+  createFollowup(pseudonymId: string): Promise<CreateFollowupResult>
   listOperators(): Promise<ListOperatorsResult>
   createOperator(body: CreateOperatorRequest): Promise<CreateOperatorResult>
   disableOperator(id: number): Promise<MutateOperatorResult>
