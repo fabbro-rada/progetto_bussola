@@ -6,7 +6,11 @@
 # Any NEW/changed voice MUST be re-verified permissive (§3) and recorded there.
 set -euo pipefail
 
-VOICE_DIR="${BUSSOLA_VOICE_MODEL_DIR:-models/voice}"
+# Anchor to the repo root so the download lands where the backend reads it
+# (bussola.voice.config.VOICE_MODEL_DIR defaults to <repo>/models/voice),
+# regardless of the directory this script is invoked from.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VOICE_DIR="${BUSSOLA_VOICE_MODEL_DIR:-$ROOT/models/voice}"
 BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main"
 mkdir -p "$VOICE_DIR"
 
