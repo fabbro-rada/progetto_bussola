@@ -19,5 +19,11 @@ operator-portal/node_modules/
 operator-portal/dist/
 operator-portal/.env
 
+# Playwright e2e output (browser binaries live in ~/.cache, outside the repo)
+operator-portal/test-results/
+operator-portal/playwright-report/
+operator-portal/blob-report/
+operator-portal/playwright/.cache/
+
 # run-stack.sh runtime (pids/logs)
 .run-stack/
