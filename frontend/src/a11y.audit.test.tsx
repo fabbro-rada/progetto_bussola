@@ -1,3 +1,5 @@
+import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { test } from 'vitest'
 import { renderWithProviders } from './test/utils'
 import { expectNoA11yViolations } from './test/axe'
@@ -34,7 +36,15 @@ test('Consent has no a11y violations', async () => {
 })
 
 test('FollowupEntry has no a11y violations', async () => {
-  const { container } = renderWithProviders(<FollowupEntry onSubmit={noop} />)
+  const { container } = renderWithProviders(<FollowupEntry onSubmit={noop} onLanguageChange={noop} />)
+  await expectNoA11yViolations(container)
+})
+
+// Also audit the post-language-selection state, since that's when the
+// VoiceBar (fix round 1, §4) mounts and is the more representative state.
+test('FollowupEntry (after picking a language) has no a11y violations', async () => {
+  const { container } = renderWithProviders(<FollowupEntry onSubmit={noop} onLanguageChange={noop} />)
+  await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
   await expectNoA11yViolations(container)
 })
 

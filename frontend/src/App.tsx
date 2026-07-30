@@ -44,6 +44,14 @@ export function App({
     dispatch({ type: 'openFollowupEntry' })
   }, [])
 
+  // Fix round 1 (§4): keeps voice narration on the follow-up entry screen
+  // targeting the language just tapped, not whatever `state.language` was
+  // before. `FollowupEntry` already applies the language to i18n/dir itself;
+  // this only updates the field `VoiceProvider`'s `language` prop reads below.
+  const previewFollowupLanguage = useCallback((code: string) => {
+    dispatch({ type: 'previewFollowupLanguage', language: code })
+  }, [])
+
   const submitFollowupCredentials = useCallback((token: string, language: string) => {
     dispatch({ type: 'submitFollowupCredentials', token, language })
   }, [])
@@ -92,7 +100,7 @@ export function App({
       case 'consent':
         return <Consent onAccept={start} onDecline={decline} busy={state.pending} />
       case 'followupEntry':
-        return <FollowupEntry onSubmit={submitFollowupCredentials} />
+        return <FollowupEntry onSubmit={submitFollowupCredentials} onLanguageChange={previewFollowupLanguage} />
       case 'followupConsent':
         return <FollowupConsent onAccept={startFollowup} onDecline={decline} busy={state.pending} />
       case 'question':
