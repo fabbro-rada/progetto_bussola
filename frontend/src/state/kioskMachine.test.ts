@@ -111,6 +111,15 @@ test('submitFollowupCredentials stores the token and language and moves to follo
   expect(s.language).toBe('ar')
 })
 
+test('previewFollowupLanguage updates the language without changing the screen (fix round 1, §4 voice retargeting)', () => {
+  const s = reducer({ ...initialState, screen: 'followupEntry' }, {
+    type: 'previewFollowupLanguage',
+    language: 'ar',
+  })
+  expect(s.screen).toBe('followupEntry')
+  expect(s.language).toBe('ar')
+})
+
 test('declining follow-up consent resets to the initial state (reuses declineConsent)', () => {
   const mid = { ...initialState, screen: 'followupConsent' as const, followupToken: 'F-123', language: 'ar' }
   expect(reducer(mid, { type: 'declineConsent' })).toEqual(initialState)

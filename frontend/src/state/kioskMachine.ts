@@ -39,6 +39,17 @@ export type Action =
   | { type: 'openFollowupEntry' }
   | { type: 'submitFollowupCredentials'; token: string; language: string }
   | { type: 'startedFollowup'; result: StartResult }
+  // Fix round 1 (§4 accessibility): a tile tap on the follow-up entry screen
+  // already calls `applyLanguage()` (updates i18n text + document dir), but
+  // that alone does NOT retarget voice narration — `VoiceProvider`'s
+  // `language` comes from THIS state's `language` field, which otherwise
+  // stays whatever it was until `submitFollowupCredentials` fires on final
+  // submit. Without this, a person who taps "Arabic" and then "Ascolta" on
+  // this very screen would hear Italian narration. Screen is left untouched
+  // (still `followupEntry`) — only the field the voice/dir side effects key
+  // off changes, mirroring what `selectLanguage` does for `language` minus
+  // the screen transition.
+  | { type: 'previewFollowupLanguage'; language: string }
 
 // Step kinds map 1:1 to screens of the same name.
 function screenFor(kind: StepKind): Screen {
@@ -74,6 +85,8 @@ export function reducer(state: MachineState, action: Action): MachineState {
       return initialState
     case 'openFollowupEntry':
       return { ...state, screen: 'followupEntry' }
+    case 'previewFollowupLanguage':
+      return { ...state, language: action.language }
     case 'submitFollowupCredentials':
       return { ...state, followupToken: action.token, language: action.language, screen: 'followupConsent' }
     case 'startedFollowup': {

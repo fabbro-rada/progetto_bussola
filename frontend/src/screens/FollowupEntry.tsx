@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../i18n/languages'
 import { applyLanguage } from '../i18n'
 import { BigButton } from '../components/BigButton'
+import { VoiceBar } from '../components/VoiceBar'
 
 // Follow-up entry (Sottosistema 29, Task 6): a returning person keys in the
 // language they want to continue in and the one-time code an operator gave
@@ -16,15 +17,28 @@ import { BigButton } from '../components/BigButton'
 // tile applies it immediately so the rest of this screen — and everything
 // after — reads in the person's language right away, exactly like the first
 // LanguagePicker does for a first interview.
-export function FollowupEntry({ onSubmit }: { onSubmit: (token: string, language: string) => void }) {
+export function FollowupEntry({
+  onSubmit,
+  onLanguageChange,
+}: {
+  onSubmit: (token: string, language: string) => void
+  // Fix round 1 (§4): notifies the app-level state of the chosen language as
+  // soon as it's picked — separate from `onSubmit` — so voice narration
+  // (which reads the language from app state, not from this screen's local
+  // state) targets the right language while still on THIS screen, not only
+  // after the form is submitted.
+  onLanguageChange: (language: string) => void
+}) {
   const { t } = useTranslation()
   const [language, setLanguage] = useState<string | null>(null)
   const [token, setToken] = useState('')
   const trimmed = token.trim()
+  const spoken = [t('followupEntry.title'), t('followupEntry.tokenLabel')].join('. ')
 
   function selectLanguage(code: string) {
     setLanguage(code)
     applyLanguage(code)
+    onLanguageChange(code)
   }
 
   return (
@@ -45,6 +59,10 @@ export function FollowupEntry({ onSubmit }: { onSubmit: (token: string, language
           </button>
         ))}
       </div>
+      {/* Only once a language is chosen (§4): before that, there's no
+          language to narrate in, same as the rest of this screen only
+          becoming meaningful post-language-selection. */}
+      {language && <VoiceBar text={spoken} />}
       <label htmlFor="followup-token">{t('followupEntry.tokenLabel')}</label>
       <input
         id="followup-token"

@@ -262,3 +262,16 @@ test('the default language-picker tap still starts a brand new first interview, 
   expect(await screen.findByText('Che lavoro sai fare?')).toBeInTheDocument()
   expect(client.calls.followup).toBeNull()
 })
+
+// Fix round 1 (§4 accessibility): FollowupEntry now narrates via VoiceBar.
+// This proves the deeper wiring behind it — picking a tile there retargets
+// the app's actual voice-narration language immediately (not only once the
+// whole form is submitted), the same way `auto-reads the interview question
+// via synthesize` above proves it for the first-interview LanguagePicker.
+test('follow-up: picking Arabic on the entry screen narrates in Arabic right away, before the code is even submitted', async () => {
+  const fakeVoice = makeVoiceClient({ audio: null })
+  renderWithProviders(<App client={makeFakeClient({})} voiceClient={fakeVoice} />)
+  await userEvent.click(await screen.findByRole('button', { name: /follow-up/i }))
+  await userEvent.click(await screen.findByRole('button', { name: 'العربية' }))
+  await waitFor(() => expect(fakeVoice.calls.synthesize.some((c) => c.language === 'ar')).toBe(true))
+})
