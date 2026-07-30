@@ -123,6 +123,12 @@ fi
 # --- 5. backend API --------------------------------------------------------
 echo "==> Backend API -> http://127.0.0.1:8000"
 start_bg backend "cd '$ROOT/backend' && source .venv/bin/activate && exec uvicorn bussola.api.app:create_app --factory --host 127.0.0.1 --port 8000"
+printf "    waiting for backend"
+for i in $(seq 1 30); do
+  if curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1; then printf " ready\n"; break; fi
+  printf "."; sleep 1
+  if [ "$i" = 30 ]; then printf " TIMEOUT (see %s)\n" "$RUN_DIR/backend.log"; fi
+done
 
 # --- 6. frontends ----------------------------------------------------------
 echo "==> Kiosk -> http://localhost:5173"
