@@ -136,6 +136,37 @@ test('MediaRecorder constructor throwing releases the mic, sets unavailable, and
   vi.unstubAllGlobals()
 })
 
+test('MediaRecorder.start() throwing also releases the mic and degrades to unavailable', async () => {
+  // The guard covers rec.start() too, not just the constructor: same mic-hot
+  // failure mode. This test fails if start() is ever moved outside the try.
+  const trackStop = vi.fn()
+  const stream = { getTracks: () => [{ stop: trackStop }] } as unknown as MediaStream
+  class StartThrows {
+    state: 'inactive' | 'recording' = 'inactive'
+    ondataavailable: ((e: { data: Blob }) => void) | null = null
+    onstop: (() => void) | null = null
+    mimeType = 'audio/webm'
+    constructor(public s: MediaStream) {}
+    start() {
+      throw new Error('start() failed')
+    }
+    stop() {
+      this.state = 'inactive'
+    }
+  }
+  vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(stream) } })
+  vi.stubGlobal('MediaRecorder', StartThrows as unknown as typeof MediaRecorder)
+  const { result } = renderHook(() => useRecorder({ onText: vi.fn() }), {
+    wrapper: wrapper(makeVoiceClient({ transcript: 'x' })),
+  })
+  await act(async () => {
+    await result.current.start()
+  })
+  expect(result.current.state).toBe('unavailable')
+  expect(trackStop).toHaveBeenCalled() // mic released even though start() threw
+  vi.unstubAllGlobals()
+})
+
 test('unmount while the permission prompt is pending releases the mic and does not start', async () => {
   const trackStop = vi.fn()
   const stream = { getTracks: () => [{ stop: trackStop }] } as unknown as MediaStream
