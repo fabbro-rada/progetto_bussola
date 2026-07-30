@@ -57,7 +57,9 @@ reale né frontend. Insieme coprono il quadro.
      (+ `must_change_password: true`);
    - `POST /auth/change-password` (Bearer) → `204`;
    - `POST /auth/login` con la nuova password → `200`, `must_change_password: false`;
-   - una **chiamata autenticata** con il token (es. `GET /metrics`) → `200`.
+   - una **chiamata autenticata** con il token (`GET /auth/me`) → `200`.
+   L'harness **non** cambia la password (login + `GET /auth/me` soltanto), così è
+   sicuro rieseguirlo su un DB persistente con l'admin di bootstrap invariato.
    Il parsing JSON usa il Python del venv del backend (nessuna dipendenza extra).
 5. **Ferma lo stack** (`run-stack.sh stop`) in una `trap … EXIT`, così i servizi
    vengono spenti anche in caso di fallimento.
@@ -103,10 +105,12 @@ condivisa. Questo è il valore aggiunto dello smoke.
 7. Operatore `POST /job-requests` (operazione autenticata rappresentativa che
    **committa** e scrive audit) → `201/200`.
 8. **RBAC**: operatore `POST /operators` (azione da admin) → `403`.
-9. **Audit**: tramite una connessione di lettura diretta (`auditor_conn`/`owner_conn`)
-   si verifica che le azioni HTTP abbiano **persistito** righe nel log di audit
-   (login, cambio password, creazione operatore, creazione job request). Prova che
-   l'audit trasversale funziona end-to-end (azione HTTP → riga committata nel DB).
+9. **Audit**: tramite una connessione di lettura diretta (`auditor_conn`) si verifica
+   che le azioni HTTP abbiano **persistito** righe nel log di audit — le azioni auth
+   effettivamente tracciate: `login_succeeded`, `password_changed`, `operator_created`
+   (la creazione di una job request committa ma non scrive audit, quindi non è tra le
+   azioni asserite). Prova che l'audit trasversale funziona end-to-end (azione HTTP →
+   riga committata nel DB).
 
 **Isolamento:** usa le fixture DB esistenti (`db` per lo schema migrato e la pulizia
 tra i test); il DB di test è già migrato **da zero** dalla fixture di sessione
