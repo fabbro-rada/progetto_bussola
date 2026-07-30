@@ -80,6 +80,12 @@ if [ ! -d backend/.venv ]; then
   echo "ERROR: backend/.venv missing — run the backend setup first (STATO_TECNICO §11)."
   exit 1
 fi
+for app in frontend operator-portal; do
+  if [ ! -d "$app/node_modules" ]; then
+    echo "ERROR: $app/node_modules missing — run 'npm install' in $app/ first (STATO_TECNICO §11)."
+    exit 1
+  fi
+done
 # shellcheck disable=SC1091
 source backend/.venv/bin/activate
 
