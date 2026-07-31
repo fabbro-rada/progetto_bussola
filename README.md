@@ -58,9 +58,11 @@ uv sync --all-extras
 uv pip install "en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
 cd ..
 
-# 3. Frontend (le due app React)
-( cd frontend && npm install )
-( cd operator-portal && npm install )
+# 3. Frontend (le due app React) — `npm ci` installa ESATTAMENTE dal package-lock.json
+#    committato (riproducibile, non riscrive il lock). Usa `npm install` solo quando
+#    vuoi aggiungere/aggiornare una dipendenza.
+( cd frontend && npm ci )
+( cd operator-portal && npm ci )
 
 # 4. Voci Piper (it/en/fr/es) — per la lettura ad alta voce (TTS)
 bash scripts/fetch-voice-models.sh
