@@ -35,7 +35,7 @@ Tutto gira su una singola macchina, su `localhost` (topologia single-box, senza 
 - **Node.js 18+** e npm
 - **Docker** + il **plugin Docker Compose v2** (`docker compose`) — su Ubuntu: `sudo apt-get install docker-compose-v2`; verifica con `docker compose version`. (In alternativa va bene anche `docker-compose` v1: gli script rilevano automaticamente quale è presente.)
 - Per il **colloquio** (LLM): una GPU (~8 GB VRAM) e un binario **`llama-server`** con accelerazione GPU sul `PATH`. La via consigliata e validata è la release **prebuilt Vulkan** di llama.cpp (usa la GPU NVIDIA col solo driver, senza CUDA toolkit). Come installarlo: sezione [«Installare llama-server»](#installare-llama-server-per-il-colloquio) sotto (dettaglio in [`STATO_TECNICO.md`](STATO_TECNICO.md) §11).
-- Spazio su disco per i modelli scaricati (LLM ~4.7 GB, voci Piper ~250 MB, STT scaricato al primo uso). I modelli vivono in `models/` e **non** sono versionati.
+- Spazio su disco per i modelli scaricati (LLM ~4.7 GB, voci Piper ~250 MB, STT faster-whisper ~1.5 GB — pre-scaricato nel setup al passo 4, così la prima trascrizione non deve scaricarlo). Le voci Piper e l'LLM vivono in `models/` (non versionato); lo STT vive nella cache di HuggingFace.
 
 > Il **portale operatore** e gran parte del sistema funzionano anche **senza** LLM/GPU. L'LLM serve al colloquio del kiosk.
 
@@ -66,7 +66,10 @@ cp .env.example .env            # password di sviluppo predefinite; cambiarle pe
 # blindata metti un token reale (in .env, mai committato).
 cp frontend/.env.example frontend/.env
 
-# 4. Voci Piper (it/en/fr/es) — per la lettura ad alta voce (TTS)
+# 4. Modelli vocali — voci Piper it/en/fr/es (lettura ad alta voce/TTS) e
+#    pre-scarico del modello STT faster-whisper (riconoscimento vocale), così
+#    la prima trascrizione nel kiosk non deve scaricarlo. Richiede il venv del
+#    passo 2 (usa faster-whisper); se manca, lo STT viene saltato con un avviso.
 bash scripts/fetch-voice-models.sh
 
 # 5. LLM per il colloquio: PRIMA installa llama-server (vedi «Installare llama-server» sotto),
