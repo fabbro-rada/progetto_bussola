@@ -50,13 +50,10 @@ cd progetto_bussola
 cp .env.example .env            # password di sviluppo predefinite; cambiarle per qualsiasi uso reale
 
 # 2. Backend (da backend/) — uv scarica Python 3.12, crea .venv e installa le
-#    versioni bloccate in uv.lock (dev = test/lint/type-check; voice = faster-whisper + Piper)
-cd backend
-uv sync --all-extras
-# Modello NER inglese (MIT) — non è una dipendenza del pyproject, si installa a parte
-# nel venv uv (l'italiano usa i pattern + tokenizer blank):
-uv pip install "en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
-cd ..
+#    versioni bloccate in uv.lock: deps + dev (test/lint/type-check) + voice
+#    (faster-whisper + Piper) + il modello NER inglese en_core_web_lg (MIT), che
+#    è una dipendenza → nessun passo separato. (L'italiano usa pattern + tokenizer blank.)
+( cd backend && uv sync --all-extras )
 
 # 3. Frontend (le due app React) — `npm ci` installa ESATTAMENTE dal package-lock.json
 #    committato (riproducibile, non riscrive il lock). Usa `npm install` solo quando
