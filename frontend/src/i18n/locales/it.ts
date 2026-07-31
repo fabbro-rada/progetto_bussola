@@ -51,6 +51,7 @@ export const it = {
     stop: 'Stop',
     listening: 'sto ascoltando…',
     transcribing: 'sto trascrivendo…',
+    requesting: 'attivo il microfono…',
     listen: 'Ascolta',
     audioOn: 'Audio acceso',
     audioOff: 'Audio spento',

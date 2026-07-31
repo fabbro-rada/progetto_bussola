@@ -84,6 +84,16 @@ textarea {
 .voice-btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .voice-btn[aria-pressed='true'] { background: #e5e7eb; color: #374151; border-color: #9ca3af; }
 .voice-note { color: var(--muted); font-weight: 600; }
-.voice-note.recording { color: var(--danger); }
+/* The recording indicator must read as clearly "live": red and gently pulsing
+   so the person sees the mic is capturing. Motion is disabled below for users
+   who prefer reduced motion — the red colour alone still signals recording. */
+.voice-note.recording { color: var(--danger); animation: voice-recording-pulse 1.2s ease-in-out infinite; }
+@keyframes voice-recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-note.recording { animation: none; }
+}
 .text-size-control button { font: inherit; padding: 6px 10px; margin-inline-start: 4px; cursor: pointer; }
 .text-size-control button[aria-pressed='true'] { background: var(--accent); color: #fff; }

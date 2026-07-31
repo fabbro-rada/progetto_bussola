@@ -51,6 +51,7 @@ export const ar = {
     stop: 'إيقاف',
     listening: 'جارٍ الاستماع…',
     transcribing: 'جارٍ التفريغ…',
+    requesting: 'جارٍ تشغيل الميكروفون…',
     listen: 'استمع',
     audioOn: 'الصوت مُفعّل',
     audioOff: 'الصوت مُطفأ',
