@@ -12,9 +12,17 @@ export function ChangePassword() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const MIN_LENGTH = 8
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     setError('')
+    if (newPassword.length < MIN_LENGTH) {
+      // Mirror the backend rule (ChangePasswordRequest new_password min_length=8)
+      // with a clear message, instead of the generic error the 422 would map to.
+      setError(t('changePassword.tooShort', { min: MIN_LENGTH }))
+      return
+    }
     setBusy(true)
     const r = await changePassword(oldPassword, newPassword)
     setBusy(false)
@@ -39,8 +47,15 @@ export function ChangePassword() {
       </label>
       <label>
         {t('changePassword.new')}
-        <input type="password" value={newPassword} onChange={(e) => setNew(e.target.value)} autoComplete="new-password" />
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNew(e.target.value)}
+          autoComplete="new-password"
+          minLength={8}
+        />
       </label>
+      <small className="hint">{t('changePassword.hint', { min: 8 })}</small>
       {error && <p className="error" role="alert">{error}</p>}
       <button type="submit" disabled={busy || !oldPassword || !newPassword}>
         {t('changePassword.submit')}

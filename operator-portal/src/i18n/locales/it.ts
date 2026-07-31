@@ -11,6 +11,8 @@ export const it = {
     intro: 'Per continuare devi impostare una nuova password.',
     old: 'Password attuale',
     new: 'Nuova password',
+    hint: 'La password deve avere almeno {{min}} caratteri.',
+    tooShort: 'La nuova password deve avere almeno {{min}} caratteri.',
     submit: 'Salva la nuova password',
   },
   home: { welcome: 'Benvenuto/a, {{name}}' },
