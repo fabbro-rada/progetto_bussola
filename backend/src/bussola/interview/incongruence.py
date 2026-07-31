@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bussola.languages import language_name
 from bussola.llm.client import LlmClient
 from bussola.profile.models import WorkProfile
 
@@ -24,6 +25,7 @@ def find_incongruence(client: LlmClient, profile: WorkProfile, language: str) ->
     are cross-section by nature). It flags only real contradictions between
     what the person actually said — never missing or empty fields, which are
     expected in an intentionally minimal profile (§5)."""
+    name = language_name(language)
     prompt = (
         "You check a COMPLETED work profile for a GENUINE CONTRADICTION between "
         "information the person actually provided — for example a total work "
@@ -34,7 +36,8 @@ def find_incongruence(client: LlmClient, profile: WorkProfile, language: str) ->
         "Report an incongruence ONLY when two pieces of information the person gave "
         "clearly cannot both be true. When in doubt, report NONE. "
         "If (and only if) you find a real contradiction, write ONE gentle, "
-        f"non-judgmental clarification question in the language with code '{language}' "
+        f"non-judgmental clarification question ENTIRELY in {name} (language code "
+        f"'{language}') — every word in {name}, never in English or any other language "
         "(never accuse; simply ask the person to clarify). "
         'Reply JSON {"has_incongruence": bool, "clarification": string}. '
         "Use has_incongruence=false with an empty clarification when there is no "

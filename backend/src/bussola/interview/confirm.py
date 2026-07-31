@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from bussola.interview.sections import Section
+from bussola.languages import language_name
 from bussola.llm.client import LlmClient
 
 _CONFIRM_SCHEMA = {
@@ -16,10 +17,13 @@ _CONFIRM_SCHEMA = {
 
 
 def summarize(client: LlmClient, section: Section, extracted: BaseModel, language: str) -> str:
+    name = language_name(language)
     prompt = (
-        "You are a warm, non-judgmental assistant. In one or two short sentences, in the "
-        f"language '{language}', summarize back to the person what you understood for the "
-        f"'{section.key}' section, then ask if it is correct. Be encouraging, never judgmental."
+        f"You are a warm, non-judgmental assistant. Write your ENTIRE reply in {name} "
+        f"(language code '{language}') — every word in {name}, never in English or any "
+        "other language. In one or two short sentences, summarize back to the person what "
+        f"you understood for the '{section.key}' section, then ask if it is correct. "
+        "Be encouraging, never judgmental."
     )
     return client.chat(
         [
