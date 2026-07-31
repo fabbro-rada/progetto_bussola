@@ -8,11 +8,13 @@ interface AuthValue {
   loading: boolean
   mustChangePassword: boolean
   sessionExpired: boolean
+  passwordChanged: boolean
   client: OperatorClient
   login(username: string, password: string): Promise<LoginResult>
   logout(): Promise<void>
   changePassword(oldPassword: string, newPassword: string): Promise<ChangeResult>
-  clearMustChangePassword(): void
+  onPasswordChanged(): void
+  clearPasswordChanged(): void
   clearSessionExpired(): void
   onUnauthorized(): void
 }
@@ -24,6 +26,7 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
   const [mustChangePassword, setMcp] = useState(false)
   const [loading, setLoading] = useState(true)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [passwordChanged, setPasswordChanged] = useState(false)
 
   useEffect(() => {
     if (!getToken()) {
@@ -59,6 +62,7 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
         setOperator(r.operator)
         setMcp(r.mustChangePassword)
         setSessionExpired(false)
+        setPasswordChanged(false)
       }
       return r
     },
@@ -77,7 +81,16 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
     [client],
   )
 
-  const clearMustChangePassword = useCallback(() => setMcp(false), [])
+  const onPasswordChanged = useCallback(() => {
+    // change_password revokes ALL of the operator's sessions server-side (§7.2),
+    // so the current token is already dead. Sign out locally and let the caller
+    // route back to /login, instead of navigating on with a token that 401s.
+    clearToken()
+    setOperator(null)
+    setMcp(false)
+    setPasswordChanged(true)
+  }, [])
+  const clearPasswordChanged = useCallback(() => setPasswordChanged(false), [])
   const clearSessionExpired = useCallback(() => setSessionExpired(false), [])
   const onUnauthorized = useCallback(() => {
     clearToken()
@@ -93,11 +106,13 @@ export function AuthProvider({ client = operatorClient, children }: { client?: O
         loading,
         mustChangePassword,
         sessionExpired,
+        passwordChanged,
         client,
         login,
         logout,
         changePassword,
-        clearMustChangePassword,
+        onPasswordChanged,
+        clearPasswordChanged,
         clearSessionExpired,
         onUnauthorized,
       }}

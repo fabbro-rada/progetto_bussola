@@ -14,6 +14,7 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); backgrou
 .auth-form button { padding: 12px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .auth-form button:disabled { opacity: 0.5; cursor: not-allowed; }
 .error { color: var(--danger); font-weight: 600; }
+.notice-ok { color: #15803d; font-weight: 600; }
 .shell-header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
 .shell-header .who { margin-left: auto; color: var(--muted); }
 .shell-header .logout { border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }

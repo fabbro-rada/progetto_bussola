@@ -5,14 +5,21 @@ import { useAuth } from '../auth/AuthContext'
 
 export function Login() {
   const { t } = useTranslation()
-  const { operator, mustChangePassword, sessionExpired, clearSessionExpired, login } = useAuth()
+  const { operator, mustChangePassword, sessionExpired, clearSessionExpired, passwordChanged, clearPasswordChanged, login } =
+    useAuth()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => () => clearSessionExpired(), [clearSessionExpired])
+  useEffect(
+    () => () => {
+      clearSessionExpired()
+      clearPasswordChanged()
+    },
+    [clearSessionExpired, clearPasswordChanged],
+  )
 
   if (operator) return <Navigate to={mustChangePassword ? '/change-password' : '/'} replace />
 
@@ -27,7 +34,7 @@ export function Login() {
     else setError(t('errors.generic'))
   }
 
-  const notice = error || (sessionExpired ? t('errors.sessionExpired') : '')
+  const errorNotice = error || (sessionExpired ? t('errors.sessionExpired') : '')
 
   return (
     <form className="auth-form" onSubmit={submit}>
@@ -45,7 +52,10 @@ export function Login() {
           autoComplete="current-password"
         />
       </label>
-      {notice && <p className="error" role="alert">{notice}</p>}
+      {errorNotice && <p className="error" role="alert">{errorNotice}</p>}
+      {!errorNotice && passwordChanged && (
+        <p className="notice-ok" role="status">{t('changePassword.done')}</p>
+      )}
       <button type="submit" disabled={busy || !username || !password}>
         {t('login.submit')}
       </button>
