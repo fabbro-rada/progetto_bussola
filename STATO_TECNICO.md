@@ -241,7 +241,7 @@ Lo script scarica i due shard del Q4_K_M ufficiale di Qwen2.5-7B-Instruct-GGUF i
 
 ```bash
 npm ci                       # installa ESATTO dal package-lock.json committato (riproducibile, non riscrive il lock). React 18/Vite 5/react-i18next, runtime MIT. (`npm install` solo per cambiare deps)
-cp .env.example .env         # impostare VITE_KIOSK_TOKEN sulla postazione blindata (mai versionato)
+cp .env.example .env         # VITE_KIOSK_TOKEN: DEVE combaciare con BUSSOLA_KIOSK_TOKEN del root .env (backend), altrimenti «postazione non autorizzata». Default dev in .env.example; token reale sulla postazione blindata (mai versionato). run-stack.sh crea questo frontend/.env se manca.
 npm run dev                  # dev server; proxy di /kiosk → 127.0.0.1:8000 (backend S8)
 ```
 

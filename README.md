@@ -63,6 +63,11 @@ cd ..
 #    vuoi aggiungere/aggiornare una dipendenza.
 ( cd frontend && npm ci )
 ( cd operator-portal && npm ci )
+# Token di dispositivo del kiosk: frontend/.env deve avere VITE_KIOSK_TOKEN uguale a
+# BUSSOLA_KIOSK_TOKEN nel root .env (altrimenti «postazione non autorizzata»). In dev i
+# default combaciano già; run-stack.sh crea frontend/.env se manca. Sulla postazione
+# blindata metti un token reale (in .env, mai committato).
+cp frontend/.env.example frontend/.env
 
 # 4. Voci Piper (it/en/fr/es) — per la lettura ad alta voce (TTS)
 bash scripts/fetch-voice-models.sh
