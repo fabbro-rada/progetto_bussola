@@ -77,6 +77,19 @@ if [ ! -f .env ]; then
   cp .env.example .env
   echo "WARN: created .env from .env.example — dev passwords in use (change for anything real, §12)."
 fi
+# The kiosk device token lives in frontend/.env (VITE_KIOSK_TOKEN) and must match
+# BUSSOLA_KIOSK_TOKEN here, or the kiosk shows "postazione non autorizzata".
+if [ ! -f frontend/.env ]; then
+  cp frontend/.env.example frontend/.env
+  echo "WARN: created frontend/.env from example — kiosk dev token in use (set a real one on the locked box, §12)."
+fi
+be_tok="${BUSSOLA_KIOSK_TOKEN:-$(grep -E '^BUSSOLA_KIOSK_TOKEN=' .env 2>/dev/null | cut -d= -f2-)}"
+fe_tok="$(grep -E '^VITE_KIOSK_TOKEN=' frontend/.env 2>/dev/null | cut -d= -f2-)"
+if [ -z "$be_tok" ]; then
+  echo "WARN: BUSSOLA_KIOSK_TOKEN not set (.env) — the kiosk will be 'non autorizzato'."
+elif [ "$be_tok" != "$fe_tok" ]; then
+  echo "WARN: BUSSOLA_KIOSK_TOKEN (.env) != VITE_KIOSK_TOKEN (frontend/.env) — the kiosk will be 'non autorizzato'."
+fi
 
 # --- 1. Postgres -----------------------------------------------------------
 if [ -z "$DC" ]; then
