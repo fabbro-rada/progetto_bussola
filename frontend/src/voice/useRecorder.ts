@@ -20,8 +20,14 @@ export function useRecorder({ onText }: { onText: (text: string) => void }) {
   const busyRef = useRef(false)
   const mountedRef = useRef(true)
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Reset on (re)mount: React 18 StrictMode mounts → unmounts → remounts in
+    // dev, so a cleanup-only effect would fire once and leave mountedRef stuck
+    // false — start() would then bail after getUserMedia and never reach
+    // 'recording' (mic prompt shows, but nothing records). Setting it true here
+    // on every mount keeps the flag honest across the StrictMode cycle.
+    mountedRef.current = true
+    return () => {
       // Release the mic if we unmount mid-capture (e.g. «Ferma» while recording).
       mountedRef.current = false
       if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop()
@@ -29,9 +35,8 @@ export function useRecorder({ onText }: { onText: (text: string) => void }) {
         streamRef.current.getTracks().forEach((track) => track.stop())
         streamRef.current = null
       }
-    },
-    [],
-  )
+    }
+  }, [])
 
   const start = useCallback(async () => {
     if (busyRef.current) return // re-entrancy guard

@@ -1,6 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
-import { type ReactNode } from 'react'
+import { StrictMode, type ReactNode } from 'react'
 import { useRecorder } from './useRecorder'
 import { VoiceProvider } from './VoiceContext'
 import { makeVoiceClient } from '../test/fakeClient'
@@ -34,6 +34,28 @@ test('record → stop → transcribe fills text via onText and returns to idle',
   })
   await waitFor(() => expect(onText).toHaveBeenCalledWith('so cucinare'))
   expect(result.current.state).toBe('idle')
+})
+
+test('survives React StrictMode remount: start() still reaches recording', async () => {
+  // Regression: the mount effect only had a cleanup, so StrictMode's
+  // mount→unmount→remount (dev) left mountedRef stuck false, and start() bailed
+  // after getUserMedia — mic prompt showed, nothing recorded. Rendering under
+  // <StrictMode> reproduces the double-mount; the fix resets mountedRef on mount.
+  stubMedia(true)
+  const client = makeVoiceClient({ transcript: 'so cucinare' })
+  const onText = vi.fn()
+  const strictWrapper = ({ children }: { children: ReactNode }) => (
+    <StrictMode>
+      <VoiceProvider language="it" client={client}>
+        {children}
+      </VoiceProvider>
+    </StrictMode>
+  )
+  const { result } = renderHook(() => useRecorder({ onText }), { wrapper: strictWrapper })
+  await act(async () => {
+    await result.current.start()
+  })
+  expect(result.current.state).toBe('recording') // was stuck at 'requesting' before the fix
 })
 
 test('permission denied → state denied, onText never called', async () => {

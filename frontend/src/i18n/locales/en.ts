@@ -51,6 +51,7 @@ export const en = {
     stop: 'Stop',
     listening: 'listening…',
     transcribing: 'transcribing…',
+    requesting: 'turning on the microphone…',
     listen: 'Listen',
     audioOn: 'Audio on',
     audioOff: 'Audio off',

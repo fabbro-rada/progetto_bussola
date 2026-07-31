@@ -52,6 +52,12 @@ export function VoiceBar({
           ⏳ {t('voice.transcribing')}
         </span>
       )
+    if (recorder.state === 'requesting')
+      return (
+        <span className="voice-note" role="status" aria-live="polite">
+          … {t('voice.requesting')}
+        </span>
+      )
     return (
       <button className="voice-btn primary" onClick={() => void recorder.start()}>
         🎤 {t('voice.speak')}

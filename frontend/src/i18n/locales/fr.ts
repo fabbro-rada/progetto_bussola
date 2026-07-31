@@ -51,6 +51,7 @@ export const fr = {
     stop: 'Stop',
     listening: 'écoute…',
     transcribing: 'transcription…',
+    requesting: 'activation du micro…',
     listen: 'Écouter',
     audioOn: 'Audio activé',
     audioOff: 'Audio coupé',
