@@ -82,7 +82,7 @@ if [ ! -d backend/.venv ]; then
 fi
 for app in frontend operator-portal; do
   if [ ! -d "$app/node_modules" ]; then
-    echo "ERROR: $app/node_modules missing — run 'npm install' in $app/ first (STATO_TECNICO §11)."
+    echo "ERROR: $app/node_modules missing — run 'npm ci' in $app/ first (STATO_TECNICO §11)."
     exit 1
   fi
 done

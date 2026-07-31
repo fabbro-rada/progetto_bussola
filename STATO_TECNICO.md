@@ -240,7 +240,7 @@ Lo script scarica i due shard del Q4_K_M ufficiale di Qwen2.5-7B-Instruct-GGUF i
 **Setup e gate del frontend** (kiosk della persona — Sottosistema 9, da `frontend/`):
 
 ```bash
-npm install                  # dipendenze (React 18, Vite 5, react-i18next; runtime tutte MIT)
+npm ci                       # installa ESATTO dal package-lock.json committato (riproducibile, non riscrive il lock). React 18/Vite 5/react-i18next, runtime MIT. (`npm install` solo per cambiare deps)
 cp .env.example .env         # impostare VITE_KIOSK_TOKEN sulla postazione blindata (mai versionato)
 npm run dev                  # dev server; proxy di /kiosk → 127.0.0.1:8000 (backend S8)
 ```
@@ -259,7 +259,7 @@ npm run build     # tsc -b && vite build
 **Setup e gate del portale operatore** (app separata autenticata — Sottosistema 11, da `operator-portal/`):
 
 ```bash
-npm install                  # dipendenze (React 18, Vite 5, react-router-dom, react-i18next; runtime tutte MIT)
+npm ci                       # installa ESATTO dal package-lock.json committato (riproducibile, non riscrive il lock). React 18/Vite 5/react-router-dom/react-i18next, runtime MIT. (`npm install` solo per cambiare deps)
 npm run dev                  # dev server su :5174 (accanto al kiosk :5173); proxy /auth,/operators,/job-requests,/profiles → 127.0.0.1:8000
 npm test && npm run typecheck && npm run lint && npm run build   # gate di ogni task
 ```
