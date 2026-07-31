@@ -14,6 +14,19 @@ cd "$ROOT"
 RUN_DIR="$ROOT/.run-stack"
 mkdir -p "$RUN_DIR"
 
+# Docker Compose command: prefer the v2 plugin ("docker compose"), fall back to
+# the v1 standalone ("docker-compose"). Empty if neither is installed — the
+# start path errors with an install hint (a bare "docker compose ..." otherwise
+# fails with a cryptic "unknown shorthand flag 'd'"). Used UNQUOTED on purpose
+# so the v2 form word-splits into two args.
+if docker compose version >/dev/null 2>&1; then
+  DC="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  DC="docker-compose"
+else
+  DC=""
+fi
+
 SERVICES="portal kiosk backend llm"  # stop order (reverse of start)
 
 # --- stop mode -------------------------------------------------------------
@@ -31,7 +44,7 @@ if [ "${1:-}" = "stop" ]; then
     fi
     rm -f "$pidfile"
   done
-  docker compose stop db >/dev/null 2>&1 && echo "stopped db" || true
+  [ -n "$DC" ] && $DC stop db >/dev/null 2>&1 && echo "stopped db" || true
   echo "stack stopped."
   exit 0
 fi
@@ -66,11 +79,18 @@ if [ ! -f .env ]; then
 fi
 
 # --- 1. Postgres -----------------------------------------------------------
-echo "==> Postgres (docker compose up -d db)"
-docker compose up -d db
+if [ -z "$DC" ]; then
+  echo "ERROR: Docker Compose non trovato. Installa il plugin v2:"
+  echo "  Ubuntu/Debian:  sudo apt-get install docker-compose-v2   (fornisce 'docker compose')"
+  echo "  repo Docker:    sudo apt-get install docker-compose-plugin"
+  echo "  docs:           https://docs.docker.com/compose/install/"
+  exit 1
+fi
+echo "==> Postgres ($DC up -d db)"
+$DC up -d db
 printf "    waiting for Postgres"
 for i in $(seq 1 30); do
-  if docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then printf " ready\n"; break; fi
+  if $DC exec -T db pg_isready -U postgres >/dev/null 2>&1; then printf " ready\n"; break; fi
   printf "."; sleep 1
   if [ "$i" = 30 ]; then printf " TIMEOUT\n"; exit 1; fi
 done
