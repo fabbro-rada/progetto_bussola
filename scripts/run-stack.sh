@@ -122,6 +122,16 @@ done
 # shellcheck disable=SC1091
 source backend/.venv/bin/activate
 
+# --- model preflight (warn, non-fatal) -------------------------------------
+# en_core_web_lg is now a backend dependency, so 'uv sync' installs it; warn if
+# the venv predates that. Piper voices are a separate download (not a pip pkg).
+if ! python -c "import en_core_web_lg" >/dev/null 2>&1; then
+  echo "WARN: spaCy model en_core_web_lg missing (PII/guardrails; the kiosk interview will error). Run: (cd backend && uv sync --all-extras)"
+fi
+if ! ls models/voice/*.onnx >/dev/null 2>&1; then
+  echo "WARN: no Piper voices in models/voice/ — read-aloud (TTS) unavailable. Run: bash scripts/fetch-voice-models.sh"
+fi
+
 # --- 2. migrations ---------------------------------------------------------
 echo "==> Applying migrations"
 ( cd backend && python -m bussola.data.migrate )
