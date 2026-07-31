@@ -1,6 +1,7 @@
 #!/bin/bash
-# Download the model (once) and run llama-server on GPU (CUDA), OpenAI-compatible.
-# Requires a llama-server binary with CUDA (prebuilt release or built from source).
+# Download the model (once) and run llama-server on the GPU, OpenAI-compatible.
+# Requires a GPU llama-server binary on PATH — Vulkan prebuilt recommended (no CUDA
+# toolkit) or a CUDA build. Install steps: README "Installare llama-server".
 # The official Qwen2.5-7B-Instruct-GGUF Q4_K_M is split into 2 shards; llama.cpp
 # loads a split model when pointed at shard 1 (the other shards must sit alongside).
 set -euo pipefail
@@ -21,7 +22,7 @@ for shard in "$SHARD1" "$SHARD2"; do
 done
 
 command -v llama-server >/dev/null || {
-  echo "llama-server (CUDA build) not found on PATH — install it first" >&2
+  echo "llama-server not found on PATH — install it first (see README 'Installare llama-server'; Vulkan prebuilt recommended)" >&2
   exit 1
 }
 
