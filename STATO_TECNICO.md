@@ -274,7 +274,7 @@ scripts/run-stack.sh --with-llm   # come sopra + avvia anche llama-server (:8080
 scripts/run-stack.sh stop         # ferma tutto ciò che lo script ha avviato (+ db)
 ```
 
-Preflight: verifica che 8000/5173/5174 siano liberi (altrimenti esce con errore chiaro). L'LLM è **opt-in** (`--with-llm`): di default lo script controlla `:8080` e avvisa se assente (il colloquio lo richiede). Log/PID in `.run-stack/` (gitignored). I processi partono via `setsid` (process-group) così `stop` chiude anche i figli (es. vite). **Solo dev/localhost** (§12), password dev da `.env`.
+Preflight: verifica che 8000/5173/5174 siano liberi (altrimenti esce con errore chiaro). **Docker Compose** è richiesto: lo script **rileva automaticamente** il comando (plugin v2 `docker compose` o standalone v1 `docker-compose`) e, se manca del tutto, esce con l'hint d'installazione (su Ubuntu: `sudo apt-get install docker-compose-v2`) invece del criptico `unknown shorthand flag 'd'`. L'LLM è **opt-in** (`--with-llm`): di default lo script controlla `:8080` e avvisa se assente (il colloquio lo richiede). Log/PID in `.run-stack/` (gitignored). I processi partono via `setsid` (process-group) così `stop` chiude anche i figli (es. vite). **Solo dev/localhost** (§12), password dev da `.env`.
 
 Comandi individuali sottostanti (usati dallo script, disponibili anche a mano, da `backend/` con `.venv` attiva):
 
