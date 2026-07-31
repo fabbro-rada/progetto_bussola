@@ -34,7 +34,7 @@ Tutto gira su una singola macchina, su `localhost` (topologia single-box, senza 
 - **[uv](https://docs.astral.sh/uv/)** — gestore di Python e dipendenze del backend (`curl -LsSf https://astral.sh/uv/install.sh | sh`). Fornisce lui stesso **Python 3.12** (fissato da `backend/.python-version`), quindi non serve installare Python a mano.
 - **Node.js 18+** e npm
 - **Docker** + Docker Compose (per PostgreSQL)
-- Per il **colloquio** (LLM): una GPU (~8 GB VRAM) e un binario **`llama-server`** con accelerazione GPU sul `PATH`. La via consigliata e validata è la release **prebuilt Vulkan** di llama.cpp (usa la GPU NVIDIA col solo driver, senza CUDA toolkit). Vedi [`STATO_TECNICO.md`](STATO_TECNICO.md) §11.
+- Per il **colloquio** (LLM): una GPU (~8 GB VRAM) e un binario **`llama-server`** con accelerazione GPU sul `PATH`. La via consigliata e validata è la release **prebuilt Vulkan** di llama.cpp (usa la GPU NVIDIA col solo driver, senza CUDA toolkit). Come installarlo: sezione [«Installare llama-server»](#installare-llama-server-per-il-colloquio) sotto (dettaglio in [`STATO_TECNICO.md`](STATO_TECNICO.md) §11).
 - Spazio su disco per i modelli scaricati (LLM ~4.7 GB, voci Piper ~250 MB, STT scaricato al primo uso). I modelli vivono in `models/` e **non** sono versionati.
 
 > Il **portale operatore** e gran parte del sistema funzionano anche **senza** LLM/GPU. L'LLM serve al colloquio del kiosk.
@@ -65,9 +65,36 @@ cd ..
 # 4. Voci Piper (it/en/fr/es) — per la lettura ad alta voce (TTS)
 bash scripts/fetch-voice-models.sh
 
-# 5. Modello LLM (~4.7 GB, una tantum) — richiede llama-server sul PATH
-#    Scarica il modello e avvia il server su :8080. Necessario per il colloquio.
+# 5. LLM per il colloquio: PRIMA installa llama-server (vedi «Installare llama-server» sotto),
+#    poi questo scarica il modello (~4.7 GB, una tantum) e avvia il server su :8080.
 bash scripts/serve-llm.sh
+```
+
+### Installare llama-server (per il colloquio)
+
+`scripts/serve-llm.sh` richiede il binario **`llama-server`** ([llama.cpp](https://github.com/ggml-org/llama.cpp), MIT) sul `PATH` — l'errore `llama-server not found on PATH` significa che manca questo passo. Due vie (vedi anche [`STATO_TECNICO.md`](STATO_TECNICO.md) §11):
+
+**Vulkan — consigliato e validato** (usa la GPU NVIDIA col solo driver, **nessun CUDA toolkit, nessuna build**):
+
+1. Dalle [release di llama.cpp](https://github.com/ggml-org/llama.cpp/releases) scarica il prebuilt per Ubuntu: l'asset `llama-<tag>-bin-ubuntu-vulkan-x64.zip` (build validata nel pilota: **b10092**).
+2. Scompattalo (es. in `~/llama-vulkan/llama-b10092/`) e metti quella cartella sul `PATH`:
+   ```bash
+   export PATH="$HOME/llama-vulkan/llama-b10092:$PATH"   # in ~/.bashrc per renderlo permanente
+   ```
+Requisiti runtime: loader Vulkan (`libvulkan1`) + driver NVIDIA (fornisce l'ICD).
+
+**CUDA — alternativa** (build da sorgente, potenzialmente più veloce; richiede CUDA toolkit/`nvcc`; per Linux non esiste un prebuilt CUDA):
+
+```bash
+git clone https://github.com/ggml-org/llama.cpp && cd llama.cpp
+cmake -B build -DGGML_CUDA=ON && cmake --build build -j
+export PATH="$PWD/build/bin:$PATH"
+```
+
+**Verifica**, poi torna al passo 5:
+
+```bash
+llama-server --version   # deve stampare la versione → ora `bash scripts/serve-llm.sh` funziona
 ```
 
 > **Licenze (§3):** lo stack è open source e in prevalenza a licenza permissiva. Il modello NER italiano `it_core_news_lg` è CC BY-NC-SA e **non** va installato. Il motore TTS Piper è GPL-3.0 (eccezione documentata e approvata, valida perché il pilota è on-premise non distribuito). Dettagli in [`CREDITS.md`](CREDITS.md) e [`CLAUDE.md`](CLAUDE.md) §3.
