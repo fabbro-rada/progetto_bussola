@@ -33,7 +33,7 @@ Tutto gira su una singola macchina, su `localhost` (topologia single-box, senza 
 
 - **[uv](https://docs.astral.sh/uv/)** — gestore di Python e dipendenze del backend (`curl -LsSf https://astral.sh/uv/install.sh | sh`). Fornisce lui stesso **Python 3.12** (fissato da `backend/.python-version`), quindi non serve installare Python a mano.
 - **Node.js 18+** e npm
-- **Docker** + Docker Compose (per PostgreSQL)
+- **Docker** + il **plugin Docker Compose v2** (`docker compose`) — su Ubuntu: `sudo apt-get install docker-compose-v2`; verifica con `docker compose version`. (In alternativa va bene anche `docker-compose` v1: gli script rilevano automaticamente quale è presente.)
 - Per il **colloquio** (LLM): una GPU (~8 GB VRAM) e un binario **`llama-server`** con accelerazione GPU sul `PATH`. La via consigliata e validata è la release **prebuilt Vulkan** di llama.cpp (usa la GPU NVIDIA col solo driver, senza CUDA toolkit). Come installarlo: sezione [«Installare llama-server»](#installare-llama-server-per-il-colloquio) sotto (dettaglio in [`STATO_TECNICO.md`](STATO_TECNICO.md) §11).
 - Spazio su disco per i modelli scaricati (LLM ~4.7 GB, voci Piper ~250 MB, STT scaricato al primo uso). I modelli vivono in `models/` e **non** sono versionati.
 
