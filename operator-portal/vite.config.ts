@@ -8,11 +8,18 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5174,
+    // Client calls go to `${VITE_API_BASE}${path}` = `/api/...` in dev (see
+    // .env.development). Proxy the single `/api` prefix to the backend, stripping
+    // it. Using a distinct prefix avoids the collision between API paths and SPA
+    // routes (both use /operators, /metrics, /audit, …): the old per-path proxy
+    // left new endpoints (/system-config, /metrics, …) unproxied, so they hit the
+    // SPA fallback and returned HTML instead of JSON.
     proxy: {
-      '/auth': 'http://127.0.0.1:8000',
-      '/operators': 'http://127.0.0.1:8000',
-      '/job-requests': 'http://127.0.0.1:8000',
-      '/profiles': 'http://127.0.0.1:8000',
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, ''),
+      },
     },
   },
   preview: {
