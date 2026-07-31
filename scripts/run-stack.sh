@@ -77,7 +77,7 @@ done
 
 # --- backend venv ----------------------------------------------------------
 if [ ! -d backend/.venv ]; then
-  echo "ERROR: backend/.venv missing — run the backend setup first (STATO_TECNICO §11)."
+  echo "ERROR: backend/.venv missing — set up the backend first: 'cd backend && uv sync --all-extras' (STATO_TECNICO §11)."
   exit 1
 fi
 for app in frontend operator-portal; do

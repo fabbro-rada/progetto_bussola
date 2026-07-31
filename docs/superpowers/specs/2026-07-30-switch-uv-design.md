@@ -26,8 +26,10 @@ Prerequisito: **uv** installato (`curl -LsSf https://astral.sh/uv/install.sh | s
 
 ```bash
 cd backend
-uv sync --all-extras                          # fetch Python 3.12 → crea .venv → installa deps bloccate (dev + voice)
-uv run python -m spacy download en_core_web_lg  # NER inglese (MIT); l'italiano usa pattern + tokenizer blank
+uv sync --all-extras   # fetch Python 3.12 → crea .venv → installa deps bloccate (dev + voice)
+# Modello NER inglese (MIT). NB: il venv uv non ha pip → si usa `uv pip install` del wheel,
+# non `spacy download` (che richiederebbe pip nel venv). L'italiano usa pattern + tokenizer blank.
+uv pip install "en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
 ```
 
 - **Python non è più un prerequisito manuale** (lo fornisce uv). Restano prerequisiti Docker e Node.
@@ -45,11 +47,11 @@ uv run python -m spacy download en_core_web_lg  # NER inglese (MIT); l'italiano 
 | `STATO_TECNICO.md` | §11 setup backend → uv; nuova riga di decisione §15 (rovescia #30, motivazione) |
 | `scripts/run-stack.sh` | **solo** il messaggio del preflight «`backend/.venv` mancante» ora rimanda a `uv sync` (nessun cambio di comportamento) |
 
-`backend/pyproject.toml` **non cambia**: uv usa il `build-system` setuptools e le `optional-dependencies` (`dev`, `voice`) già dichiarate. `requires-python` resta `>=3.12` (il pin operativo a 3.12 lo dà `.python-version`).
+`backend/pyproject.toml` — **le dipendenze non cambiano** (uv usa il `build-system` setuptools e le `optional-dependencies` `dev`/`voice` già dichiarate; `requires-python` resta `>=3.12`, il pin operativo a 3.12 lo dà `.python-version`). **Unica aggiunta di config** (emersa in verifica): `[tool.ruff.lint] select = ["E4","E7","E9","F"]` — uv installa l'ultimo ruff (0.16) e, senza un `select` esplicito, il suo default per una config nuda si è allargato rispetto alla ruff con cui il progetto era verde, segnalando 114 pattern voluti (FastAPI `Depends`, `except` delle reti di degrado). Fissare il set esplicitamente **preserva il contratto di lint storico** e rende il gate deterministico rispetto alla versione di ruff.
 
 ## Fuori scope
 
-- Nessun cambio a `pyproject.toml` (deps, versioni, build-backend).
+- Nessun cambio alle **dipendenze** di `pyproject.toml` (versioni, build-backend); l'unica modifica è la config lint di ruff (sopra).
 - `run-stack.sh` non diventa un installer (resta un «runner»; niente `uv sync` automatico).
 - Frontend e script modelli invariati.
 

@@ -31,7 +31,7 @@ Tutto gira su una singola macchina, su `localhost` (topologia single-box, senza 
 
 ## Prerequisiti
 
-- **Python 3.12+**
+- **[uv](https://docs.astral.sh/uv/)** — gestore di Python e dipendenze del backend (`curl -LsSf https://astral.sh/uv/install.sh | sh`). Fornisce lui stesso **Python 3.12** (fissato da `backend/.python-version`), quindi non serve installare Python a mano.
 - **Node.js 18+** e npm
 - **Docker** + Docker Compose (per PostgreSQL)
 - Per il **colloquio** (LLM): una GPU (~8 GB VRAM) e un binario **`llama-server`** con accelerazione GPU sul `PATH`. La via consigliata e validata è la release **prebuilt Vulkan** di llama.cpp (usa la GPU NVIDIA col solo driver, senza CUDA toolkit). Vedi [`STATO_TECNICO.md`](STATO_TECNICO.md) §11.
@@ -49,12 +49,13 @@ git clone <URL-del-repo> progetto_bussola
 cd progetto_bussola
 cp .env.example .env            # password di sviluppo predefinite; cambiarle per qualsiasi uso reale
 
-# 2. Backend (da backend/)
+# 2. Backend (da backend/) — uv scarica Python 3.12, crea .venv e installa le
+#    versioni bloccate in uv.lock (dev = test/lint/type-check; voice = faster-whisper + Piper)
 cd backend
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev,voice]"   # dev = test/lint/type-check; voice = faster-whisper + Piper
-python -m spacy download en_core_web_lg   # NER inglese (MIT). L'italiano usa i pattern + tokenizer blank.
+uv sync --all-extras
+# Modello NER inglese (MIT) — non è una dipendenza del pyproject, si installa a parte
+# nel venv uv (l'italiano usa i pattern + tokenizer blank):
+uv pip install "en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
 cd ..
 
 # 3. Frontend (le due app React)
@@ -95,7 +96,7 @@ Il primo accesso al portale usa l'amministratore di bootstrap (`admin` / `admin_
 
 ### Componenti singoli (avvio manuale)
 
-Da `backend/`, con la `.venv` attiva e il DB su (`docker compose up -d db`):
+Da `backend/`, nel venv creato da uv (`source .venv/bin/activate`, oppure anteponi `uv run` a ogni comando) e con il DB su (`docker compose up -d db`):
 
 ```bash
 python -m bussola.data.migrate                                              # applica le migrazioni
@@ -115,7 +116,7 @@ scripts/smoke-full-stack.sh   # avvia lo stack, sonda health + i due frontend + 
 
 ## Test e qualità
 
-**Backend** (da `backend/`, con `.venv` attiva; alcuni test richiedono `docker compose up -d db`):
+**Backend** (da `backend/`, nel venv uv — `source .venv/bin/activate` o `uv run …`; alcuni test richiedono `docker compose up -d db`):
 
 ```bash
 pytest -q          # test (guardrail e sicurezza per primi)

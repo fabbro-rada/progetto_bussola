@@ -28,7 +28,5 @@ operator-portal/playwright/.cache/
 # run-stack.sh runtime (pids/logs)
 .run-stack/
 
-# uv lockfile: the project uses pip+venv (STATO_TECNICO §11), not uv. This
-# file is only created incidentally by `uv run`; ignore it. If uv is ever
-# adopted deliberately, remove this line and commit the lock.
-backend/uv.lock
+# NB: backend/uv.lock is COMMITTED — uv is the backend's dependency manager
+# (STATO_TECNICO §11). The uv-managed venv is ignored via backend/.gitignore.
