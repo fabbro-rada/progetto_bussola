@@ -14,6 +14,7 @@ export const it = {
     hint: 'La password deve avere almeno {{min}} caratteri.',
     tooShort: 'La nuova password deve avere almeno {{min}} caratteri.',
     submit: 'Salva la nuova password',
+    done: 'Password aggiornata. Ora accedi con la nuova password.',
   },
   home: { welcome: 'Benvenuto/a, {{name}}' },
   shell: {

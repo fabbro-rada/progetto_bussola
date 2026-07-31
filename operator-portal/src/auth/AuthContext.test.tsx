@@ -7,16 +7,19 @@ import { setToken, getToken } from './session'
 afterEach(() => sessionStorage.clear())
 
 function Probe() {
-  const { operator, loading, mustChangePassword, sessionExpired, login, logout, onUnauthorized } = useAuth()
+  const { operator, loading, mustChangePassword, sessionExpired, passwordChanged, login, logout, onUnauthorized, onPasswordChanged } =
+    useAuth()
   return (
     <div>
       <span>loading:{String(loading)}</span>
       <span>op:{operator ? operator.username : 'none'}</span>
       <span>mcp:{String(mustChangePassword)}</span>
       <span>expired:{String(sessionExpired)}</span>
+      <span>changed:{String(passwordChanged)}</span>
       <button onClick={() => void login('mrossi', 'pw')}>login</button>
       <button onClick={() => void logout()}>logout</button>
       <button onClick={() => onUnauthorized()}>unauthorized</button>
+      <button onClick={() => onPasswordChanged()}>pwchanged</button>
     </div>
   )
 }
@@ -104,6 +107,25 @@ test('login ok resets sessionExpired to false', async () => {
   })
   await waitFor(() => expect(screen.getByText('op:mrossi')).toBeInTheDocument())
   expect(screen.getByText('expired:false')).toBeInTheDocument()
+})
+
+test('onPasswordChanged() signs out (clears token + operator) and flags passwordChanged', async () => {
+  // change_password revokes all sessions server-side; the client must sign out
+  // locally so it never navigates on with a dead token.
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ username: 'gverdi' }) } })
+  render(
+    <AuthProvider client={client}>
+      <Probe />
+    </AuthProvider>,
+  )
+  await waitFor(() => expect(screen.getByText('op:gverdi')).toBeInTheDocument())
+  await act(async () => {
+    screen.getByText('pwchanged').click()
+  })
+  expect(screen.getByText('op:none')).toBeInTheDocument()
+  expect(getToken()).toBeNull()
+  expect(screen.getByText('changed:true')).toBeInTheDocument()
 })
 
 test('login ok saves token + operator; logout clears them', async () => {

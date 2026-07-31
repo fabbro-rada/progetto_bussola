@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 
 export function ChangePassword() {
   const { t } = useTranslation()
-  const { changePassword, clearMustChangePassword, onUnauthorized } = useAuth()
+  const { changePassword, onPasswordChanged, onUnauthorized } = useAuth()
   const navigate = useNavigate()
   const [oldPassword, setOld] = useState('')
   const [newPassword, setNew] = useState('')
@@ -27,8 +27,11 @@ export function ChangePassword() {
     const r = await changePassword(oldPassword, newPassword)
     setBusy(false)
     if (r.status === 'ok') {
-      clearMustChangePassword()
-      navigate('/', { replace: true })
+      // The backend revoked every session on change, so the current token is
+      // dead: sign out locally and go to /login with a confirmation, rather
+      // than to '/' where the first request would 401 and force a re-login.
+      onPasswordChanged()
+      navigate('/login', { replace: true })
     } else if (r.status === 'unauthorized') {
       onUnauthorized()
       navigate('/login', { replace: true })
