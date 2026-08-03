@@ -327,34 +327,39 @@ def test_generated_summary_is_pii_redacted_before_display(make_fake_json_llm):
     assert redactor.seen  # the redactor was actually consulted
 
 
-def test_generated_summary_is_scope_checked_on_output_and_blocked_if_off_scope(make_fake_json_llm):
-    # Defense in depth (§9 "guardrail in uscita"): even a summary the model
-    # generates is scope-checked on the way out. If it somehow goes off-scope, it
-    # must NOT be shown, and no state may change (nothing persisted, not awaiting
-    # a confirmation) — the flow degrades gracefully instead.
+def test_blocked_summary_falls_back_to_generic_confirmation_and_audits(make_fake_json_llm):
+    # §9 "guardrail in uscita": the generated summary is scope-checked on the way
+    # out. When it is blocked, the model's off-scope phrasing must be WITHHELD —
+    # but rather than dead-end on `unavailable` (a deterministic re-trip would
+    # soft-lock the section), the person gets a safe generic confirmation of the
+    # (schema-constrained) extracted data, and the trip is audited (§7.3).
+    events: list[dict] = []
     repo = FakeRepo()
     client = make_fake_json_llm(
-        json_responses=[COMP],
-        # ALLOW: input guard for answer #1; summary text; REFUSE: input guard for
-        # answer #2 (proving the blocked summary left NO awaiting-confirmation state).
-        text_responses=[ALLOW, "Riepilogo con contenuto fuori ambito. Giusto?", REFUSE],
+        json_responses=[COMP, {"confirmed": True}],
+        text_responses=[ALLOW, "Riepilogo con contenuto fuori ambito. Giusto?"],
         output_responses=[REFUSE],  # the OUTBOUND guard rejects the generated summary
     )
-    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw = Interview(
+        client,
+        ScopeGuard(client),
+        repo,
+        language="it",
+        audit=lambda **kw: events.append(kw),
+        redactor=_FakeRedactor(),
+    )
     itw.start()
     step = itw.submit("so cucinare")
-    assert step.kind == "unavailable"  # not "summary" — the off-scope text is withheld
-    assert repo.saved == []  # nothing persisted
-    # the outbound guard actually ran on the generated summary text
+    assert step.kind == "summary"  # NOT unavailable — the flow continues
+    assert step.text.strip()
+    assert step.text != "Riepilogo con contenuto fuori ambito. Giusto?"  # off-scope text withheld
+    # the outbound guard ran on the generated summary text, and the trip was audited
     assert client.output_calls
-    assert (
-        "Riepilogo con contenuto fuori ambito. Giusto?"
-        in (client.output_calls[0]["messages"][1]["content"])
-    )
-    # State untouched: the next answer is a fresh guarded turn (guard -> REFUSE),
-    # NOT treated as a confirmation reply.
-    step2 = itw.submit("che tempo fa domani?")
-    assert step2.kind == "refusal"
+    assert any(e["action"] == "output_guard_blocked" for e in events)
+    # the person can confirm normally -> the schema-constrained data is persisted
+    s2 = itw.submit("sì")
+    assert s2.kind == "question"  # advanced to the next section
+    assert repo.saved and repo.saved[0].skills[0].name == "cooking"
 
 
 def test_final_clarification_failing_outbound_scope_guard_is_skipped_and_completes(
@@ -371,15 +376,25 @@ def test_final_clarification_failing_outbound_scope_guard_is_skipped_and_complet
     # 5 section summaries pass the outbound guard; the final clarification (6th
     # outbound check) is rejected.
     output_responses = [ALLOW, ALLOW, ALLOW, ALLOW, ALLOW, REFUSE]
+    events: list[dict] = []
     client = make_fake_json_llm(
         json_responses=json_responses,
         text_responses=text_responses,
         output_responses=output_responses,
     )
-    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw = Interview(
+        client,
+        ScopeGuard(client),
+        repo,
+        language="it",
+        audit=lambda **kw: events.append(kw),
+        redactor=_FakeRedactor(),
+    )
     itw.start()
     last = None
     for _ in range(5):
         assert itw.submit("una risposta di lavoro").kind == "summary"
         last = itw.submit("sì, è corretto")
     assert last is not None and last.kind == "completed"  # clarification skipped, not shown
+    # the clarification trip is audited too (§7.3), like the summary trip
+    assert any(e["action"] == "output_guard_blocked" for e in events)
