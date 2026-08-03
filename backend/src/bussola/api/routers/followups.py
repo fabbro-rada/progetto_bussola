@@ -9,13 +9,14 @@ commit atomically in one transaction (pattern S5): the audit closure passes
 from __future__ import annotations
 
 import psycopg
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from bussola.api.deps import get_conn, require_permission
 from bussola.auth.models import Operator
 from bussola.auth.rbac import Permission
 from bussola.data.audit import append_audit
+from bussola.data.profiles import get_profile, is_contentless
 from bussola.followup.service import FollowupTokenService
 
 router = APIRouter(prefix="/followups", tags=["followups"])
@@ -38,6 +39,18 @@ def provision_followup(
     operator: Operator = Depends(_provision),
     conn: psycopg.Connection = Depends(get_conn),
 ) -> ProvisionFollowupResponse:
+    # Guard the invariant a follow-up assumes (§5): the pseudonym must already
+    # have a real, content-bearing profile to build on. Without this, a token
+    # could be minted for a pseudonym with no profile row — the person would
+    # enter a valid code and hit the "unavailable" dead-end at start-followup
+    # (Interview.start_followup fails closed when the profile is absent). We
+    # reject here so the OPERATOR learns immediately, instead of the person.
+    profile = get_profile(conn, body.pseudonym_id)
+    if profile is None or is_contentless(profile):
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "no completed profile to follow up for this pseudonym"
+        )
+
     def audit(**kw: object) -> None:
         append_audit(conn, commit=False, **kw)  # type: ignore[arg-type]
 
