@@ -40,7 +40,7 @@ A Monza il bisogno è ancora più acuto: sovraffollamento intorno al 160% e una 
 
 - **Non è uno strumento di sorveglianza, controllo o disciplina.** Non stima pericolosità, non calcola rischi di recidiva, non produce punteggi sulle persone. Non è un sistema di lettura del comportamento.
 - **Il profilo è soltanto un profilo lavorativo.** Contiene esperienze, competenze, aspirazioni e bisogni formativi. Non contiene informazioni su reati, salute, vita familiare o qualunque dato non pertinente al lavoro (vedi §5).
-- **I dati non possono essere riusati per finalità di sicurezza, disciplina, valutazione o profilazione della persona.** L'accesso è vincolato allo scopo: orientamento e matching lavorativo.
+- **I dati non possono essere riusati per finalità di sicurezza, disciplina, valutazione o profilazione della persona.** L'accesso è vincolato allo scopo: orientamento e matching lavorativo. Il registro d'identità (pseudonimo↔matricola) è utilizzabile **solo** per orientamento, matching e follow-up, **mai** per sorveglianza, disciplina o valutazione; contiene **solo la matricola** e ogni accesso è tracciato e revisionabile dall'auditor.
 - **Il sistema resta nel proprio ambito.** Risponde solo su lavoro, formazione e orientamento. Ogni richiesta fuori contesto — dati di terzi, contenuti vietati, temi non pertinenti — viene rifiutata, in ingresso e in uscita.
 - **Il sistema non giudica.** Dialoga in modo accogliente e non stigmatizzante, con chiunque, a prescindere dal passato.
 
@@ -93,6 +93,8 @@ Il profilo è la struttura dati centrale. È **minimo per costruzione**: è prop
 - dati sensibili sulla vita familiare o personale non pertinenti al lavoro;
 - inferenze o valutazioni sulla persona che esulino dall'ambito lavorativo.
 
+**Registro d'identità segregato.** Il legame tra lo pseudonimo e la persona vive in un **registro separato** dal profilo lavorativo, che contiene **solo** lo pseudonimo e la **matricola** (il riferimento che la struttura già gestisce) — mai nome, anagrafica, reati, salute. Il registro è accessibile **soltanto al supervisore** per la de-anonimizzazione (§6) e **ogni accesso è tracciato** nel log di audit (§7.3). Il profilo lavorativo resta minimo e pseudonimo: chi lo consulta (operatore) **non** vede l'identità.
+
 **Realismo e conferma: valida la persona, non l'operatore.**
 Il valore del profilo dipende dalla sua aderenza alla realtà. Ma il personale del carcere è la risorsa più scarsa: un sistema che chiedesse agli operatori di verificare ogni profilo non risolverebbe il problema, lo sposterebbe soltanto. Per questo la validazione avviene **durante il colloquio, con la persona stessa**:
 
@@ -107,8 +109,8 @@ Ne risulta un profilo realistico che **non consuma tempo degli operatori**: ques
 
 L'accesso al sistema è **vincolato allo scopo** (orientamento e matching lavorativo). Ogni ruolo opera a **privilegio minimo** e ogni operazione rilevante è registrata nel log di audit (§7.3).
 
-- **Operatore — fa funzionare il reinserimento.** Inserisce le richieste di lavoro delle aziende, avvia e legge i matching, consulta i profili lavorativi per abbinarli alle posizioni. Può essere un **agente della Polizia Penitenziaria** con utenza autorizzata rilasciata dalla Direzione, oppure una figura dell'area trattamentale o dell'ente del terzo settore. Non recupera informazioni personali: nel profilo, per costruzione, non ce ne sono.
-- **Supervisore — coordina e ha la visione d'insieme.** Vede lo stato di avanzamento, le metriche di qualità e l'attività degli operatori; organizza il lavoro. Non è un validatore dei singoli dati. Tipicamente la Direzione o il responsabile del progetto.
+- **Operatore — fa funzionare il reinserimento.** Inserisce le richieste di lavoro delle aziende, avvia e legge i matching, consulta i profili lavorativi per abbinarli alle posizioni. Può essere un **agente della Polizia Penitenziaria** con utenza autorizzata rilasciata dalla Direzione, oppure una figura dell'area trattamentale o dell'ente del terzo settore. Non risolve l'identità: **avvia** i colloqui inserendo la **matricola** (crea il legame pseudonimo↔persona) ma **non può leggerlo** — scrive, non risolve. Lavora solo su pseudonimi; nel profilo, per costruzione, non ci sono dati personali.
+- **Supervisore — coordina e ha la visione d'insieme.** Vede lo stato di avanzamento, le metriche di qualità e l'attività degli operatori; organizza il lavoro. Non è un validatore dei singoli dati. È l'**unica** autorità di **de-anonimizzazione**: l'unico ruolo che può risolvere pseudonimo↔matricola, per consegnare gli esiti del matching e indirizzare i follow-up. Ogni risoluzione è tracciata (§7.3). Tipicamente la Direzione o il responsabile del progetto.
 - **Amministratore — gestisce la piattaforma, non il merito.** Crea e disattiva le utenze, configura il sistema, ne cura il funzionamento. È un ruolo tecnico-gestionale, distinto dall'uso dei profili per il lavoro.
 - **Auditor — garantisce il corretto uso.** Accede in **sola lettura** al log di audit per verificare chi ha fatto cosa e quando. Non modifica nulla e non partecipa all'operatività. È la garanzia concreta contro il riuso improprio dei dati.
 
@@ -152,6 +154,7 @@ Le funzionalità sono descritte a livello funzionale — **cosa** fanno e **perc
 - **Protezione dei dati.** Dati protetti sia quando sono conservati sia quando viaggiano nella rete interna. *Perché:* riservatezza.
 - **Filtro dei dati personali in uscita.** Prima di mostrare o salvare, il sistema rileva ed elimina eventuali dati personali non pertinenti. *Perché:* nessuna fuoriuscita; il modello non decide da solo cosa esporre.
 - **Registro di audit immutabile.** Traccia, in sola aggiunta, chi ha fatto cosa e quando. *Perché:* accountability e garanzia contro il riuso improprio.
+- **Tracciamento della re-identificazione.** La creazione del legame pseudonimo↔matricola (all'avvio del colloquio) e ogni de-anonimizzazione sono eventi del log immutabile. *Perché:* la re-identificazione è potente e va resa sempre verificabile.
 - **Autorizzazione per le condivisioni esterne.** Ogni esportazione o condivisione verso l'esterno passa da un'approvazione. *Perché:* controllo sui dati che escono.
 - **Resistenza agli abusi.** Il sistema resiste ai tentativi di manipolazione e di estrazione dei dati e può eseguire solo azioni previste. *Perché:* integrità e sicurezza.
 
