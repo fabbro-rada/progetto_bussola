@@ -134,6 +134,31 @@ def test_scope_guard_judges_the_answer_with_the_question_as_context(make_fake_js
     assert base_question(SECTIONS[0], "it") in guard_call["messages"][1]["content"]
 
 
+def test_correction_is_scope_judged_against_the_summary_not_the_question(make_fake_json_llm):
+    # A correction reply ("no, anche cameriere") must be judged as an answer to
+    # the summary it corrects ("…Giusto?"), so a short/negative reply is NOT
+    # refused as off-topic against the section question.
+    repo = FakeRepo()
+    skills = {
+        "skills": [{"name": "falegname", "kind": "technical", "evidence": "stated"}],
+        "languages": [],
+        "digital_literacy": None,
+    }
+    client = make_fake_json_llm(
+        json_responses=[skills, {"confirmed": False}, skills],
+        text_responses=[ALLOW, "Ho capito: falegname. Giusto?", ALLOW, "Ho capito: falegname. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    itw.submit("faccio il falegname")  # -> summary "Ho capito: falegname. Giusto?"
+    itw.submit("no, anche cameriere")  # correction
+    # calls: 0 guard(a1,text) 1 extract(json) 2 summary(text) 3 interpret(json)
+    #        4 guard(correction,text) ...
+    guard_correction = client.calls[4]
+    assert guard_correction["kind"] == "text"
+    assert "Ho capito: falegname. Giusto?" in guard_correction["messages"][1]["content"]
+
+
 def test_llm_unavailable_yields_controlled_step(make_fake_json_llm):
     class Boom:
         def chat(self, *a, **k):

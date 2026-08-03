@@ -68,6 +68,11 @@ class Interview:
         # The final clarification question we asked (if any), kept so the scope
         # guard can judge the reply as an answer to THAT question.
         self._final_clarification: str | None = None
+        # The last summary shown ("I understood X. Is it correct?"), kept so a
+        # correction reply is scope-judged as an answer to THAT confirmation —
+        # otherwise a plain "no"/short correction is measured against the section
+        # question and wrongly refused as off-topic.
+        self._last_summary: str = ""
 
     def _redact(self, text: str) -> str:
         """Redact personal data from LLM-generated text before it is shown to
@@ -94,6 +99,7 @@ class Interview:
         self._awaiting_final_clarification = False
         self._section_answer = ""
         self._final_clarification = None
+        self._last_summary = ""
         return self._question_step()
 
     def start_followup(self, pseudonym_id: str) -> Step:
@@ -109,6 +115,7 @@ class Interview:
         self._awaiting_final_clarification = False
         self._section_answer = ""
         self._final_clarification = None
+        self._last_summary = ""
         return self._question_step()
 
     def _finalize(self, session: InterviewSession) -> Step:
@@ -193,8 +200,12 @@ class Interview:
             # in and nothing already said is lost. We stay on the section.
             section = session.current_section
             assert section is not None
+            # Judge the correction as a reply to the summary it corrects ("…Giusto?"),
+            # not to the section question — else a plain "no" is refused as off-topic.
             decision = self._guard.check(
-                answer, self._language, question=base_question(section, self._language)
+                answer,
+                self._language,
+                question=self._last_summary or base_question(section, self._language),
             )
             if not decision.allow:
                 return Step(
@@ -231,6 +242,8 @@ class Interview:
         summary_text = self._redact(summarize(self._client, section, extracted, self._language))
         session.merge(extracted)
         self._awaiting_confirmation = True
+        # Remember it so a correction reply is scope-judged against this summary.
+        self._last_summary = summary_text
         return Step("summary", summary_text)
 
 
