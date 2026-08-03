@@ -132,6 +132,28 @@ if ! ls models/voice/*.onnx >/dev/null 2>&1; then
   echo "WARN: no Piper voices in models/voice/ — read-aloud (TTS) unavailable. Run: bash scripts/fetch-voice-models.sh"
 fi
 
+# --- model devices (informational) -----------------------------------------
+# Show WHERE each model runs (STATO_TECNICO §5: GPU for the LLM, voice on CPU).
+# We print every placement the design supports and check [x] the one actually
+# configured, so it's clear at a glance what uses the GPU vs the CPU. The STT
+# device/compute are env-overridable (config.py defaults cpu/int8); the LLM runs
+# on the GPU by serve-llm.sh's -ngl 999; Piper TTS is CPU-only in-process.
+_dotenv() {  # value of var $1 from the process env, else .env, else default $2
+  local v="${!1:-}"
+  [ -z "$v" ] && v="$(grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2-)"
+  echo "${v:-$2}"
+}
+_mark() { [ "$1" = "$2" ] && printf '[x]' || printf '[ ]'; }
+stt_dev="$(_dotenv BUSSOLA_STT_DEVICE cpu)"
+stt_ct="$(_dotenv BUSSOLA_STT_COMPUTE_TYPE int8)"
+stt_model="$(_dotenv BUSSOLA_STT_MODEL large-v3-turbo)"
+echo "==> Dove girano i modelli (§5: la GPU all'LLM, la voce sulla CPU)"
+echo   "      LLM  llama-server (Qwen2.5-7B)         [x] GPU   [ ] CPU        (serve-llm.sh: -ngl 999)"
+printf '      STT  faster-whisper (%s)   %s CPU   %s GPU/cuda   (compute_type: %s)\n' \
+  "$stt_model" "$(_mark "$stt_dev" cpu)" "$(_mark "$stt_dev" cuda)" "$stt_ct"
+echo   "      TTS  Piper                             [x] CPU                  (in-process)"
+echo   "    Per spostare lo STT su GPU: BUSSOLA_STT_DEVICE=cuda BUSSOLA_STT_COMPUTE_TYPE=float16 (serve VRAM libera oltre l'LLM)"
+
 # --- 2. migrations ---------------------------------------------------------
 echo "==> Applying migrations"
 ( cd backend && python -m bussola.data.migrate )
