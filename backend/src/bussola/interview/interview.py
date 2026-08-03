@@ -93,6 +93,12 @@ class Interview:
         return Step("unavailable", unavailable_message(self._language))
 
     def start(self) -> Step:
+        """TEST-ONLY (re-identification, §5/§6): starts a FIRST interview on a
+        freshly minted anonymous pseudonym. Production never takes this path —
+        it would create a profile with no entry in the segregated identity
+        register, unlinkable to any person. The kiosk provisions via an
+        operator (start code) and starts with `start_on(pseudonym)`; this
+        method is kept only for the section-flow unit tests."""
         pseudonym = self._repo.create_new()
         self._session = InterviewSession(pseudonym, self._language)
         self._awaiting_confirmation = False

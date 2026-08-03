@@ -7,6 +7,9 @@ from typing import Any
 import psycopg
 from pydantic import BaseModel, ConfigDict
 
+from bussola.data.profiles import is_contentless
+from bussola.profile.models import WorkProfile
+
 # The 4 list-valued key sections; `aspiration` is the 5th (an object).
 _ARRAY_SECTIONS = ("languages", "skills", "experiences", "desired_training")
 _TOTAL_SECTIONS = len(_ARRAY_SECTIONS) + 1  # the 4 arrays + aspiration
@@ -35,7 +38,14 @@ def _profile_completeness(profile: dict[str, Any]) -> float:
 def compute_metrics(conn: psycopg.Connection) -> Metrics:
     with conn.cursor() as cur:
         cur.execute("SELECT profile FROM profiles.work_profile")
-        profiles: list[dict[str, Any]] = [row[0] for row in cur.fetchall()]
+        # Exclude just-provisioned empty profiles (§7.2): they are not completed
+        # interviews, would dilute average_completeness with zeros, and inflate
+        # total_profiles into a matricola<->pseudonym correlation channel
+        # (consistent with ProfileRepository.search/list_all, which also drop
+        # them). See bussola.data.profiles.is_contentless.
+        profiles: list[dict[str, Any]] = [
+            row[0] for row in cur.fetchall() if not is_contentless(WorkProfile.model_validate(row[0]))
+        ]
         cur.execute("SELECT COUNT(*) FROM matching.job_request")
         jr_row = cur.fetchone()
         cur.execute("SELECT COUNT(*) FROM audit.audit_log WHERE action = %s", ("matching_run",))

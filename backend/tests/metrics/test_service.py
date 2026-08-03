@@ -2,7 +2,7 @@ import psycopg
 import pytest
 
 from bussola.data.audit import append_audit
-from bussola.data.profiles import ProfileRepository
+from bussola.data.profiles import ProfileRepository, create_empty_profile
 from bussola.guardrails.pii import PiiRedactor
 from bussola.metrics.service import compute_metrics
 from bussola.profile.enums import EvidenceGrade, LanguageLevel, SkillKind
@@ -48,6 +48,20 @@ def test_mixed_profiles_counts_and_average(app_conn: psycopg.Connection):
     assert m.total_profiles == 2
     assert m.completed_profiles == 1
     assert m.average_completeness == pytest.approx((1.0 + 0.2) / 2)
+
+
+def test_empty_provisioned_profiles_excluded(app_conn: psycopg.Connection):
+    # A just-provisioned but never-interviewed profile must not count toward the
+    # totals nor dilute the average (§7.2) — consistent with search/list_all,
+    # which also drop it. Otherwise an operator could set-diff the counts around
+    # a provisioning call, and the average would sag with provisioning zeros.
+    repo = ProfileRepository(app_conn, PiiRedactor())
+    repo.save(_complete("P-C"))
+    create_empty_profile(app_conn)  # empty; visible on this same connection
+    m = compute_metrics(app_conn)
+    assert m.total_profiles == 1  # the empty one is excluded, not 2
+    assert m.completed_profiles == 1
+    assert m.average_completeness == pytest.approx(1.0)
 
 
 def test_context_counts(app_conn: psycopg.Connection):
