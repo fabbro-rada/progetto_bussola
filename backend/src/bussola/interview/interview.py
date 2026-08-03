@@ -65,6 +65,9 @@ class Interview:
         # the original answer plus each correction and re-extract from the whole
         # (§5 "confermare o correggere") instead of re-asking and losing it.
         self._section_answer = ""
+        # The final clarification question we asked (if any), kept so the scope
+        # guard can judge the reply as an answer to THAT question.
+        self._final_clarification: str | None = None
 
     def _redact(self, text: str) -> str:
         """Redact personal data from LLM-generated text before it is shown to
@@ -90,6 +93,7 @@ class Interview:
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
         self._section_answer = ""
+        self._final_clarification = None
         return self._question_step()
 
     def start_followup(self, pseudonym_id: str) -> Step:
@@ -104,6 +108,7 @@ class Interview:
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
         self._section_answer = ""
+        self._final_clarification = None
         return self._question_step()
 
     def _finalize(self, session: InterviewSession) -> Step:
@@ -113,6 +118,7 @@ class Interview:
         clarification = find_incongruence(self._client, session.profile, self._language)
         if clarification is not None:
             self._awaiting_final_clarification = True
+            self._final_clarification = clarification
             return Step("clarification", self._redact(clarification))
         return self._complete()
 
@@ -152,7 +158,7 @@ class Interview:
         # and hearing the person is the Fase-1 contract; targeted re-extraction
         # from a final clarification is Fase 2).
         if self._awaiting_final_clarification:
-            decision = self._guard.check(answer, self._language)
+            decision = self._guard.check(answer, self._language, question=self._final_clarification)
             if not decision.allow:
                 return Step(
                     "refusal",
@@ -187,7 +193,9 @@ class Interview:
             # in and nothing already said is lost. We stay on the section.
             section = session.current_section
             assert section is not None
-            decision = self._guard.check(answer, self._language)
+            decision = self._guard.check(
+                answer, self._language, question=base_question(section, self._language)
+            )
             if not decision.allow:
                 return Step(
                     "refusal",
@@ -201,7 +209,9 @@ class Interview:
         # normal answer: guard -> extract -> summarize -> await confirmation
         section = session.current_section
         assert section is not None
-        decision = self._guard.check(answer, self._language)
+        decision = self._guard.check(
+            answer, self._language, question=base_question(section, self._language)
+        )
         if not decision.allow:
             return Step(
                 "refusal",

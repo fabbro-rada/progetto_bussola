@@ -58,10 +58,19 @@ class ScopeGuard:
         )
         return _to_decision(_extract_json(raw))
 
-    def check(self, text: str, language: str) -> GuardDecision:
+    def check(self, text: str, language: str, question: str | None = None) -> GuardDecision:
         if not text.strip() or len(text) > self._max:
             return GuardDecision(False, RefusalCategory.INVALID_INPUT, "empty or too long")
-        return self._classify(scope_classifier_prompt(), f"[user message]\n{text}")
+        # Judge the message AS AN ANSWER to the assistant's question, when one is
+        # given: a short/context-dependent reply that fits the question is in
+        # scope (e.g. "arabo" to "which languages?"). The question is our own
+        # trusted text (a scripted section question / clarification), never the
+        # person's — only the [user message] is classified for manipulation.
+        if question and question.strip():
+            content = f"[assistant question]\n{question}\n\n[user message]\n{text}"
+        else:
+            content = f"[user message]\n{text}"
+        return self._classify(scope_classifier_prompt(), content)
 
     def check_output(self, reply: str, language: str) -> GuardDecision:
         return self._classify(output_classifier_prompt(), f"[assistant reply]\n{reply}")

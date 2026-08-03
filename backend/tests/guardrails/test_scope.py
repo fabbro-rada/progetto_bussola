@@ -28,6 +28,23 @@ def test_json_wrapped_in_markdown_is_parsed(make_fake_llm):
     assert ScopeGuard(client).check("aspirazioni lavorative", "it").allow is True
 
 
+def test_includes_the_question_as_context_when_given(make_fake_llm):
+    # A short answer that only makes sense with the question ("arabo" to "which
+    # languages?") must be judged with the question in view.
+    client = make_fake_llm(['{"allow": true, "category": null, "reason": "ok"}'])
+    ScopeGuard(client).check("arabo", "it", question="Che lingue parli?")
+    content = client.calls[0][1]["content"]
+    assert "Che lingue parli?" in content and "arabo" in content
+
+
+def test_without_a_question_the_content_is_just_the_message(make_fake_llm):
+    client = make_fake_llm(['{"allow": true, "category": null, "reason": "ok"}'])
+    ScopeGuard(client).check("ho fatto il cuoco", "it")
+    content = client.calls[0][1]["content"]
+    assert "assistant question" not in content
+    assert "ho fatto il cuoco" in content
+
+
 def test_too_long_input_refused_without_calling_llm(make_fake_llm):
     client = make_fake_llm([])  # no responses: LLM must NOT be called
     guard = ScopeGuard(client, max_input_chars=10)
