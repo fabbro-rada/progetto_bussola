@@ -75,6 +75,49 @@ def test_confirmed_section_persists_and_advances(make_fake_json_llm):
     assert repo.saved[0].skills[0].name == "cooking"
 
 
+def test_correction_updates_the_same_section_without_re_asking(make_fake_json_llm):
+    # The person answers, sees the summary, and instead of confirming ADDS
+    # something ("ho fatto anche il cameriere"). That reply must update the same
+    # section (re-extract from original + correction, re-summarize), NOT re-ask
+    # the section question and discard the correction.
+    repo = FakeRepo()
+    two_skills = {
+        "skills": [
+            {"name": "falegname", "kind": "technical", "evidence": "stated"},
+            {"name": "muratore", "kind": "technical", "evidence": "stated"},
+        ],
+        "languages": [],
+        "digital_literacy": None,
+    }
+    three_skills = {
+        "skills": two_skills["skills"] + [
+            {"name": "cameriere", "kind": "technical", "evidence": "stated"},
+        ],
+        "languages": [],
+        "digital_literacy": None,
+    }
+    client = make_fake_json_llm(
+        # a1: guard ALLOW(text) + extract two_skills(json) + summary(text)
+        # a2 (correction): interpret_confirmation False(json) + guard ALLOW(text)
+        #                  + re-extract three_skills(json) + summary(text)
+        # a3 (confirm):    interpret_confirmation True(json) -> save + advance
+        json_responses=[two_skills, {"confirmed": False}, three_skills, {"confirmed": True}],
+        text_responses=[ALLOW, "So fare il falegname e il muratore. Giusto?", ALLOW,
+                        "Falegname, muratore e cameriere. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    s1 = itw.submit("faccio il falegname e il muratore")
+    assert s1.kind == "summary"
+    s2 = itw.submit("ho fatto anche il cameriere")
+    assert s2.kind == "summary"  # stayed on the section, did NOT re-ask
+    s3 = itw.submit("sì")
+    assert s3.kind == "question"  # confirmed -> advanced
+    assert len(repo.saved) == 1
+    saved_skills = {s.name for s in repo.saved[0].skills}
+    assert saved_skills == {"falegname", "muratore", "cameriere"}  # correction kept + added
+
+
 def test_llm_unavailable_yields_controlled_step(make_fake_json_llm):
     class Boom:
         def chat(self, *a, **k):

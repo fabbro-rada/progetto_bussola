@@ -12,7 +12,7 @@ from bussola.guardrails.scope import ScopeGuard
 from bussola.interview.confirm import interpret_confirmation, summarize
 from bussola.interview.extraction import extract_section
 from bussola.interview.incongruence import find_incongruence
-from bussola.interview.sections import base_question
+from bussola.interview.sections import Section, base_question
 from bussola.interview.session import FollowupInterviewSession, InterviewSession
 from bussola.llm.client import LlmClient, LlmUnavailable
 from bussola.profile.models import WorkProfile
@@ -60,6 +60,11 @@ class Interview:
         self._session: InterviewSession | None = None
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        # The current section's answer text, accumulated across corrections: a
+        # "not confirmed" reply is a correction to the SAME section, so we keep
+        # the original answer plus each correction and re-extract from the whole
+        # (§5 "confermare o correggere") instead of re-asking and losing it.
+        self._section_answer = ""
 
     def _redact(self, text: str) -> str:
         """Redact personal data from LLM-generated text before it is shown to
@@ -84,6 +89,7 @@ class Interview:
         self._session = InterviewSession(pseudonym, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        self._section_answer = ""
         return self._question_step()
 
     def start_followup(self, pseudonym_id: str) -> Step:
@@ -97,6 +103,7 @@ class Interview:
         self._session = InterviewSession.for_followup(profile, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        self._section_answer = ""
         return self._question_step()
 
     def _finalize(self, session: InterviewSession) -> Step:
@@ -168,13 +175,28 @@ class Interview:
                         target_pseudonym=session.profile.pseudonym_id,
                     )
                 self._awaiting_confirmation = False
+                self._section_answer = ""
                 session.advance()
                 if session.completed:
                     return self._finalize(session)
                 return self._question_step()
-            # not confirmed -> re-ask the section question
-            self._awaiting_confirmation = False
-            return self._question_step()
+            # Not confirmed -> the reply is a CORRECTION to the SAME section
+            # (§5 "confermare o correggere"), NOT a request to start over. Guard
+            # it, append it to the section's accumulated answer, re-extract from
+            # the whole thing, and re-summarize — so an addition/change is folded
+            # in and nothing already said is lost. We stay on the section.
+            section = session.current_section
+            assert section is not None
+            decision = self._guard.check(answer, self._language)
+            if not decision.allow:
+                return Step(
+                    "refusal",
+                    refusal_message(
+                        decision.category or RefusalCategory.OUT_OF_SCOPE, self._language
+                    ),
+                )
+            self._section_answer = f"{self._section_answer}\n{answer}".strip()
+            return self._summarize_section(session, section)
 
         # normal answer: guard -> extract -> summarize -> await confirmation
         section = session.current_section
@@ -185,7 +207,17 @@ class Interview:
                 "refusal",
                 refusal_message(decision.category or RefusalCategory.OUT_OF_SCOPE, self._language),
             )
-        extracted = extract_section(self._client, section, answer, self._language)
+        self._section_answer = answer
+        return self._summarize_section(session, section)
+
+    def _summarize_section(self, session: InterviewSession, section: Section) -> Step:
+        """Extract from the section's accumulated answer, merge it into the
+        partial profile, and return the summary step, awaiting confirmation.
+        Shared by a first answer and every subsequent correction, so a
+        correction re-extracts from the full text (original + corrections)."""
+        extracted = extract_section(
+            self._client, section, self._section_answer, self._language
+        )
         summary_text = self._redact(summarize(self._client, section, extracted, self._language))
         session.merge(extracted)
         self._awaiting_confirmation = True
