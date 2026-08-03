@@ -25,10 +25,27 @@ def client(app_conn: psycopg.Connection) -> TestClient:
 
 @pytest.fixture
 def make_operator(app_conn: psycopg.Connection):
-    def _make(username: str, role: Role = Role.OPERATOR) -> tuple[str, str]:
-        _op, temp = AuthService(app_conn).create_operator(
+    def _make(
+        username: str, role: Role = Role.OPERATOR, *, activated: bool = True
+    ) -> tuple[str, str]:
+        """Create an operator and return (username, password).
+
+        By default the operator is *activated*: the first-login password change
+        is completed here, so `must_change_password` is False and the returned
+        password is the post-change one. This mirrors a real operator doing
+        their job — the state every business-endpoint test needs now that
+        `require_password_changed` gates business access (§7.3). Pass
+        `activated=False` for the auth-flow tests that must observe the fresh,
+        must-change state on first login.
+        """
+        svc = AuthService(app_conn)
+        op, temp = svc.create_operator(
             actor="bootstrap", username=username, display_name=username.title(), role=role
         )
-        return username, temp
+        if not activated:
+            return username, temp
+        new_password = "activated-pw-123"  # >= 8 chars (ChangePasswordRequest)
+        svc.change_password(op.id, temp, new_password)
+        return username, new_password
 
     return _make

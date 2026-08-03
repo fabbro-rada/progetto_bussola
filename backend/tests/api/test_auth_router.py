@@ -6,7 +6,8 @@ pytestmark = pytest.mark.usefixtures("db")
 
 
 def test_login_me_logout_flow(client, make_operator):
-    username, temp = make_operator("alice", Role.OPERATOR)
+    # activated=False: this flow asserts the fresh must-change state on login.
+    username, temp = make_operator("alice", Role.OPERATOR, activated=False)
     r = client.post("/auth/login", json={"username": username, "password": temp})
     assert r.status_code == 200
     token = r.json()["token"]
@@ -29,7 +30,8 @@ def test_login_wrong_password_is_401_generic(client, make_operator):
 
 
 def test_change_password_then_login_with_new(client, make_operator):
-    username, temp = make_operator("carl")
+    # activated=False: this test drives the first-login change itself.
+    username, temp = make_operator("carl", activated=False)
     token = client.post("/auth/login", json={"username": username, "password": temp}).json()[
         "token"
     ]
