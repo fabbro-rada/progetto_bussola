@@ -68,3 +68,40 @@ test('the warning banner about tracked access is always shown', async () => {
   renderWithProviders(<Deanonymize />, { client })
   expect(await screen.findByText(/ogni accesso è tracciato/i)).toBeInTheDocument()
 })
+
+test('re-issuing a start code for a matricola shows the new code once (never the pseudonym)', async () => {
+  setToken('tok')
+  const client = makeFakeClient({
+    me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) },
+    reissueStartCode: { status: 'ok', startCode: 'START-RE-1A2B' },
+  })
+  renderWithProviders(<Deanonymize />, { client })
+  await userEvent.type(screen.getByLabelText('Matricola della persona'), 'MAT-777')
+  await userEvent.click(screen.getByRole('button', { name: 'Ri-emetti codice' }))
+  expect(await screen.findByText('START-RE-1A2B')).toBeInTheDocument()
+  expect(client.reissuedMatriculas).toEqual(['MAT-777'])
+})
+
+test('re-issue on an already-started interview shows the follow-up conflict message', async () => {
+  setToken('tok')
+  const client = makeFakeClient({
+    me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) },
+    reissueStartCode: { status: 'conflict' },
+  })
+  renderWithProviders(<Deanonymize />, { client })
+  await userEvent.type(screen.getByLabelText('Matricola della persona'), 'MAT-777')
+  await userEvent.click(screen.getByRole('button', { name: 'Ri-emetti codice' }))
+  expect(await screen.findByText(/usa un follow-up/i)).toBeInTheDocument()
+})
+
+test('re-issue on an unprovisioned matricola shows the not-found message', async () => {
+  setToken('tok')
+  const client = makeFakeClient({
+    me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) },
+    reissueStartCode: { status: 'not-found' },
+  })
+  renderWithProviders(<Deanonymize />, { client })
+  await userEvent.type(screen.getByLabelText('Matricola della persona'), 'MAT-nope')
+  await userEvent.click(screen.getByRole('button', { name: 'Ri-emetti codice' }))
+  expect(await screen.findByText(/non provisionata/i)).toBeInTheDocument()
+})

@@ -186,6 +186,18 @@ export type ResolveMatricolaResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+// Supervisor-only re-issue of a first-interview start code (follow-up A1,
+// DEANONYMIZE permission): recovery for a lost/expired code. The pseudonym is
+// never exposed — only the fresh code. 'not-found' (404) = matricola never
+// provisioned; 'conflict' (409) = the interview already ran (use a follow-up).
+export type ReissueStartCodeResult =
+  | { status: 'ok'; startCode: string }
+  | { status: 'not-found' }
+  | { status: 'conflict' }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+
 export interface CreateOperatorRequest {
   username: string
   display_name: string
@@ -372,6 +384,7 @@ export interface OperatorClient {
   provisionInterview(matricola: string): Promise<ProvisionInterviewResult>
   resolveIdentity(pseudonymIds: string[]): Promise<ResolveIdentityResult>
   resolveMatricola(matricola: string): Promise<ResolveMatricolaResult>
+  reissueStartCode(matricola: string): Promise<ReissueStartCodeResult>
   listOperators(): Promise<ListOperatorsResult>
   createOperator(body: CreateOperatorRequest): Promise<CreateOperatorResult>
   disableOperator(id: number): Promise<MutateOperatorResult>

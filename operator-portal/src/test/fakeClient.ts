@@ -31,6 +31,7 @@ import type {
   OperatorClient,
   ProfileFilters,
   ProvisionInterviewResult,
+  ReissueStartCodeResult,
   Report,
   ReportResult,
   ResetPasswordResult,
@@ -155,6 +156,7 @@ export function makeFakeClient(opts: {
   provisionInterview?: ProvisionInterviewResult
   resolveIdentity?: ResolveIdentityResult
   resolveMatricola?: ResolveMatricolaResult
+  reissueStartCode?: ReissueStartCodeResult
   operators?: ListOperatorsResult
   createOp?: CreateOperatorResult
   disable?: MutateOperatorResult
@@ -190,6 +192,7 @@ export function makeFakeClient(opts: {
     provisionInterview: number
     resolveIdentity: number
     resolveMatricola: number
+    reissueStartCode: number
     lops: number
     opcreate: number
     opdisable: number
@@ -215,6 +218,7 @@ export function makeFakeClient(opts: {
   provisionedMatriculas: string[]
   resolvedPseudonymBatches: string[][]
   resolvedMatriculas: string[]
+  reissuedMatriculas: string[]
   createdOperators: CreateOperatorRequest[]
   disabledIds: number[]
   enabledIds: number[]
@@ -227,7 +231,7 @@ export function makeFakeClient(opts: {
 } {
   const calls = {
     login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0,
-    followupCreate: 0, provisionInterview: 0, resolveIdentity: 0, resolveMatricola: 0,
+    followupCreate: 0, provisionInterview: 0, resolveIdentity: 0, resolveMatricola: 0, reissueStartCode: 0,
     lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0, report: 0, reportExport: 0,
     expList: 0, expPending: 0, expCreate: 0, expApprove: 0, expDeny: 0, expDownload: 0,
     audList: 0, audVerify: 0, activity: 0, systemConfig: 0,
@@ -238,6 +242,7 @@ export function makeFakeClient(opts: {
   const provisionedMatriculas: string[] = []
   const resolvedPseudonymBatches: string[][] = []
   const resolvedMatriculas: string[] = []
+  const reissuedMatriculas: string[] = []
   const createdOperators: CreateOperatorRequest[] = []
   const disabledIds: number[] = []
   const enabledIds: number[] = []
@@ -256,6 +261,7 @@ export function makeFakeClient(opts: {
     provisionedMatriculas,
     resolvedPseudonymBatches,
     resolvedMatriculas,
+    reissuedMatriculas,
     createdOperators,
     disabledIds,
     enabledIds,
@@ -325,6 +331,11 @@ export function makeFakeClient(opts: {
       calls.resolveMatricola++
       resolvedMatriculas.push(matricola)
       return opts.resolveMatricola ?? { status: 'ok', pseudonymId: 'P-4F2A' }
+    },
+    async reissueStartCode(matricola) {
+      calls.reissueStartCode++
+      reissuedMatriculas.push(matricola)
+      return opts.reissueStartCode ?? { status: 'ok', startCode: 'START-RE-1A2B' }
     },
     async listOperators() {
       calls.lops++
