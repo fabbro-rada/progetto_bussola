@@ -11,7 +11,7 @@ CREATE TABLE identity.pseudonym_identity (
     created_at   timestamptz NOT NULL DEFAULT now(),
     created_by   text NOT NULL
 );
-CREATE INDEX ON identity.pseudonym_identity (matricola);
+-- No extra index on matricola: the UNIQUE constraint above already creates one.
 GRANT SELECT, INSERT ON identity.pseudonym_identity TO bussola_app;
 
 -- startcode.start_code: one-time, expiring code that launches a FIRST interview on a
