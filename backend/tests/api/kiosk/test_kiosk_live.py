@@ -2,9 +2,12 @@
 Postgres. Drives a short synthetic interview over HTTP and a voice round-trip.
 Skips unless llama-server + the voice libs/models are available.
 
-`build_interview` is overridden here to bind the Interview to the test database
-(bussola_test) — the real factory connects to the default DB name. Synthetic
-data only (§9)."""
+`open_kiosk_conn` is overridden here to bind the Interview session to the
+test database (bussola_test) — the real factory connects to the default DB
+name; this mirrors `test_followup_start.py`'s `_open_test_conn` override. The
+kiosk `/start` endpoint now consumes a one-time `start_code` (Task 5), so a
+pseudonym + code are provisioned against the SAME test DB before the request.
+Synthetic data only (§9)."""
 
 from __future__ import annotations
 
@@ -17,12 +20,8 @@ from bussola.api.app import create_app
 from bussola.api.kiosk import config
 from bussola.api.kiosk.routers import interview as interview_router
 from bussola.data import config as db_config
-from bussola.data.audit import append_audit
-from bussola.guardrails.pii import PiiRedactor
-from bussola.guardrails.scope import ScopeGuard
-from bussola.interview.interview import Interview
-from bussola.data.profiles import ProfileRepository
-from bussola.llm.client import HttpxLlmClient
+from bussola.data.profiles import create_empty_profile
+from bussola.startcode.service import StartCodeService
 
 TOKEN = "secret-kiosk"
 
@@ -57,30 +56,26 @@ requires_stack = pytest.mark.skipif(
 def test_kiosk_interview_and_voice_over_http(monkeypatch, db):
     monkeypatch.setattr(config, "KIOSK_TOKEN", TOKEN)
 
-    def build_on_test_db(language: str):
-        conn = psycopg.connect(db_config.dsn("app", dbname="bussola_test"))
-        redactor = PiiRedactor()
-        llm = HttpxLlmClient()
+    def _open_test_conn() -> psycopg.Connection:
+        return psycopg.connect(db_config.dsn("app", dbname="bussola_test"))
 
-        def audit(**kwargs: object) -> None:
-            append_audit(conn, actor="kiosk", **kwargs)  # type: ignore[arg-type]
+    monkeypatch.setattr(interview_router, "open_kiosk_conn", _open_test_conn)
 
-        interview = Interview(
-            llm,
-            ScopeGuard(llm),
-            ProfileRepository(conn, redactor, language),
-            language=language,
-            redactor=redactor,
-            audit=audit,
-        )
-        return interview, conn.close
-
-    monkeypatch.setattr(interview_router, "build_interview", build_on_test_db)
+    # Provision a pseudonym + one-time start_code against the SAME test DB
+    # (operator-provisioning stand-in — Task 5 removed anonymous self-start).
+    provision_conn = _open_test_conn()
+    pseudonym = create_empty_profile(provision_conn)
+    provision_conn.commit()
+    start_code = StartCodeService(provision_conn).issue(pseudonym)
+    provision_conn.commit()
+    provision_conn.close()
 
     client = TestClient(create_app())
     h = {"X-Kiosk-Token": TOKEN}
 
-    start = client.post("/kiosk/interview/start", json={"language": "it"}, headers=h)
+    start = client.post(
+        "/kiosk/interview/start", json={"start_code": start_code, "language": "it"}, headers=h
+    )
     assert start.status_code == 200
     token = start.json()["session_token"]
     assert start.json()["step"]["kind"] == "question"
