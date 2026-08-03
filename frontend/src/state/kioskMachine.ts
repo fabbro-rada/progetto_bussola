@@ -11,6 +11,10 @@ export interface MachineState {
   // ConfirmCorrect and keeps showing its "correcting" text box instead of the
   // Sì/No choice.
   stepSeq: number
+  // Text of the last prompt the person was answering (question/summary/
+  // clarification). Kept across a refusal — whose own step carries only the
+  // refusal notice — so the refusal screen can re-show the actual question.
+  lastPrompt: string | null
   lastAnswer: string | null
   pending: boolean
   // Set once the person enters a follow-up code (before start-followup is
@@ -26,6 +30,7 @@ export const initialState: MachineState = {
   sessionToken: null,
   step: null,
   stepSeq: 0,
+  lastPrompt: null,
   lastAnswer: null,
   pending: false,
   followupToken: null,
@@ -63,6 +68,13 @@ function screenFor(kind: StepKind): Screen {
   return kind
 }
 
+// The prompts the person actively answers; a refusal keeps the previous one so
+// the refusal screen can re-show the question that was asked.
+const PROMPT_KINDS: readonly StepKind[] = ['question', 'summary', 'clarification']
+function nextPrompt(step: Step, prev: string | null): string | null {
+  return PROMPT_KINDS.includes(step.kind) ? step.text : prev
+}
+
 export function reducer(state: MachineState, action: Action): MachineState {
   switch (action.type) {
     case 'selectLanguage':
@@ -81,6 +93,7 @@ export function reducer(state: MachineState, action: Action): MachineState {
         sessionToken: r.sessionToken,
         step: r.step,
         stepSeq: state.stepSeq + 1,
+        lastPrompt: nextPrompt(r.step, state.lastPrompt),
         screen: screenFor(r.step.kind),
         pending: false,
       }
@@ -97,6 +110,7 @@ export function reducer(state: MachineState, action: Action): MachineState {
         ...state,
         step: r.step,
         stepSeq: state.stepSeq + 1,
+        lastPrompt: nextPrompt(r.step, state.lastPrompt),
         screen: screenFor(r.step.kind),
         pending: false,
       }
@@ -125,6 +139,7 @@ export function reducer(state: MachineState, action: Action): MachineState {
         sessionToken: r.sessionToken,
         step: r.step,
         stepSeq: state.stepSeq + 1,
+        lastPrompt: nextPrompt(r.step, state.lastPrompt),
         screen: screenFor(r.step.kind),
         pending: false,
       }

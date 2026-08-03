@@ -80,6 +80,7 @@ textarea {
 .pending { color: var(--muted); font-weight: 600; }
 .voice-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block: 12px; padding: 10px 12px; background: #f3f4f6; border-radius: 12px; }
 .voice-btn { font: inherit; font-size: calc(16px * var(--text-scale)); font-weight: 700; padding: 12px 16px; border-radius: 10px; border: 2px solid #2563eb; background: #fff; color: #2563eb; cursor: pointer; }
+.voice-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .voice-btn.primary { background: #2563eb; color: #fff; }
 .voice-btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .voice-btn[aria-pressed='true'] { background: #e5e7eb; color: #374151; border-color: #9ca3af; }
