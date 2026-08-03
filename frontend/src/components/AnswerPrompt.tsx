@@ -22,12 +22,12 @@ export function AnswerPrompt({
     <div>
       {banner && <div className="banner-warn">{banner}</div>}
       <p className="prompt-text">{text}</p>
-      <VoiceBar text={text} canDictate onDictated={setValue} onBusyChange={setVoiceBusy} />
+      <VoiceBar text={text} canDictate onDictated={setValue} onBusyChange={setVoiceBusy} disabled={busy} />
       <textarea
         aria-label={t('prompt.placeholder')}
         placeholder={t('prompt.placeholder')}
         value={value}
-        disabled={voiceBusy}
+        disabled={voiceBusy || busy}
         onChange={(e) => setValue(e.target.value)}
       />
       <BigButton

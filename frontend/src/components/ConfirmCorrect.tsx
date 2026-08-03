@@ -22,22 +22,22 @@ export function ConfirmCorrect({
       <p className="prompt-text">{text}</p>
       {!correcting ? (
         <>
-          <VoiceBar text={text} />
+          <VoiceBar text={text} disabled={busy} />
           <BigButton variant="confirm" disabled={busy} onClick={() => onSubmit(t('confirm.yes'))}>
             {t('confirm.yes')}
           </BigButton>
-          <BigButton variant="secondary" onClick={() => setCorrecting(true)}>
+          <BigButton variant="secondary" disabled={busy} onClick={() => setCorrecting(true)}>
             {t('confirm.no')}
           </BigButton>
         </>
       ) : (
         <>
-          <VoiceBar text={text} canDictate onDictated={setValue} onBusyChange={setVoiceBusy} />
+          <VoiceBar text={text} canDictate onDictated={setValue} onBusyChange={setVoiceBusy} disabled={busy} />
           <textarea
             aria-label={t('confirm.correctPlaceholder')}
             placeholder={t('confirm.correctPlaceholder')}
             value={value}
-            disabled={voiceBusy}
+            disabled={voiceBusy || busy}
             onChange={(e) => setValue(e.target.value)}
           />
           <BigButton

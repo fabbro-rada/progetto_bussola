@@ -66,6 +66,19 @@ test('while recording, busy is reported and Listen/mute are disabled', async () 
   vi.unstubAllGlobals()
 })
 
+test('when the form is busy, every voice button is disabled', async () => {
+  await i18n.changeLanguage('it')
+  stubMedia(true)
+  const client = makeVoiceClient({ audio: null })
+  renderWithProviders(
+    <VoiceBar text="Domanda" canDictate onDictated={vi.fn()} disabled />,
+    { voiceClient: client, language: 'it' },
+  )
+  expect(await screen.findByRole('button', { name: /Parla/ })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Ascolta' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /audio/i })).toBeDisabled()
+})
+
 test('no Parla when canDictate is false', async () => {
   await i18n.changeLanguage('it')
   stubMedia(true)

@@ -103,14 +103,16 @@ export function App({
         return <FollowupEntry onSubmit={submitFollowupCredentials} onLanguageChange={previewFollowupLanguage} />
       case 'followupConsent':
         return <FollowupConsent onAccept={startFollowup} onDecline={decline} busy={state.pending} />
+      // Key by stepSeq so every new step remounts a fresh input component
+      // (a summary→summary correction must reset ConfirmCorrect to Sì/No).
       case 'question':
-        return <Question text={state.step!.text} onSubmit={submit} busy={state.pending} />
+        return <Question key={state.stepSeq} text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'summary':
-        return <Summary text={state.step!.text} onSubmit={submit} busy={state.pending} />
+        return <Summary key={state.stepSeq} text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'clarification':
-        return <Clarification text={state.step!.text} onSubmit={submit} busy={state.pending} />
+        return <Clarification key={state.stepSeq} text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'refusal':
-        return <Refusal text={state.step!.text} onSubmit={submit} busy={state.pending} />
+        return <Refusal key={state.stepSeq} text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'unavailable':
         return <Unavailable onRetry={retry} busy={state.pending} />
       case 'completed':
