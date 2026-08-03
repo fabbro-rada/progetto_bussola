@@ -72,7 +72,9 @@ class Report(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     coverage: Coverage
-    languages: dict[str, Count]  # "<language> (<level>)" -> count; free-text-keyed, rare keys dropped
+    languages: dict[
+        str, Count
+    ]  # "<language> (<level>)" -> count; free-text-keyed, rare keys dropped
     skill_kinds: dict[str, Count]
     skill_evidence: dict[str, Count]
     availability: dict[str, Count]

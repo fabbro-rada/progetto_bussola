@@ -50,9 +50,7 @@ def _insert_profile(
 def _seed_profiles(conn: psycopg.Connection, *, langs: list[str]) -> None:
     """Insert one minimal profile per language in `langs` (brief Step 1)."""
     for i, lang in enumerate(langs):
-        _insert_profile(
-            conn, f"P-lang-{i}", {"languages": [{"language": lang, "level": "fluent"}]}
-        )
+        _insert_profile(conn, f"P-lang-{i}", {"languages": [{"language": lang, "level": "fluent"}]})
 
 
 def _complete_body(
@@ -67,9 +65,7 @@ def _complete_body(
     return {
         "languages": [{"language": language, "level": "fluent"}],
         "skills": [{"name": "Cucina", "kind": skill_kind, "evidence": skill_evidence}],
-        "experiences": [
-            {"role": "Aiuto cuoco", "sector": "Ristorazione", "duration_months": 12}
-        ],
+        "experiences": [{"role": "Aiuto cuoco", "sector": "Ristorazione", "duration_months": 12}],
         "aspiration": {
             "fields_of_interest": ["Ristorazione"],
             "availability": availability,
@@ -173,7 +169,11 @@ def test_coverage_counts_average_and_histogram(app_conn: psycopg.Connection) -> 
     for i in range(6):  # 6 complete profiles -> "100%" bucket, >= k -> exact
         _insert_profile(app_conn, f"P-complete-{i}", _complete_body())
     for i in range(2):  # 2 partial profiles (skills only) -> "20%" bucket, < k
-        _insert_profile(app_conn, f"P-partial-{i}", {"skills": [{"name": "X", "kind": "soft", "evidence": "stated"}]})
+        _insert_profile(
+            app_conn,
+            f"P-partial-{i}",
+            {"skills": [{"name": "X", "kind": "soft", "evidence": "stated"}]},
+        )
 
     rep = compute_report(app_conn, k=5)
     assert rep.coverage.total_profiles == 8

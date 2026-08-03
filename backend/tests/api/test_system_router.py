@@ -27,7 +27,10 @@ def test_non_admin_roles_are_forbidden(client, make_operator):
     for name, role in [("op1", Role.OPERATOR), ("sup1", Role.SUPERVISOR), ("aud1", Role.AUDITOR)]:
         user, temp = make_operator(name, role)
         token = _login(client, user, temp)
-        assert client.get("/system-config", headers={"Authorization": f"Bearer {token}"}).status_code == 403
+        assert (
+            client.get("/system-config", headers={"Authorization": f"Bearer {token}"}).status_code
+            == 403
+        )
 
 
 def test_view_is_audited(client, make_operator, app_conn: psycopg.Connection):

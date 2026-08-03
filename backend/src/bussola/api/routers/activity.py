@@ -21,5 +21,7 @@ def get_operator_activity(
     conn: psycopg.Connection = Depends(get_conn),
 ) -> list[OperatorActivity]:
     activity = compute_operator_activity(conn)
-    append_audit(conn, action="operator_activity_viewed", actor=operator.username, target_pseudonym=None)
+    append_audit(
+        conn, action="operator_activity_viewed", actor=operator.username, target_pseudonym=None
+    )
     return activity

@@ -25,7 +25,7 @@ _EMOJI_RE = re.compile(
     "\U00002300-\U000023ff"  # miscellaneous technical (⌛ ⏳ …)
     "\U00002b00-\U00002bff"  # miscellaneous symbols and arrows (★ … )
     "\U0000fe00-\U0000fe0f"  # variation selectors
-    "\U0000200d"             # zero-width joiner
+    "\U0000200d"  # zero-width joiner
     "]"
 )
 

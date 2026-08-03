@@ -40,7 +40,10 @@ class FakeLlm:
 
 def test_record_match_run_persists_aggregate_without_pseudonym(app_conn: psycopg.Connection):
     record_match_run(
-        app_conn, job_request_id=1, evaluated_count=7, compatible_count=3,
+        app_conn,
+        job_request_id=1,
+        evaluated_count=7,
+        compatible_count=3,
         gaps={"HACCP": 2, "muletto": 1},
     )
     app_conn.commit()
@@ -73,7 +76,9 @@ def test_match_return_value_unchanged_and_aggregate_row_recorded(app_conn: psyco
         )
     )
     job = JobRequestRepository(app_conn).create(
-        JobRequestCreate(title="Cuoco", sector="ristorazione", required_skills=["cucina", "igiene"]),
+        JobRequestCreate(
+            title="Cuoco", sector="ristorazione", required_skills=["cucina", "igiene"]
+        ),
         created_by="op1",
     )
     app_conn.commit()

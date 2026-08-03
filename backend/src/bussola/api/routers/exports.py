@@ -59,7 +59,9 @@ def create_export(
     operator: Operator = Depends(_request),
     conn: psycopg.Connection = Depends(get_conn),
 ) -> ExportRequest:
-    return ExportService(conn).create_request(actor=operator.username, filters=body.filters, reason=body.reason)
+    return ExportService(conn).create_request(
+        actor=operator.username, filters=body.filters, reason=body.reason
+    )
 
 
 @router.get("", response_model=list[ExportRequest])
@@ -117,7 +119,9 @@ def download_export(
     conn: psycopg.Connection = Depends(get_conn),
 ) -> list[WorkProfile] | Response:
     try:
-        payload = ExportService(conn).generate_payload(actor=operator.username, request_id=request_id)
+        payload = ExportService(conn).generate_payload(
+            actor=operator.username, request_id=request_id
+        )
     except ExportNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "export request not found")
     except ExportNotApproved:

@@ -118,7 +118,8 @@ def test_correction_updates_the_same_section_without_re_asking(make_fake_json_ll
         "digital_literacy": None,
     }
     three_skills = {
-        "skills": two_skills["skills"] + [
+        "skills": two_skills["skills"]
+        + [
             {"name": "cameriere", "kind": "technical", "evidence": "stated"},
         ],
         "languages": [],
@@ -130,8 +131,12 @@ def test_correction_updates_the_same_section_without_re_asking(make_fake_json_ll
         #                  + re-extract three_skills(json) + summary(text)
         # a3 (confirm):    interpret_confirmation True(json) -> save + advance
         json_responses=[two_skills, {"confirmed": False}, three_skills, {"confirmed": True}],
-        text_responses=[ALLOW, "So fare il falegname e il muratore. Giusto?", ALLOW,
-                        "Falegname, muratore e cameriere. Giusto?"],
+        text_responses=[
+            ALLOW,
+            "So fare il falegname e il muratore. Giusto?",
+            ALLOW,
+            "Falegname, muratore e cameriere. Giusto?",
+        ],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
     itw.start()
@@ -173,7 +178,12 @@ def test_correction_is_scope_judged_against_the_summary_not_the_question(make_fa
     }
     client = make_fake_json_llm(
         json_responses=[skills, {"confirmed": False}, skills],
-        text_responses=[ALLOW, "Ho capito: falegname. Giusto?", ALLOW, "Ho capito: falegname. Giusto?"],
+        text_responses=[
+            ALLOW,
+            "Ho capito: falegname. Giusto?",
+            ALLOW,
+            "Ho capito: falegname. Giusto?",
+        ],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
     itw.start()

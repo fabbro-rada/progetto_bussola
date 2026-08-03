@@ -21,9 +21,7 @@ from bussola.auth.rbac import Role
 from bussola.data import config
 
 
-def test_full_stack_wiring_smoke(
-    db: None, auditor_conn: psycopg.Connection, monkeypatch
-) -> None:
+def test_full_stack_wiring_smoke(db: None, auditor_conn: psycopg.Connection, monkeypatch) -> None:
     # Point the app's real get_conn (config.dsn("app"), no dbname) at the
     # migrated test DB, so we exercise real per-request connection management
     # instead of the shared app_conn override used by router unit tests.
