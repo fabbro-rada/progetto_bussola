@@ -102,6 +102,18 @@ class Interview:
         self._last_summary = ""
         return self._question_step()
 
+    def start_on(self, pseudonym_id: str) -> Step:
+        """Start a FIRST interview on a pre-created (empty) pseudonym (operator-
+        provisioned). Full sections, overwrite merge — like start(), but the
+        pseudonym/profile already exist, so we do not create a new one."""
+        self._session = InterviewSession(pseudonym_id, self._language)
+        self._awaiting_confirmation = False
+        self._awaiting_final_clarification = False
+        self._section_answer = ""
+        self._final_clarification = None
+        self._last_summary = ""
+        return self._question_step()
+
     def start_followup(self, pseudonym_id: str) -> Step:
         """Start a follow-up interview on an EXISTING pseudonym's profile:
         a reduced section order, append/upgrade merge (§5, never lose prior

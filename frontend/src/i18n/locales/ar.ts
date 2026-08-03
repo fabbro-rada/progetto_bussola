@@ -11,6 +11,13 @@ export const ar = {
     accept: 'فهمت، لنبدأ',
     decline: 'ليس الآن',
   },
+  startCode: {
+    title: 'أدخل رمزك',
+    languageGroupLabel: 'اللغة',
+    codeLabel: 'أدخل الرمز الذي أعطاك إياه أحد الموظفين',
+    codePlaceholder: 'الرمز…',
+    submit: 'متابعة',
+  },
   followupEntry: {
     title: 'هل لديك رمز متابعة؟',
     languageGroupLabel: 'اللغة',

@@ -11,6 +11,13 @@ export const it = {
     accept: 'Ho capito, iniziamo',
     decline: 'Non ora',
   },
+  startCode: {
+    title: 'Inserisci il tuo codice',
+    languageGroupLabel: 'Lingua',
+    codeLabel: "Inserisci il codice che ti ha dato l'operatore",
+    codePlaceholder: 'Codice…',
+    submit: 'Continua',
+  },
   followupEntry: {
     title: 'Hai un codice di follow-up?',
     languageGroupLabel: 'Lingua',

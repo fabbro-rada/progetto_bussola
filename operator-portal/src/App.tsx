@@ -5,6 +5,7 @@ import { Login } from './screens/Login'
 import { ChangePassword } from './screens/ChangePassword'
 import { Home } from './screens/Home'
 import { Unauthorized } from './screens/Unauthorized'
+import { NewInterview } from './screens/interviews/NewInterview'
 import { JobRequestList } from './screens/jobRequests/JobRequestList'
 import { JobRequestCreate } from './screens/jobRequests/JobRequestCreate'
 import { JobRequestDetail } from './screens/jobRequests/JobRequestDetail'
@@ -18,6 +19,7 @@ import { ExportApprovals } from './screens/exports/ExportApprovals'
 import { AuditLog } from './screens/audit/AuditLog'
 import { OperatorActivityPanel } from './screens/activity/OperatorActivityPanel'
 import { SystemConfigPanel } from './screens/system/SystemConfigPanel'
+import { Deanonymize } from './screens/identity/Deanonymize'
 
 export function App() {
   return (
@@ -41,6 +43,7 @@ export function App() {
       >
         <Route index element={<Home />} />
         <Route path="unauthorized" element={<Unauthorized />} />
+        <Route path="new-interview" element={<NewInterview />} />
         <Route path="job-requests" element={<JobRequestList />} />
         <Route path="job-requests/new" element={<JobRequestCreate />} />
         <Route path="job-requests/:id" element={<JobRequestDetail />} />
@@ -54,6 +57,7 @@ export function App() {
         <Route path="audit" element={<AuditLog />} />
         <Route path="activity" element={<OperatorActivityPanel />} />
         <Route path="config" element={<SystemConfigPanel />} />
+        <Route path="deanonymize" element={<Deanonymize />} />
         {/* later sub-projects add nested section routes here */}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

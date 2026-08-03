@@ -6,8 +6,19 @@ import { makeFakeClient, makeVoiceClient, noopVoiceClient, step } from './test/f
 import { App } from './App'
 import type { KioskClient, SubmitResult } from './types'
 
+// Task 8 (re-identification): the kiosk no longer self-starts anonymously --
+// after picking a language, the person now lands on the start-code entry
+// screen (mirrors FollowupEntry: its own language grid + a code field) and
+// must key in the one-time code an operator gave them before reaching
+// consent. `START_CODE` is an arbitrary, synthetic placeholder (§9); no test
+// below asserts a *specific* code value beyond that it round-trips.
+const START_CODE = 'S-ABC123'
+
 async function chooseItalianAndConsent() {
   await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Italiano' }))
+  await userEvent.type(screen.getByLabelText(/codice/i), START_CODE)
+  await userEvent.click(screen.getByRole('button', { name: 'Continua' }))
   await userEvent.click(await screen.findByRole('button', { name: 'Ho capito, iniziamo' }))
 }
 
@@ -41,6 +52,13 @@ test('happy path: language -> consent -> question -> summary -> completed', asyn
 
   await chooseItalianAndConsent()
   expect(await screen.findByText('Che lavoro sai fare?')).toBeInTheDocument()
+  // Task 8 review fix: proves the person-entered start code + chosen
+  // language actually reach `client.startInterview`, in the right order —
+  // mirrors the equivalent `client.calls.followup` assertion for the
+  // follow-up path below. Without this, a swapped-argument regression
+  // (`startInterview(language, startCode)`) or a stale/empty code would
+  // pass every other test in this file.
+  expect(client.calls.start).toEqual({ code: START_CODE, language: 'it' })
 
   await userEvent.type(screen.getByRole('textbox'), 'so cucinare')
   await userEvent.click(screen.getByRole('button', { name: 'Avanti' }))
@@ -144,11 +162,19 @@ test('session expired mid-interview -> back to the language picker', async () =>
   expect(await screen.findByRole('button', { name: 'Italiano' })).toBeInTheDocument()
 })
 
-test('unauthorized token -> station-not-authorized screen', async () => {
+// Task 8: `start` now consumes a person-entered start code, and the backend
+// returns the SAME 401 for an invalid/used/expired code as for a genuinely
+// unauthorized device -- deliberately indistinguishable (fail-closed, same
+// reasoning as the follow-up path's equivalent test below). Showing
+// "this station is not authorized" would misdirect the person (and any
+// operator helping them) toward a device problem that may not exist, so
+// this now routes to the gentle, no-detail "unavailable" screen instead.
+test('a rejected start (bad start code or unauthorized device) fails closed to the gentle unavailable screen', async () => {
   const client = makeFakeClient({ start: { status: 'unauthorized' } })
   renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
   await chooseItalianAndConsent()
-  expect(await screen.findByText(/Questa postazione non è autorizzata/)).toBeInTheDocument()
+  expect(await screen.findByText(/Un momento, ci riprovo/)).toBeInTheDocument()
+  expect(screen.queryByText(/Questa postazione non è autorizzata/)).not.toBeInTheDocument()
 })
 
 test('choosing Arabic sets the document direction to rtl', async () => {
@@ -160,6 +186,14 @@ test('choosing Arabic sets the document direction to rtl', async () => {
 test('declining consent in Arabic returns to an ltr language picker', async () => {
   renderWithProviders(<App client={makeFakeClient({})} voiceClient={noopVoiceClient} />)
   await userEvent.click(screen.getByRole('button', { name: 'العربية' }))
+  // Land on the start-code entry screen first (Task 8) -- pick the language
+  // there too (its own grid, mirroring FollowupEntry) and key in a code
+  // before consent is even reachable.
+  await userEvent.click(await screen.findByRole('button', { name: 'العربية' }))
+  const input = document.querySelector('#start-code') as HTMLInputElement
+  await userEvent.type(input, 'S-AR1')
+  const codeButtons = screen.getAllByRole('button')
+  await userEvent.click(codeButtons[codeButtons.length - 1])
   await userEvent.click(await screen.findByRole('button', { name: /ليس الآن|Non ora/ }))
   expect(document.documentElement.dir).toBe('ltr')
 })
@@ -226,8 +260,7 @@ test('auto-reads the interview question via synthesize when a step appears', asy
     start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Che lavoro sai fare?') },
   })
   renderWithProviders(<App client={client} voiceClient={fakeVoice} />)
-  await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
-  await userEvent.click(await screen.findByRole('button', { name: 'Ho capito, iniziamo' }))
+  await chooseItalianAndConsent()
   await screen.findByText('Che lavoro sai fare?')
   await waitFor(() =>
     expect(fakeVoice.calls.synthesize.some((c) => c.text === 'Che lavoro sai fare?' && c.language === 'it')).toBe(true),

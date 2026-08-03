@@ -1,8 +1,8 @@
 """Opaque pseudonym generation.
 
-The pseudonym is the ONLY identifier of a work profile. The system never
-stores the link between a pseudonym and a real person — that register lives
-outside the system.
+The pseudonym is the ONLY identifier inside the work profile. The link between a
+pseudonym and a real person (matricola) lives in a SEPARATE, segregated register
+(schema `identity`), readable only by the supervisor role and fully audited (§5/§6/§7.3).
 """
 
 from __future__ import annotations

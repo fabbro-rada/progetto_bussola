@@ -8,7 +8,7 @@ property under test is that the endpoint commits the `used_at` mark right
 after a successful consume, so a second call with the SAME token is rejected
 even though the first call's `Interview.start_followup` runs (and could, in
 principle, raise) afterwards. `open_kiosk_conn` is monkeypatched to point at
-`bussola_test` the same way `test_kiosk_live.py` overrides `build_interview`."""
+`bussola_test` the same way `test_kiosk_live.py` overrides `open_kiosk_conn`."""
 
 from __future__ import annotations
 

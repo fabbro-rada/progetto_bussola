@@ -33,10 +33,13 @@ import type {
   OperatorActivityResult,
   OperatorClient,
   ProfileFilters,
+  ProvisionInterviewResult,
   Report,
   ReportResult,
   ResetPasswordResult,
   ResetResponse,
+  ResolveIdentityResult,
+  ResolveMatricolaResult,
   SearchProfilesResult,
   SystemConfig,
   SystemConfigResult,
@@ -242,6 +245,74 @@ async function createFollowup(pseudonymId: string): Promise<CreateFollowupResult
   try {
     const data = (await res.json()) as { token: string }
     return { status: 'ok', token: data.token }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function provisionInterview(matricola: string): Promise<ProvisionInterviewResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/interviews/provision`, {
+      method: 'POST',
+      headers: headers(true),
+      body: JSON.stringify({ matricola }),
+    })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 409) return { status: 'conflict' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    const data = (await res.json()) as { start_code: string }
+    return { status: 'ok', startCode: data.start_code }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function resolveIdentity(pseudonymIds: string[]): Promise<ResolveIdentityResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/identity/resolve`, {
+      method: 'POST',
+      headers: headers(true),
+      body: JSON.stringify({ pseudonym_ids: pseudonymIds }),
+    })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    const data = (await res.json()) as { results: { pseudonym_id: string; matricola: string }[] }
+    return { status: 'ok', results: data.results.map((r) => ({ pseudonymId: r.pseudonym_id, matricola: r.matricola })) }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function resolveMatricola(matricola: string): Promise<ResolveMatricolaResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/identity/resolve-matricola`, {
+      method: 'POST',
+      headers: headers(true),
+      body: JSON.stringify({ matricola }),
+    })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 404) return { status: 'not-found' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    const data = (await res.json()) as { pseudonym_id: string }
+    return { status: 'ok', pseudonymId: data.pseudonym_id }
   } catch {
     return { status: 'error' }
   }
@@ -546,6 +617,9 @@ export const operatorClient: OperatorClient = {
   searchProfiles,
   getProfile,
   createFollowup,
+  provisionInterview,
+  resolveIdentity,
+  resolveMatricola,
   listOperators,
   createOperator,
   disableOperator,

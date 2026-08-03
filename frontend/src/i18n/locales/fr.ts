@@ -11,6 +11,13 @@ export const fr = {
     accept: "J'ai compris, commençons",
     decline: 'Pas maintenant',
   },
+  startCode: {
+    title: 'Saisis ton code',
+    languageGroupLabel: 'Langue',
+    codeLabel: "Saisis le code qu'un opérateur t'a donné",
+    codePlaceholder: 'Code…',
+    submit: 'Continuer',
+  },
   followupEntry: {
     title: 'As-tu un code de suivi ?',
     languageGroupLabel: 'Langue',

@@ -22,31 +22,35 @@ function mockFetchBadJson(status = 200) {
 beforeEach(() => vi.stubGlobal('fetch', mockFetch(200, { session_token: 't', step: { kind: 'question', text: 'Q' } })))
 afterEach(() => vi.unstubAllGlobals())
 
-test('start maps 200 to ok and sends the kiosk token header', async () => {
+// start(startCode, language) (Task 8, re-identification): the kiosk no
+// longer self-starts anonymously -- it now consumes a one-time start code
+// an operator gave the person, mirroring startFollowup's request shape
+// exactly (see below).
+test('start maps 200 to ok, posts the start code + language, and sends the kiosk token header', async () => {
   const fetchMock = mockFetch(200, { session_token: 'tok', step: { kind: 'question', text: 'Ciao' } })
   vi.stubGlobal('fetch', fetchMock)
-  const res = await kioskClient.startInterview('it')
+  const res = await kioskClient.startInterview('S-CODE1', 'it')
   expect(res).toEqual({ status: 'ok', sessionToken: 'tok', step: { kind: 'question', text: 'Ciao' } })
   const [url, init] = fetchMock.mock.calls[0]
   expect(String(url)).toContain('/kiosk/interview/start')
   expect((init as RequestInit).method).toBe('POST')
   expect((init!.headers as Record<string, string>)['X-Kiosk-Token']).toBeDefined()
-  expect(JSON.parse((init as RequestInit).body as string)).toEqual({ language: 'it' })
+  expect(JSON.parse((init as RequestInit).body as string)).toEqual({ start_code: 'S-CODE1', language: 'it' })
 })
 
-test('start maps 401 to unauthorized', async () => {
+test('start maps 401 (invalid/used/expired start code, or a bad device token) to unauthorized', async () => {
   vi.stubGlobal('fetch', mockFetch(401))
-  expect(await kioskClient.startInterview('it')).toEqual({ status: 'unauthorized' })
+  expect(await kioskClient.startInterview('S-CODE1', 'it')).toEqual({ status: 'unauthorized' })
 })
 
 test('start maps a thrown fetch (backend down) to unavailable', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')))
-  expect(await kioskClient.startInterview('it')).toEqual({ status: 'unavailable' })
+  expect(await kioskClient.startInterview('S-CODE1', 'it')).toEqual({ status: 'unavailable' })
 })
 
 test('start maps a 2xx response with an unparsable body to unavailable', async () => {
   vi.stubGlobal('fetch', mockFetchBadJson(200))
-  expect(await kioskClient.startInterview('it')).toEqual({ status: 'unavailable' })
+  expect(await kioskClient.startInterview('S-CODE1', 'it')).toEqual({ status: 'unavailable' })
 })
 
 test('submit maps 200 to ok with the step', async () => {

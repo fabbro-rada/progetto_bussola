@@ -11,6 +11,49 @@ from bussola.profile.enums import Availability, OperationalNoteCategory
 from bussola.profile.models import WorkProfile
 
 
+def create_empty_profile(conn: psycopg.Connection) -> str:
+    """Create an empty work profile under a fresh pseudonym; return the pseudonym.
+
+    Redactor-free (the operator provisioning path must not load NLP models).
+    No commit here — the caller owns the transaction.
+    """
+    pseudonym = generate_pseudonym()
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO profiles.work_profile (pseudonym_id, profile) VALUES (%s, %s) "
+            "ON CONFLICT (pseudonym_id) DO NOTHING",
+            (pseudonym, WorkProfile(pseudonym_id=pseudonym).model_dump_json()),
+        )
+    return pseudonym
+
+
+def _is_contentless(profile: WorkProfile) -> bool:
+    """True for a just-provisioned empty profile (exactly `create_empty_profile`'s
+    output: no skills/languages/experiences/desired_training/operational_notes,
+    no digital_literacy, and no aspiration with any field set).
+
+    Excluded from `ProfileRepository.search`/`list_all` (§7.3/§11): an empty
+    profile has nothing to match on or search for, and surfacing it would let
+    an operator set-diff the profile list around a provisioning call to see a
+    new empty profile appear and self-map matricola -> pseudonym, bypassing
+    the supervisor-only de-anonymization.
+    """
+    aspiration_empty = profile.aspiration is None or (
+        not profile.aspiration.fields_of_interest
+        and profile.aspiration.availability is None
+        and not profile.aspiration.constraints
+    )
+    return (
+        not profile.skills
+        and not profile.languages
+        and not profile.experiences
+        and aspiration_empty
+        and not profile.desired_training
+        and not profile.operational_notes
+        and profile.digital_literacy is None
+    )
+
+
 class ProfileRepository:
     """Reads and writes work profiles.
 
@@ -27,9 +70,14 @@ class ProfileRepository:
         self._language = language
 
     def create_new(self) -> str:
-        """Create an empty profile under a fresh pseudonym; return the pseudonym."""
-        pseudonym = generate_pseudonym()
-        self._upsert(WorkProfile(pseudonym_id=pseudonym))
+        """Create an empty profile under a fresh pseudonym; return the pseudonym.
+
+        Delegates to the module-level `create_empty_profile` (DRY) but keeps
+        this method's existing commit-internally behavior, since callers
+        elsewhere (e.g. the follow-up flow) rely on it.
+        """
+        pseudonym = create_empty_profile(self._conn)
+        self._conn.commit()
         return pseudonym
 
     def save(self, profile: WorkProfile) -> WorkProfile:
@@ -51,7 +99,8 @@ class ProfileRepository:
         with self._conn.cursor() as cur:
             cur.execute("SELECT profile FROM profiles.work_profile ORDER BY pseudonym_id")
             rows = cur.fetchall()
-        return [WorkProfile.model_validate(r[0]) for r in rows]
+        profiles = [WorkProfile.model_validate(r[0]) for r in rows]
+        return [p for p in profiles if not _is_contentless(p)]
 
     def search(
         self,
@@ -88,7 +137,8 @@ class ProfileRepository:
                 params,
             )
             rows = cur.fetchall()
-        return [WorkProfile.model_validate(r[0]) for r in rows]
+        profiles = [WorkProfile.model_validate(r[0]) for r in rows]
+        return [p for p in profiles if not _is_contentless(p)]
 
     def _upsert(self, profile: WorkProfile) -> None:
         with self._conn.cursor() as cur:

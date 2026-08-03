@@ -73,6 +73,14 @@ test('deep link to a protected route while unauthenticated → login', async () 
   expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
 })
 
+test('an authenticated operator can reach the new-interview section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } })
+  renderApp(client, '/new-interview')
+  // «Genera codice» is rendered only by NewInterview → proves the route mounted
+  expect(await screen.findByRole('button', { name: 'Genera codice' })).toBeInTheDocument()
+})
+
 test('an authenticated operator can navigate to the job-requests section', async () => {
   setToken('tok')
   const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } })
@@ -151,4 +159,12 @@ test('an authenticated admin can reach the system-config section', async () => {
   renderApp(client, '/config')
   // «Modello linguistico» is a section heading rendered only by SystemConfigPanel → proves the route mounted
   expect(await screen.findByText('Modello linguistico')).toBeInTheDocument()
+})
+
+test('an authenticated supervisor can reach the deanonymize section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } })
+  renderApp(client, '/deanonymize')
+  // «De-anonimizza» is rendered only by Deanonymize → proves the route mounted
+  expect(await screen.findByRole('button', { name: 'De-anonimizza' })).toBeInTheDocument()
 })

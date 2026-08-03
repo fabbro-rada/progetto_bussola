@@ -30,6 +30,8 @@ class Permission(str, Enum):
     READ_AUDIT = "read_audit"
     CONFIGURE_SYSTEM = "configure_system"
     PROVISION_FOLLOWUP = "provision_followup"
+    PROVISION_INTERVIEW = "provision_interview"
+    DEANONYMIZE = "deanonymize"
 
 
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
@@ -40,10 +42,16 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.RUN_MATCHING,
             Permission.EXPORT_DATA,
             Permission.PROVISION_FOLLOWUP,
+            Permission.PROVISION_INTERVIEW,
         }
     ),
     Role.SUPERVISOR: frozenset(
-        {Permission.VIEW_METRICS, Permission.VIEW_OPERATOR_ACTIVITY, Permission.APPROVE_EXPORTS}
+        {
+            Permission.VIEW_METRICS,
+            Permission.VIEW_OPERATOR_ACTIVITY,
+            Permission.APPROVE_EXPORTS,
+            Permission.DEANONYMIZE,
+        }
     ),
     Role.ADMIN: frozenset({Permission.MANAGE_OPERATORS, Permission.CONFIGURE_SYSTEM}),
     Role.AUDITOR: frozenset({Permission.READ_AUDIT}),

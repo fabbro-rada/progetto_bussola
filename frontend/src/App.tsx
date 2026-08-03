@@ -10,6 +10,7 @@ import { voiceClient as realVoiceClient } from './voice/voiceClient'
 import { VoiceProvider } from './voice/VoiceContext'
 import type { VoiceClient } from './voice/voiceClient'
 import { LanguagePicker } from './screens/LanguagePicker'
+import { StartCodeEntry } from './screens/StartCodeEntry'
 import { Consent } from './screens/Consent'
 import { FollowupEntry } from './screens/FollowupEntry'
 import { FollowupConsent } from './screens/FollowupConsent'
@@ -34,11 +35,24 @@ export function App({
   }, [])
 
   const start = useCallback(async () => {
-    if (!state.language) return
+    if (!state.language || !state.startCode) return
     dispatch({ type: 'starting' })
-    const result = await client.startInterview(state.language)
+    const result = await client.startInterview(state.startCode, state.language)
     dispatch({ type: 'started', result })
-  }, [client, state.language])
+  }, [client, state.language, state.startCode])
+
+  // Re-identification (Task 8): mirrors `previewFollowupLanguage` — retargets
+  // voice narration on the start-code entry screen the moment a tile is
+  // tapped, before the code is even submitted.
+  const previewStartCodeLanguage = useCallback((code: string) => {
+    dispatch({ type: 'previewStartCodeLanguage', language: code })
+  }, [])
+
+  // Mirrors `submitFollowupCredentials`: captures the code+language and
+  // moves on to the (unchanged) consent screen — no network call yet.
+  const submitStartCode = useCallback((code: string, language: string) => {
+    dispatch({ type: 'submitStartCode', code, language })
+  }, [])
 
   const openFollowupEntry = useCallback(() => {
     dispatch({ type: 'openFollowupEntry' })
@@ -97,6 +111,8 @@ export function App({
     switch (state.screen) {
       case 'language':
         return <LanguagePicker onSelect={selectLanguage} onFollowupEntry={openFollowupEntry} />
+      case 'startCodeEntry':
+        return <StartCodeEntry onSubmit={submitStartCode} onLanguageChange={previewStartCodeLanguage} />
       case 'consent':
         return <Consent onAccept={start} onDecline={decline} busy={state.pending} />
       case 'followupEntry':

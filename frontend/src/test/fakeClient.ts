@@ -8,18 +8,33 @@ import type { VoiceClient } from '../voice/voiceClient'
 // to know about the follow-up option. `calls.followup` records exactly what
 // was sent, so tests can assert BOTH the token and the language reached the
 // client (the language must never be silently dropped — see Task 6 brief).
+// `calls.start` mirrors that for the first-interview path (Task 8 review
+// fix): records the start code + language `startInterview` was actually
+// called with, so tests can catch a swapped-argument regression or a
+// stale/empty code slipping through `App.tsx`'s `start()`.
 export function makeFakeClient(opts: {
   start?: StartResult
   submits?: SubmitResult[]
   startFollowup?: StartResult
-}): KioskClient & { calls: { answers: string[]; followup: { token: string; language: string } | null } } {
-  const calls = { answers: [] as string[], followup: null as { token: string; language: string } | null }
+}): KioskClient & {
+  calls: {
+    answers: string[]
+    start: { code: string; language: string } | null
+    followup: { token: string; language: string } | null
+  }
+} {
+  const calls = {
+    answers: [] as string[],
+    start: null as { code: string; language: string } | null,
+    followup: null as { token: string; language: string } | null,
+  }
   let i = 0
   const start: StartResult = opts.start ?? { status: 'ok', sessionToken: 'tok', step: { kind: 'question', text: 'Q1' } }
   const submits = opts.submits ?? []
   return {
     calls,
-    async startInterview() {
+    async startInterview(code: string, language: string) {
+      calls.start = { code, language }
       return start
     },
     async submitAnswer(_token: string, answer: string) {

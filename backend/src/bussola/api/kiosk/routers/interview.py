@@ -8,19 +8,20 @@ from pydantic import BaseModel, Field
 
 from bussola.api.kiosk.deps import (
     REGISTRY,
-    build_followup_interview,
-    build_interview,
+    build_kiosk_interview,
     open_kiosk_conn,
     require_kiosk,
 )
 from bussola.followup.service import FollowupTokenService
 from bussola.interview.interview import Interview
+from bussola.startcode.service import StartCodeService
 
 router = APIRouter(prefix="/kiosk/interview", tags=["kiosk"], dependencies=[Depends(require_kiosk)])
 
 
 class StartRequest(BaseModel):
-    language: str = Field(min_length=2, max_length=5)
+    start_code: str = Field(min_length=1, max_length=200)
+    language: str = Field(default="it", min_length=2, max_length=5)
 
 
 class StartFollowupRequest(BaseModel):
@@ -55,13 +56,25 @@ class SubmitResponse(BaseModel):
 
 @router.post("/start", response_model=StartResponse)
 def start(body: StartRequest) -> StartResponse:
-    interview, on_evict = build_interview(body.language)
+    conn = open_kiosk_conn()
+    pseudonym = StartCodeService(conn).consume(body.start_code)
+    if pseudonym is None:
+        # Fail-closed: unknown/used/expired code -> no session, no leak
+        # about which of the three it was.
+        conn.close()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid or expired start code")
+    # LOAD-BEARING (single-use durability): `consume()` marks the code used
+    # via an UPDATE but does NOT commit (the caller owns the transaction).
+    # Commit HERE, immediately, and BEFORE any subsequent step that could
+    # raise -- see `start_followup` below for the identical reasoning.
+    conn.commit()
+    interview = build_kiosk_interview(conn, body.language)
     try:
-        step = interview.start()
+        step = interview.start_on(pseudonym)
     except Exception:
-        on_evict()
+        conn.close()
         raise
-    token = REGISTRY.create(interview, on_evict=on_evict)
+    token = REGISTRY.create(interview, on_evict=conn.close)
     return StartResponse(session_token=token, step=StepOut(kind=step.kind, text=step.text))
 
 
@@ -83,7 +96,7 @@ def start_followup(body: StartFollowupRequest) -> StartResponse:
     # mark would roll back, and the token would become reusable — defeating
     # single-use.
     conn.commit()
-    interview = build_followup_interview(conn, body.language)
+    interview = build_kiosk_interview(conn, body.language)
     try:
         step = interview.start_followup(pseudonym)
     except Exception:

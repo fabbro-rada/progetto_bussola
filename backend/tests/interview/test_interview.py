@@ -48,6 +48,33 @@ def test_start_returns_first_question(make_fake_json_llm):
     assert step.text.strip()
 
 
+def test_start_on_uses_the_given_pseudonym_without_creating_a_new_one(make_fake_json_llm):
+    repo = FakeRepo()
+    itw = Interview(make_fake_json_llm(), ScopeGuard(make_fake_json_llm()), repo, language="it")
+    step = itw.start_on("P-fixed")
+    assert step.kind == "question"
+    assert repo.saved == []  # nothing saved yet
+    # first confirmed section must persist under P-fixed (not a create_new pseudonym)
+
+
+def test_start_on_confirmed_section_persists_under_the_given_pseudonym(make_fake_json_llm):
+    repo = FakeRepo()
+    client = make_fake_json_llm(
+        json_responses=[COMP, {"confirmed": True}],
+        text_responses=[ALLOW, "Riepilogo: sai cucinare. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+    itw.start_on("P-fixed")
+    s1 = itw.submit("so cucinare")
+    assert s1.kind == "summary"
+    s2 = itw.submit("sì")
+    assert s2.kind == "question"  # advanced to the next section
+    assert len(repo.saved) == 1
+    # start_on must NOT have called repo.create_new(): the saved profile is
+    # keyed by the pseudonym we passed in, not a freshly minted one.
+    assert repo.saved[0].pseudonym_id == "P-fixed"
+
+
 def test_off_topic_answer_is_refused_and_does_not_advance(make_fake_json_llm):
     # scope guard consulted first (text call) -> REFUSE
     client = make_fake_json_llm(text_responses=[REFUSE])

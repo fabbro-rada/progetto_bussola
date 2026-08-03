@@ -29,6 +29,7 @@ test('admin sees «Gestione utenze» and «Configurazione» as real links', asyn
 test('the built sections render real links; Export is built too', async () => {
   setToken('tok')
   renderWithProviders(<Nav />, { client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } }) })
+  expect(await screen.findByRole('link', { name: /Nuovo colloquio/ })).toHaveAttribute('href', '/new-interview')
   expect(await screen.findByRole('link', { name: /Richieste di lavoro/ })).toHaveAttribute('href', '/job-requests')
   expect(await screen.findByRole('link', { name: /Profili/ })).toHaveAttribute('href', '/profiles')
   expect(await screen.findByRole('link', { name: /Export/ })).toHaveAttribute('href', '/export')
@@ -61,4 +62,21 @@ test('auditor sees «Log di audit» as a real link', async () => {
     client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'auditor' }) } }),
   })
   expect(await screen.findByRole('link', { name: /Log di audit/ })).toHaveAttribute('href', '/audit')
+})
+
+test('supervisor sees «De-anonimizza» as a real link', async () => {
+  setToken('tok')
+  renderWithProviders(<Nav />, {
+    client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } }),
+  })
+  expect(await screen.findByRole('link', { name: /De-anonimizza/ })).toHaveAttribute('href', '/deanonymize')
+})
+
+test('operator does not see «De-anonimizza»', async () => {
+  setToken('tok')
+  renderWithProviders(<Nav />, {
+    client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } }),
+  })
+  await waitFor(() => expect(screen.getByText('Richieste di lavoro')).toBeInTheDocument())
+  expect(screen.queryByText('De-anonimizza')).not.toBeInTheDocument()
 })

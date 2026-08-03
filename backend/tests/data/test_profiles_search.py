@@ -1,7 +1,7 @@
 import psycopg
 import pytest
 
-from bussola.data.profiles import ProfileRepository
+from bussola.data.profiles import ProfileRepository, create_empty_profile
 from bussola.guardrails.pii import PiiRedactor
 from bussola.profile.enums import (
     Availability,
@@ -46,6 +46,21 @@ def test_list_all(repo: ProfileRepository):
     assert {p.pseudonym_id for p in repo.list_all()} == {"P-cook", "P-clerk"}
 
 
+def test_list_all_excludes_contentless_profiles(
+    repo: ProfileRepository, app_conn: psycopg.Connection
+):
+    # A just-provisioned empty profile (operator types a matricola, no interview
+    # yet) must not appear in the candidate pool: nothing to match on, and
+    # surfacing it would let an operator set-diff the list to catch the new
+    # empty profile appearing and self-map matricola -> pseudonym (§11).
+    empty_pseudonym = create_empty_profile(app_conn)
+    app_conn.commit()
+    _seed(repo)
+    got = {p.pseudonym_id for p in repo.list_all()}
+    assert got == {"P-cook", "P-clerk"}
+    assert empty_pseudonym not in got
+
+
 def test_search_by_availability(repo: ProfileRepository):
     _seed(repo)
     got = repo.search(availability=Availability.FULL_TIME)
@@ -62,3 +77,16 @@ def test_search_by_note(repo: ProfileRepository):
     _seed(repo)
     got = repo.search(note=OperationalNoteCategory.PREFERS_TEAM_WORK)
     assert [p.pseudonym_id for p in got] == ["P-cook"]
+
+
+def test_search_excludes_contentless_profiles(
+    repo: ProfileRepository, app_conn: psycopg.Connection
+):
+    # Same anti-correlation reasoning as list_all above, for the operator's
+    # unfiltered profile search (GET /profiles with no query params).
+    empty_pseudonym = create_empty_profile(app_conn)
+    app_conn.commit()
+    _seed(repo)
+    got = {p.pseudonym_id for p in repo.search()}
+    assert got == {"P-cook", "P-clerk"}
+    assert empty_pseudonym not in got

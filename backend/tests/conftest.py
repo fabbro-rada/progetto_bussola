@@ -67,8 +67,20 @@ def db(test_database: None) -> Iterator[None]:
             audit_tbl, profiles_tbl = cur.fetchone()
             if audit_tbl is not None:
                 cur.execute("TRUNCATE audit.audit_log RESTART IDENTITY")
+            # identity.pseudonym_identity FKs into profiles.work_profile (mirrors the
+            # auth.session -> auth.operator pattern below): truncate the referencing
+            # table explicitly, then CASCADE the parent's truncate so Postgres doesn't
+            # refuse with FeatureNotSupported ("referenced in a foreign key constraint").
+            cur.execute("SELECT to_regclass('identity.pseudonym_identity')")
+            identity_tbl = cur.fetchone()[0]
+            if identity_tbl is not None:
+                cur.execute("TRUNCATE identity.pseudonym_identity")
             if profiles_tbl is not None:
-                cur.execute("TRUNCATE profiles.work_profile")
+                cur.execute("TRUNCATE profiles.work_profile CASCADE")
+            cur.execute("SELECT to_regclass('startcode.start_code')")
+            start_code_tbl = cur.fetchone()[0]
+            if start_code_tbl is not None:
+                cur.execute("TRUNCATE startcode.start_code")
             cur.execute("SELECT to_regclass('auth.session'), to_regclass('auth.operator')")
             session_tbl, operator_tbl = cur.fetchone()
             if session_tbl is not None:

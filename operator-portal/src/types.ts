@@ -156,6 +156,36 @@ export type CreateFollowupResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+// One-time interview start code (Task 9): the operator enters a matricola and
+// gets a code to hand to the person; the pseudonym itself is never exposed to
+// the caller (§2/§5). A duplicate matricola is a 409 -> 'conflict', distinct
+// from 'error', so the screen can show a specific message.
+export type ProvisionInterviewResult =
+  | { status: 'ok'; startCode: string }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'conflict' }
+  | { status: 'error' }
+
+// Supervisor-only pseudonym<->matricola resolution (Task 7/10, DEANONYMIZE
+// permission). The server is the sole authority on §6 role gating; unknown
+// pseudonyms are simply omitted from `results` rather than erroring.
+export interface ResolvedIdentity {
+  pseudonymId: string
+  matricola: string
+}
+export type ResolveIdentityResult =
+  | { status: 'ok'; results: ResolvedIdentity[] }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+export type ResolveMatricolaResult =
+  | { status: 'ok'; pseudonymId: string }
+  | { status: 'not-found' }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'error' }
+
 export interface CreateOperatorRequest {
   username: string
   display_name: string
@@ -339,6 +369,9 @@ export interface OperatorClient {
   searchProfiles(filters: ProfileFilters): Promise<SearchProfilesResult>
   getProfile(pseudonym: string): Promise<GetProfileResult>
   createFollowup(pseudonymId: string): Promise<CreateFollowupResult>
+  provisionInterview(matricola: string): Promise<ProvisionInterviewResult>
+  resolveIdentity(pseudonymIds: string[]): Promise<ResolveIdentityResult>
+  resolveMatricola(matricola: string): Promise<ResolveMatricolaResult>
   listOperators(): Promise<ListOperatorsResult>
   createOperator(body: CreateOperatorRequest): Promise<CreateOperatorResult>
   disableOperator(id: number): Promise<MutateOperatorResult>

@@ -4,6 +4,7 @@ import { test } from 'vitest'
 import { renderWithProviders } from './test/utils'
 import { expectNoA11yViolations } from './test/axe'
 import { LanguagePicker } from './screens/LanguagePicker'
+import { StartCodeEntry } from './screens/StartCodeEntry'
 import { Consent } from './screens/Consent'
 import { FollowupEntry } from './screens/FollowupEntry'
 import { FollowupConsent } from './screens/FollowupConsent'
@@ -27,6 +28,20 @@ const noop = () => {}
 // representative props and checked for component-level a11y violations (§4).
 test('LanguagePicker has no a11y violations', async () => {
   const { container } = renderWithProviders(<LanguagePicker onSelect={noop} />)
+  await expectNoA11yViolations(container)
+})
+
+test('StartCodeEntry has no a11y violations', async () => {
+  const { container } = renderWithProviders(<StartCodeEntry onSubmit={noop} onLanguageChange={noop} />)
+  await expectNoA11yViolations(container)
+})
+
+// Also audit the post-language-selection state, since that's when the
+// VoiceBar mounts and is the more representative state (mirrors
+// FollowupEntry below).
+test('StartCodeEntry (after picking a language) has no a11y violations', async () => {
+  const { container } = renderWithProviders(<StartCodeEntry onSubmit={noop} onLanguageChange={noop} />)
+  await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
   await expectNoA11yViolations(container)
 })
 

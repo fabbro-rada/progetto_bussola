@@ -39,11 +39,25 @@ async function audit(page: Page, label: string): Promise<void> {
   expect(violations, `${label} a11y violations:\n${JSON.stringify(summary, null, 2)}`).toEqual([])
 }
 
-// Drive language -> consent -> question -> submit, landing on `nextStep`'s screen.
+// Re-identification (Task 8): the kiosk no longer self-starts anonymously --
+// after picking a language, the person now lands on the start-code entry
+// screen (its own language grid + a code field, mirroring FollowupEntry)
+// before reaching consent. `languageName` must match whatever was just
+// tapped on the language picker (its label is in that language once
+// applied).
+async function enterStartCode(page: Page, languageName: string, code: string): Promise<void> {
+  await page.getByRole('button', { name: languageName }).click() // start-code entry's own grid
+  await page.locator('#start-code').fill(code)
+  await page.locator('.big-confirm').click() // submit -> consent
+}
+
+// Drive language -> start-code entry -> consent -> question -> submit,
+// landing on `nextStep`'s screen.
 async function reachAfterSubmit(page: Page, nextStep: Step): Promise<void> {
   await mockKiosk(page, { nextStep })
   await page.goto('/')
   await page.getByRole('button', { name: 'Italiano' }).click()
+  await enterStartCode(page, 'Italiano', 'S-E2E1')
   await page.locator('.big-confirm').click() // accept consent -> question
   await expect(page.locator('.prompt-text')).toBeVisible()
   await page.getByPlaceholder('Scrivi qui la tua risposta…').fill('faccio il cuoco')
@@ -61,6 +75,7 @@ test('consent screen — Italian', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Italiano' }).click()
+  await enterStartCode(page, 'Italiano', 'S-E2E1')
   await expect(page.getByRole('button', { name: 'Ho capito, iniziamo' })).toBeVisible()
   await audit(page, 'consent-it')
 })
@@ -69,6 +84,7 @@ test('consent screen — Arabic (RTL)', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'العربية' }).click()
+  await enterStartCode(page, 'العربية', 'S-E2E1')
   await expect(page.locator('.big-confirm')).toBeVisible() // on the Consent screen (not a fallback)
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await audit(page, 'consent-ar-rtl')
@@ -78,6 +94,7 @@ test('question screen — Arabic (RTL)', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'العربية' }).click()
+  await enterStartCode(page, 'العربية', 'S-E2E1')
   await page.locator('.big-confirm').click() // consent accept (language-neutral selector)
   await expect(page.locator('.prompt-text')).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
@@ -88,6 +105,7 @@ test('question screen — Italian', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Italiano' }).click()
+  await enterStartCode(page, 'Italiano', 'S-E2E1')
   await page.locator('.big-confirm').click()
   await expect(page.locator('.prompt-text')).toBeVisible()
   await audit(page, 'question-it')
@@ -123,11 +141,18 @@ test('completed screen', async ({ page }) => {
   await audit(page, 'completed')
 })
 
-test('unauthorized screen', async ({ page }) => {
+// Task 8 (re-identification): `start` now consumes a person-entered start
+// code, and the backend returns the SAME 401 for an invalid/used/expired
+// code as for a genuinely unauthorized device (deliberately
+// indistinguishable). This now fails closed to the gentle "unavailable"
+// screen instead of "this station is not authorized" -- see the matching
+// fix in kioskMachine.ts / App.test.tsx.
+test('a rejected start (bad code or unauthorized device) fails closed to the unavailable screen', async ({ page }) => {
   await mockKiosk(page, { startStatus: 401 })
   await page.goto('/')
   await page.getByRole('button', { name: 'Italiano' }).click()
+  await enterStartCode(page, 'Italiano', 'S-E2E1')
   await page.locator('.big-confirm').click() // accept -> start returns 401
-  await expect(page.getByText('Questa postazione non è autorizzata. Chiedi aiuto a un operatore.')).toBeVisible()
-  await audit(page, 'unauthorized')
+  await expect(page.getByText('Un momento, ci riprovo tra poco. Puoi anche scrivere di nuovo.')).toBeVisible()
+  await audit(page, 'unavailable-after-rejected-start')
 })
