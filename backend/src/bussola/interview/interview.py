@@ -93,8 +93,16 @@ class Interview:
         scope-checked and the summary is built from constrained extraction, so
         this should essentially never trip in normal use; it exists so a
         manipulated/malfunctioning model cannot make the assistant emit
-        off-scope text."""
+        off-scope text.
+
+        A trip is audited (`output_guard_blocked`, §7.3): a guardrail activation
+        is a security-relevant event and must be accountable, not silent."""
         if not self._guard.check_output(text, self._language).allow:
+            if self._audit is not None and self._session is not None:
+                self._audit(
+                    action="output_guard_blocked",
+                    target_pseudonym=self._session.profile.pseudonym_id,
+                )
             return None
         return self._redact(text)
 
@@ -278,10 +286,14 @@ class Interview:
         extracted = extract_section(self._client, section, self._section_answer, self._language)
         summary_text = self._present(summarize(self._client, section, extracted, self._language))
         if summary_text is None:
-            # The generated summary failed the outbound scope guard (§9): never
-            # show it, and mutate no state (no merge, not awaiting) — the person
-            # simply gets the graceful-degrade step and can answer again.
-            return self._unavailable()
+            # The generated summary failed the outbound scope guard (§9, already
+            # audited in `_present`). Rather than dead-end on `unavailable` — a
+            # deterministic re-trip on the same input would soft-lock the section
+            # — fall back to a safe, guaranteed-in-scope generic confirmation of
+            # the extracted data. What was withheld is only the model's free-text
+            # phrasing; the extracted data is schema-constrained and separately
+            # validated, so confirming it stays sound (§3 degrado elegante).
+            summary_text = _generic_confirmation(self._language)
         session.merge(extracted)
         self._awaiting_confirmation = True
         # Remember it so a correction reply is scope-judged against this summary.
@@ -296,5 +308,20 @@ def _final_summary(language: str) -> str:
         "fr": "C'est terminé, merci ! J'ai rassemblé ton profil professionnel.",
         "es": "Hemos terminado, ¡gracias! He reunido tu perfil laboral.",
         "ar": "لقد انتهينا، شكرًا لك! لقد جمعت ملفك المهني.",
+    }
+    return messages.get(language, messages["en"])
+
+
+def _generic_confirmation(language: str) -> str:
+    """Safe, author-controlled fallback shown when the outbound guard blocks a
+    generated section summary: asks the person to confirm without echoing the
+    (withheld) model text. Kept in the 5 supported languages like the other
+    static messages; ar wording is provisional pending native-speaker review."""
+    messages = {
+        "it": "Ho registrato la tua risposta. È corretto?",
+        "en": "I've noted your answer. Is that correct?",
+        "fr": "J'ai bien noté ta réponse. C'est correct ?",
+        "es": "He anotado tu respuesta. ¿Es correcto?",
+        "ar": "لقد سجّلت إجابتك. هل هذا صحيح؟",
     }
     return messages.get(language, messages["en"])
