@@ -49,6 +49,23 @@ test('dictation: Parla → Stop → onDictated fires with the transcript (field,
   vi.unstubAllGlobals()
 })
 
+test('while recording, busy is reported and Listen/mute are disabled', async () => {
+  await i18n.changeLanguage('it')
+  stubMedia(true)
+  const client = makeVoiceClient({ transcript: 'so cucinare', audio: null })
+  const onBusyChange = vi.fn()
+  renderWithProviders(
+    <VoiceBar text="Domanda" canDictate onDictated={vi.fn()} onBusyChange={onBusyChange} />,
+    { voiceClient: client, language: 'it' },
+  )
+  await userEvent.click(await screen.findByRole('button', { name: /Parla/ }))
+  await screen.findByRole('button', { name: /Stop/ }) // now recording
+  expect(screen.getByRole('button', { name: 'Ascolta' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /audio/i })).toBeDisabled()
+  expect(onBusyChange).toHaveBeenCalledWith(true)
+  vi.unstubAllGlobals()
+})
+
 test('no Parla when canDictate is false', async () => {
   await i18n.changeLanguage('it')
   stubMedia(true)

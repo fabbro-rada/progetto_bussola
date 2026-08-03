@@ -8,15 +8,30 @@ export function VoiceBar({
   text,
   canDictate = false,
   onDictated,
+  onBusyChange,
 }: {
   text: string
   canDictate?: boolean
   onDictated?: (text: string) => void
+  onBusyChange?: (busy: boolean) => void
 }) {
   const { t } = useTranslation()
   const { language, muted, setMuted, client } = useVoice()
   const { play, stop } = useSpeech(client)
   const recorder = useRecorder({ onText: (txt) => onDictated?.(txt) })
+
+  // Voice is "busy" from the moment we ask for the mic until the transcript is
+  // in: the field and the other controls must be inert during this window, so
+  // nothing gets typed/played over a dictation in progress. Surfaced upward so
+  // the surrounding form can disable its textarea and submit (§7.1).
+  const voiceBusy =
+    recorder.state === 'requesting' ||
+    recorder.state === 'recording' ||
+    recorder.state === 'transcribing'
+
+  useEffect(() => {
+    onBusyChange?.(voiceBusy)
+  }, [voiceBusy, onBusyChange])
 
   // Auto-read the current text when it (or the language) changes, unless muted.
   useEffect(() => {
@@ -68,10 +83,21 @@ export function VoiceBar({
   return (
     <div className="voice-bar">
       {renderParla()}
-      <button className="voice-btn" aria-label={t('voice.listen')} onClick={() => void play(text, language)}>
+      <button
+        className="voice-btn"
+        aria-label={t('voice.listen')}
+        disabled={voiceBusy}
+        onClick={() => void play(text, language)}
+      >
         🔊 {t('voice.listen')}
       </button>
-      <button className="voice-btn" aria-pressed={muted} aria-label={t('voice.muteToggle')} onClick={toggleMute}>
+      <button
+        className="voice-btn"
+        aria-pressed={muted}
+        aria-label={t('voice.muteToggle')}
+        disabled={voiceBusy}
+        onClick={toggleMute}
+      >
         {muted ? '🔇' : '🔈'} {muted ? t('voice.audioOff') : t('voice.audioOn')}
       </button>
     </div>

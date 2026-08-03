@@ -16,21 +16,23 @@ export function AnswerPrompt({
 }) {
   const { t } = useTranslation()
   const [value, setValue] = useState('')
+  const [voiceBusy, setVoiceBusy] = useState(false)
   const trimmed = value.trim()
   return (
     <div>
       {banner && <div className="banner-warn">{banner}</div>}
       <p className="prompt-text">{text}</p>
-      <VoiceBar text={text} canDictate onDictated={setValue} />
+      <VoiceBar text={text} canDictate onDictated={setValue} onBusyChange={setVoiceBusy} />
       <textarea
         aria-label={t('prompt.placeholder')}
         placeholder={t('prompt.placeholder')}
         value={value}
+        disabled={voiceBusy}
         onChange={(e) => setValue(e.target.value)}
       />
       <BigButton
         variant="confirm"
-        disabled={!trimmed || busy}
+        disabled={!trimmed || busy || voiceBusy}
         onClick={() => {
           onSubmit(trimmed)
           setValue('')

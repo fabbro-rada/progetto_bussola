@@ -15,6 +15,7 @@ export function ConfirmCorrect({
   const { t } = useTranslation()
   const [correcting, setCorrecting] = useState(false)
   const [value, setValue] = useState('')
+  const [voiceBusy, setVoiceBusy] = useState(false)
   const trimmed = value.trim()
   return (
     <div>
@@ -31,14 +32,19 @@ export function ConfirmCorrect({
         </>
       ) : (
         <>
-          <VoiceBar text={text} canDictate onDictated={setValue} />
+          <VoiceBar text={text} canDictate onDictated={setValue} onBusyChange={setVoiceBusy} />
           <textarea
             aria-label={t('confirm.correctPlaceholder')}
             placeholder={t('confirm.correctPlaceholder')}
             value={value}
+            disabled={voiceBusy}
             onChange={(e) => setValue(e.target.value)}
           />
-          <BigButton variant="confirm" disabled={!trimmed || busy} onClick={() => onSubmit(trimmed)}>
+          <BigButton
+            variant="confirm"
+            disabled={!trimmed || busy || voiceBusy}
+            onClick={() => onSubmit(trimmed)}
+          >
             {t('confirm.send')}
           </BigButton>
         </>
