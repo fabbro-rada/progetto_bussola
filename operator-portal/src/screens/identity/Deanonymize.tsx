@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import { useApiError } from '../../hooks/useApiError'
+import { StartCodeModal } from '../interviews/StartCodeModal'
 import type { ResolvedIdentity } from '../../types'
 
 // Supervisor-only screen (Task 10, DEANONYMIZE permission): resolves
@@ -31,6 +32,11 @@ export function Deanonymize() {
   const [matricolaNotFound, setMatricolaNotFound] = useState(false)
   const [matricolaError, setMatricolaError] = useState('')
   const [busyMatricola, setBusyMatricola] = useState(false)
+
+  const [reissueMatricola, setReissueMatricola] = useState('')
+  const [reissuedCode, setReissuedCode] = useState<string | null>(null)
+  const [reissueError, setReissueError] = useState('')
+  const [busyReissue, setBusyReissue] = useState(false)
 
   const pseudonymIds = splitPseudonyms(pseudonymsInput)
 
@@ -64,6 +70,24 @@ export function Deanonymize() {
     else {
       const outcome = handleError(r.status)
       if (outcome !== 'handled') setMatricolaError(t(outcome === 'forbidden' ? 'errors.forbidden' : 'errors.generic'))
+    }
+  }
+
+  async function submitReissue(e: FormEvent) {
+    e.preventDefault()
+    const value = reissueMatricola.trim()
+    if (!value) return
+    setReissueError('')
+    setReissuedCode(null)
+    setBusyReissue(true)
+    const r = await client.reissueStartCode(value)
+    setBusyReissue(false)
+    if (r.status === 'ok') setReissuedCode(r.startCode)
+    else if (r.status === 'not-found') setReissueError(t('deanonymize.reissueNotFound'))
+    else if (r.status === 'conflict') setReissueError(t('deanonymize.reissueConflict'))
+    else {
+      const outcome = handleError(r.status)
+      if (outcome !== 'handled') setReissueError(t(outcome === 'forbidden' ? 'errors.forbidden' : 'errors.generic'))
     }
   }
 
@@ -118,6 +142,27 @@ export function Deanonymize() {
         {matricolaNotFound && <p>{t('deanonymize.matricolaNotFound')}</p>}
         {matricolaResult && <p>{t('deanonymize.matricolaResult', { pseudonym: matricolaResult })}</p>}
       </section>
+
+      <section>
+        <h2>{t('deanonymize.reissueTitle')}</h2>
+        <p>{t('deanonymize.reissueHelp')}</p>
+        <form className="job-form" onSubmit={submitReissue}>
+          <label>
+            {t('deanonymize.reissueLabel')}
+            <input value={reissueMatricola} onChange={(e) => setReissueMatricola(e.target.value)} />
+          </label>
+          {reissueError && <p className="error" role="alert">{reissueError}</p>}
+          <button type="submit" disabled={busyReissue || !reissueMatricola.trim()}>{t('deanonymize.reissueButton')}</button>
+        </form>
+      </section>
+
+      {reissuedCode && (
+        <StartCodeModal
+          code={reissuedCode}
+          subtitle={t('deanonymize.reissueSubtitle')}
+          onClose={() => setReissuedCode(null)}
+        />
+      )}
     </div>
   )
 }

@@ -296,6 +296,13 @@ export const it = {
     findButton: 'Trova pseudonimo',
     matricolaNotFound: 'Matricola non trovata: nessun profilo corrisponde.',
     matricolaResult: 'Pseudonimo: {{pseudonym}}',
+    reissueTitle: 'Ri-emetti il codice di avvio',
+    reissueHelp: 'Se la persona ha perso o fatto scadere il codice e il colloquio non è ancora iniziato, genera un nuovo codice sullo stesso profilo. Lo pseudonimo non viene mostrato.',
+    reissueLabel: 'Matricola della persona',
+    reissueButton: 'Ri-emetti codice',
+    reissueNotFound: 'Matricola non provisionata: nessun profilo da cui ri-emettere.',
+    reissueConflict: 'Colloquio già iniziato per questa matricola: usa un follow-up, non un nuovo codice di avvio.',
+    reissueSubtitle: 'Nuovo codice di avvio per la matricola indicata.',
   },
   system: {
     title: 'Configurazione',

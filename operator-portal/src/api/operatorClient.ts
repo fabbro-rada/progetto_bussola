@@ -34,6 +34,7 @@ import type {
   OperatorClient,
   ProfileFilters,
   ProvisionInterviewResult,
+  ReissueStartCodeResult,
   Report,
   ReportResult,
   ResetPasswordResult,
@@ -313,6 +314,30 @@ async function resolveMatricola(matricola: string): Promise<ResolveMatricolaResu
   try {
     const data = (await res.json()) as { pseudonym_id: string }
     return { status: 'ok', pseudonymId: data.pseudonym_id }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function reissueStartCode(matricola: string): Promise<ReissueStartCodeResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/identity/reissue-start-code`, {
+      method: 'POST',
+      headers: headers(true),
+      body: JSON.stringify({ matricola }),
+    })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 404) return { status: 'not-found' }
+  if (res.status === 409) return { status: 'conflict' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    const data = (await res.json()) as { start_code: string }
+    return { status: 'ok', startCode: data.start_code }
   } catch {
     return { status: 'error' }
   }
@@ -620,6 +645,7 @@ export const operatorClient: OperatorClient = {
   provisionInterview,
   resolveIdentity,
   resolveMatricola,
+  reissueStartCode,
   listOperators,
   createOperator,
   disableOperator,

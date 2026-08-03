@@ -24,6 +24,8 @@ from bussola.auth.models import Operator
 from bussola.auth.rbac import Permission
 from bussola.data.audit import append_audit
 from bussola.identity.service import IdentityService
+from bussola.startcode.errors import InterviewAlreadyStarted, MatricolaNotProvisioned
+from bussola.startcode.reissue import reissue_start_code
 
 router = APIRouter(prefix="/identity", tags=["identity"])
 _resolve = require_permission(Permission.DEANONYMIZE)
@@ -53,6 +55,16 @@ class ResolveMatricolaBody(BaseModel):
 class ResolveMatricolaResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pseudonym_id: str
+
+
+class ReissueStartCodeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    matricola: str
+
+
+class ReissueStartCodeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start_code: str
 
 
 @router.post("/resolve", response_model=ResolveResponse)
@@ -90,3 +102,34 @@ def resolve_matricola(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no profile for this matricola")
     conn.commit()
     return ResolveMatricolaResponse(pseudonym_id=pseudonym_id)
+
+
+@router.post(
+    "/reissue-start-code",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ReissueStartCodeResponse,
+)
+def reissue_start_code_endpoint(
+    body: ReissueStartCodeBody,
+    operator: Operator = Depends(_resolve),
+    conn: psycopg.Connection = Depends(get_conn),
+) -> ReissueStartCodeResponse:
+    """Re-issue a first-interview start_code for a matricola whose profile is
+    still empty (§6: supervisor-only; the pseudonym is never returned). 404 if
+    the matricola was never provisioned; 409 if the interview already ran (use a
+    follow-up instead). On either error the transaction is left uncommitted, so
+    the internal resolution is rolled back and nothing is disclosed or audited."""
+
+    def audit(**kw: object) -> None:
+        append_audit(conn, commit=False, **kw)  # type: ignore[arg-type]
+
+    try:
+        code = reissue_start_code(conn, body.matricola, actor=operator.username, audit=audit)
+    except MatricolaNotProvisioned:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no provisioning for this matricola")
+    except InterviewAlreadyStarted:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "interview already started; use a follow-up instead"
+        )
+    conn.commit()
+    return ReissueStartCodeResponse(start_code=code)

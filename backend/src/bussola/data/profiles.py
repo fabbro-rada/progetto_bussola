@@ -27,6 +27,23 @@ def create_empty_profile(conn: psycopg.Connection) -> str:
     return pseudonym
 
 
+def get_profile(conn: psycopg.Connection, pseudonym_id: str) -> WorkProfile | None:
+    """Read a work profile by pseudonym, or None if absent.
+
+    Redactor-free (like `create_empty_profile`): callers that only need to read
+    a profile — e.g. the supervisor start-code re-issue, which checks whether a
+    provisioned profile is still empty — must not have to build a `PiiRedactor`
+    (which loads NLP models). `ProfileRepository.get` delegates here.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT profile FROM profiles.work_profile WHERE pseudonym_id = %s",
+            (pseudonym_id,),
+        )
+        row = cur.fetchone()
+    return WorkProfile.model_validate(row[0]) if row is not None else None
+
+
 def is_contentless(profile: WorkProfile) -> bool:
     """True for a just-provisioned empty profile (exactly `create_empty_profile`'s
     output: no skills/languages/experiences/desired_training/operational_notes,
@@ -97,13 +114,7 @@ class ProfileRepository:
         return clean
 
     def get(self, pseudonym_id: str) -> WorkProfile | None:
-        with self._conn.cursor() as cur:
-            cur.execute(
-                "SELECT profile FROM profiles.work_profile WHERE pseudonym_id = %s",
-                (pseudonym_id,),
-            )
-            row = cur.fetchone()
-        return WorkProfile.model_validate(row[0]) if row is not None else None
+        return get_profile(self._conn, pseudonym_id)
 
     def list_all(self) -> list[WorkProfile]:
         with self._conn.cursor() as cur:
