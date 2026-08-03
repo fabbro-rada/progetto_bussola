@@ -1,5 +1,6 @@
 from bussola.guardrails.scope import ScopeGuard
 from bussola.interview.interview import Interview
+from bussola.interview.sections import SECTIONS, base_question
 from bussola.llm.client import LlmUnavailable
 from bussola.profile.models import WorkProfile
 
@@ -116,6 +117,21 @@ def test_correction_updates_the_same_section_without_re_asking(make_fake_json_ll
     assert len(repo.saved) == 1
     saved_skills = {s.name for s in repo.saved[0].skills}
     assert saved_skills == {"falegname", "muratore", "cameriere"}  # correction kept + added
+
+
+def test_scope_guard_judges_the_answer_with_the_question_as_context(make_fake_json_llm):
+    # The guard must see the section question, so a short answer that only makes
+    # sense against it is judged in context (§2/§9), not on the answer alone.
+    client = make_fake_json_llm(
+        json_responses=[COMP],
+        text_responses=[ALLOW, "Riepilogo. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=_FakeRedactor())
+    itw.start()
+    itw.submit("arabo")
+    guard_call = client.calls[0]  # first call is the scope guard (chat/text)
+    assert guard_call["kind"] == "text"
+    assert base_question(SECTIONS[0], "it") in guard_call["messages"][1]["content"]
 
 
 def test_llm_unavailable_yields_controlled_step(make_fake_json_llm):
