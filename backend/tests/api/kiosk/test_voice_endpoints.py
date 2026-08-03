@@ -106,6 +106,31 @@ def test_synthesize_timeout_is_204(monkeypatch):
     assert r.status_code == 204
 
 
+def test_transcribe_rejects_oversized_audio(monkeypatch):
+    # §3 prevenzione dell'uso scorretto: an upload beyond the cap is refused
+    # (413) via a bounded read, never buffered whole. Shrink the cap so the test
+    # stays tiny; STT must NOT even be consulted.
+    monkeypatch.setattr(config, "MAX_AUDIO_BYTES", 4)
+    monkeypatch.setattr(voice_router, "_stt", lambda: FakeStt(text="must-not-run"))
+    r = _client().post(
+        "/kiosk/voice/transcribe",
+        data={"language": "it"},
+        files={"audio": ("a.wav", b"way-too-many-bytes", "audio/wav")},
+        headers=_h(),
+    )
+    assert r.status_code == 413
+
+
+def test_synthesize_rejects_overlong_text():
+    # §3: nothing unbounded reaches the TTS — text beyond the cap is a 422.
+    r = _client().post(
+        "/kiosk/voice/synthesize",
+        json={"text": "x" * (config.MAX_TTS_CHARS + 1), "language": "it"},
+        headers=_h(),
+    )
+    assert r.status_code == 422
+
+
 def test_transcribe_requires_token(monkeypatch):
     r = _client().post(
         "/kiosk/voice/transcribe",

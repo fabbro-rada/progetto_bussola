@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from bussola.api.kiosk import config
 from bussola.api.kiosk.deps import require_kiosk
@@ -41,13 +41,17 @@ class TranscribeResponse(BaseModel):
 
 
 class SynthesizeRequest(BaseModel):
-    text: str
+    text: str = Field(min_length=1, max_length=config.MAX_TTS_CHARS)
     language: str
 
 
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe(audio: UploadFile, language: str = Form(...)) -> TranscribeResponse:
-    data = await audio.read()
+    # Bounded read (§3): pull at most the cap + 1 byte so an oversized upload is
+    # rejected without ever buffering the whole thing into `data`.
+    data = await audio.read(config.MAX_AUDIO_BYTES + 1)
+    if len(data) > config.MAX_AUDIO_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "audio too large")
     try:
         text = await asyncio.wait_for(
             asyncio.to_thread(lambda: _stt().transcribe(data, language).text),

@@ -15,7 +15,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from bussola.api.deps import current_operator, get_conn, require_permission
+from bussola.api.deps import get_conn, require_password_changed, require_permission
 from bussola.auth.models import Operator
 from bussola.auth.rbac import Permission, has_permission
 from bussola.export.errors import ExportNotApproved, ExportNotFound, ExportNotPending
@@ -32,7 +32,7 @@ _approve = require_permission(Permission.APPROVE_EXPORTS)
 
 def _download_permission(
     request_id: int,
-    operator: Operator = Depends(current_operator),
+    operator: Operator = Depends(require_password_changed),
     conn: psycopg.Connection = Depends(get_conn),
 ) -> Operator:
     kind = ExportService(conn).peek_kind(request_id=request_id)

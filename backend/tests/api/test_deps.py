@@ -47,9 +47,43 @@ def test_valid_session_reaches_route(app_conn):
 
 
 def test_permission_denied_is_403(app_conn):
-    _op, temp = AuthService(app_conn).create_operator(
+    svc = AuthService(app_conn)
+    op, temp = svc.create_operator(
         actor="admin", username="op", display_name="O", role=Role.OPERATOR
     )
-    session = AuthService(app_conn).login("op", temp).token
+    # Complete the first-login change so this hits the PERMISSION gate, not the
+    # must-change gate below.
+    svc.change_password(op.id, temp, "activated-pw-123")
+    session = svc.login("op", "activated-pw-123").token
     r = _client(app_conn).get("/admin-only", headers={"Authorization": f"Bearer {session}"})
     assert r.status_code == 403
+
+
+def test_must_change_password_blocks_business_endpoints(app_conn):
+    # §7.3: an operator still on the temporary password is authenticated but may
+    # not reach a permission-gated endpoint until the change is done (server-side
+    # backstop, not just a client redirect). Grant enough role privilege that a
+    # 403 here can only be the must-change gate, not a permission denial.
+    svc = AuthService(app_conn)
+    _op, temp = svc.create_operator(
+        actor="admin", username="fresh", display_name="F", role=Role.ADMIN
+    )
+    session = svc.login("fresh", temp).token  # must_change_password still True
+    client = _client(app_conn)
+    # whoami (plain current_operator) stays reachable — the person must be able
+    # to see their state and change the password.
+    assert client.get("/whoami", headers={"Authorization": f"Bearer {session}"}).status_code == 200
+    r = client.get("/admin-only", headers={"Authorization": f"Bearer {session}"})
+    assert r.status_code == 403
+    assert r.json()["detail"] == "password change required"
+
+
+def test_password_change_unblocks_business_endpoints(app_conn):
+    svc = AuthService(app_conn)
+    op, temp = svc.create_operator(
+        actor="admin", username="willchange", display_name="W", role=Role.ADMIN
+    )
+    svc.change_password(op.id, temp, "activated-pw-123")
+    session = svc.login("willchange", "activated-pw-123").token  # must_change now False
+    r = _client(app_conn).get("/admin-only", headers={"Authorization": f"Bearer {session}"})
+    assert r.status_code == 200  # ADMIN has MANAGE_OPERATORS and the gate is cleared

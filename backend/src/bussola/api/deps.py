@@ -48,8 +48,21 @@ def current_operator(
     return operator
 
 
+def require_password_changed(operator: Operator = Depends(current_operator)) -> Operator:
+    """Gate every business action on a completed first-login password change
+    (§7.3 prevenzione dell'uso scorretto). An operator still on the temporary
+    password (`must_change_password`) is authenticated but may only reach the
+    auth endpoints — login/logout/whoami and change-password itself; anything
+    permission- or ownership-gated is refused until the change is done. This is
+    a server-side backstop: the portal already routes such an operator to the
+    change-password screen, but the guarantee cannot rest on the client."""
+    if operator.must_change_password:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "password change required")
+    return operator
+
+
 def require_permission(permission: Permission) -> Callable[..., Operator]:
-    def _dep(operator: Operator = Depends(current_operator)) -> Operator:
+    def _dep(operator: Operator = Depends(require_password_changed)) -> Operator:
         if not has_permission(operator.role, permission):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "insufficient privileges")
         return operator
