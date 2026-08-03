@@ -27,6 +27,33 @@ def create_empty_profile(conn: psycopg.Connection) -> str:
     return pseudonym
 
 
+def _is_contentless(profile: WorkProfile) -> bool:
+    """True for a just-provisioned empty profile (exactly `create_empty_profile`'s
+    output: no skills/languages/experiences/desired_training/operational_notes,
+    no digital_literacy, and no aspiration with any field set).
+
+    Excluded from `ProfileRepository.search`/`list_all` (§7.3/§11): an empty
+    profile has nothing to match on or search for, and surfacing it would let
+    an operator set-diff the profile list around a provisioning call to see a
+    new empty profile appear and self-map matricola -> pseudonym, bypassing
+    the supervisor-only de-anonymization.
+    """
+    aspiration_empty = profile.aspiration is None or (
+        not profile.aspiration.fields_of_interest
+        and profile.aspiration.availability is None
+        and not profile.aspiration.constraints
+    )
+    return (
+        not profile.skills
+        and not profile.languages
+        and not profile.experiences
+        and aspiration_empty
+        and not profile.desired_training
+        and not profile.operational_notes
+        and profile.digital_literacy is None
+    )
+
+
 class ProfileRepository:
     """Reads and writes work profiles.
 
@@ -72,7 +99,8 @@ class ProfileRepository:
         with self._conn.cursor() as cur:
             cur.execute("SELECT profile FROM profiles.work_profile ORDER BY pseudonym_id")
             rows = cur.fetchall()
-        return [WorkProfile.model_validate(r[0]) for r in rows]
+        profiles = [WorkProfile.model_validate(r[0]) for r in rows]
+        return [p for p in profiles if not _is_contentless(p)]
 
     def search(
         self,
@@ -109,7 +137,8 @@ class ProfileRepository:
                 params,
             )
             rows = cur.fetchall()
-        return [WorkProfile.model_validate(r[0]) for r in rows]
+        profiles = [WorkProfile.model_validate(r[0]) for r in rows]
+        return [p for p in profiles if not _is_contentless(p)]
 
     def _upsert(self, profile: WorkProfile) -> None:
         with self._conn.cursor() as cur:
