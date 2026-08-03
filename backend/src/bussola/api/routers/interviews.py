@@ -9,8 +9,9 @@ returns ONLY the start_code — the pseudonym is never exposed to the caller,
 by construction (§2/§5: operators never see the person's identity).
 
 `create_empty_profile` is called directly (module-level function), NOT
-`ProfileRepository.create_new()`: the latter constructs a `PiiRedactor`
-(loads spaCy) that this operator-facing path has no reason to pay for.
+`ProfileRepository.create_new()`: using the latter would first require
+constructing a `ProfileRepository`, whose constructor takes a `PiiRedactor`
+(loads spaCy) — a cost this operator-facing path has no reason to pay.
 
 Atomic-audit idiom (mirrors `bussola.api.routers.followups`): the profile
 creation, the identity link + its `identity_link_created` audit record, and
