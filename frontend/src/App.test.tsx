@@ -52,6 +52,13 @@ test('happy path: language -> consent -> question -> summary -> completed', asyn
 
   await chooseItalianAndConsent()
   expect(await screen.findByText('Che lavoro sai fare?')).toBeInTheDocument()
+  // Task 8 review fix: proves the person-entered start code + chosen
+  // language actually reach `client.startInterview`, in the right order —
+  // mirrors the equivalent `client.calls.followup` assertion for the
+  // follow-up path below. Without this, a swapped-argument regression
+  // (`startInterview(language, startCode)`) or a stale/empty code would
+  // pass every other test in this file.
+  expect(client.calls.start).toEqual({ code: START_CODE, language: 'it' })
 
   await userEvent.type(screen.getByRole('textbox'), 'so cucinare')
   await userEvent.click(screen.getByRole('button', { name: 'Avanti' }))

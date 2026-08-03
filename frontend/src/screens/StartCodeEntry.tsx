@@ -37,10 +37,10 @@ export function StartCodeEntry({
   const trimmed = code.trim()
   const spoken = [t('startCode.title'), t('startCode.codeLabel')].join('. ')
 
-  function selectLanguage(code: string) {
-    setLanguage(code)
-    applyLanguage(code)
-    onLanguageChange(code)
+  function selectLanguage(lang: string) {
+    setLanguage(lang)
+    applyLanguage(lang)
+    onLanguageChange(lang)
   }
 
   return (
