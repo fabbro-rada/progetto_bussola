@@ -52,6 +52,36 @@ test('happy path: language -> consent -> question -> summary -> completed', asyn
   expect(client.calls.answers).toEqual(['so cucinare', 'Sì, è corretto'])
 })
 
+test('after a correction, the updated summary shows the Sì/No choice again (not the text box)', async () => {
+  // Live-test bug: correcting a summary re-summarized but left the free-text box
+  // up instead of the Sì/No choice, because summary→summary reused the same
+  // ConfirmCorrect. Keying screens by stepSeq remounts it fresh.
+  const client = makeFakeClient({
+    start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Che lavoro sai fare?') },
+    submits: [
+      { status: 'ok', step: step('summary', 'Ho capito: falegname e muratore') },
+      { status: 'ok', step: step('summary', 'Ho capito: falegname, muratore e cameriere') },
+    ],
+  })
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
+  await chooseItalianAndConsent()
+
+  await userEvent.type(await screen.findByRole('textbox'), 'falegname e muratore')
+  await userEvent.click(screen.getByRole('button', { name: 'Avanti' }))
+
+  expect(await screen.findByText('Ho capito: falegname e muratore')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'No, correggi qualcosa' }))
+  await userEvent.type(screen.getByRole('textbox'), 'so fare anche il cameriere')
+  await userEvent.click(screen.getByRole('button', { name: 'Invia' }))
+
+  expect(await screen.findByText('Ho capito: falegname, muratore e cameriere')).toBeInTheDocument()
+  // the Sì/No choice is back, and there is no free-text box
+  expect(screen.getByRole('button', { name: 'Sì, è corretto' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'No, correggi qualcosa' })).toBeInTheDocument()
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(client.calls.answers).toEqual(['falegname e muratore', 'so fare anche il cameriere'])
+})
+
 test('«Ferma» resets to the language picker from mid-interview', async () => {
   const client = makeFakeClient({ start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Domanda') } })
   renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)

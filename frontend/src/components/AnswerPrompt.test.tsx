@@ -40,6 +40,15 @@ test('dictated text lands in the field for review (does not auto-submit)', async
   vi.unstubAllGlobals()
 })
 
+test('while the form is busy (answer processing) the field and voice buttons are disabled', async () => {
+  await i18n.changeLanguage('it')
+  renderWithProviders(<AnswerPrompt text="Che lavoro sai fare?" onSubmit={vi.fn()} busy />)
+  expect(screen.getByRole('textbox')).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Avanti' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Ascolta' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /audio/i })).toBeDisabled()
+})
+
 test('the textarea and «Avanti» are disabled while a dictation is in progress', async () => {
   await i18n.changeLanguage('it')
   stubMedia(true)

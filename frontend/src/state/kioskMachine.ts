@@ -5,6 +5,12 @@ export interface MachineState {
   language: string | null
   sessionToken: string | null
   step: Step | null
+  // Monotonic counter bumped every time a NEW step is set. Used as a React key
+  // for the step screens so each new step remounts a fresh input component —
+  // otherwise a summary→summary transition (a correction) reuses the same
+  // ConfirmCorrect and keeps showing its "correcting" text box instead of the
+  // Sì/No choice.
+  stepSeq: number
   lastAnswer: string | null
   pending: boolean
   // Set once the person enters a follow-up code (before start-followup is
@@ -19,6 +25,7 @@ export const initialState: MachineState = {
   language: null,
   sessionToken: null,
   step: null,
+  stepSeq: 0,
   lastAnswer: null,
   pending: false,
   followupToken: null,
@@ -69,7 +76,14 @@ export function reducer(state: MachineState, action: Action): MachineState {
       const r = action.result
       if (r.status === 'unauthorized') return { ...state, screen: 'unauthorized', pending: false }
       if (r.status === 'unavailable') return { ...state, screen: 'unavailable', pending: false }
-      return { ...state, sessionToken: r.sessionToken, step: r.step, screen: screenFor(r.step.kind), pending: false }
+      return {
+        ...state,
+        sessionToken: r.sessionToken,
+        step: r.step,
+        stepSeq: state.stepSeq + 1,
+        screen: screenFor(r.step.kind),
+        pending: false,
+      }
     }
     case 'submitting':
       return { ...state, lastAnswer: action.answer, pending: true }
@@ -79,7 +93,13 @@ export function reducer(state: MachineState, action: Action): MachineState {
       if (r.status === 'unauthorized') return { ...state, screen: 'unauthorized', pending: false }
       if (r.status === 'session-expired') return initialState
       if (r.status === 'unavailable') return { ...state, screen: 'unavailable', pending: false }
-      return { ...state, step: r.step, screen: screenFor(r.step.kind), pending: false }
+      return {
+        ...state,
+        step: r.step,
+        stepSeq: state.stepSeq + 1,
+        screen: screenFor(r.step.kind),
+        pending: false,
+      }
     }
     case 'stop':
       return initialState
@@ -100,7 +120,14 @@ export function reducer(state: MachineState, action: Action): MachineState {
       // that doesn't exist. Both statuses route to the same gentle,
       // no-detail "unavailable" screen instead (brief's Step 3).
       if (r.status !== 'ok') return { ...state, screen: 'unavailable', pending: false }
-      return { ...state, sessionToken: r.sessionToken, step: r.step, screen: screenFor(r.step.kind), pending: false }
+      return {
+        ...state,
+        sessionToken: r.sessionToken,
+        step: r.step,
+        stepSeq: state.stepSeq + 1,
+        screen: screenFor(r.step.kind),
+        pending: false,
+      }
     }
     default:
       return state

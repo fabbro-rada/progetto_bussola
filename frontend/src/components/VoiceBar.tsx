@@ -9,11 +9,15 @@ export function VoiceBar({
   canDictate = false,
   onDictated,
   onBusyChange,
+  disabled = false,
 }: {
   text: string
   canDictate?: boolean
   onDictated?: (text: string) => void
   onBusyChange?: (busy: boolean) => void
+  // The surrounding form is busy (e.g. a submitted answer is being processed):
+  // the whole voice bar goes inert so nothing is started/played mid-request.
+  disabled?: boolean
 }) {
   const { t } = useTranslation()
   const { language, muted, setMuted, client } = useVoice()
@@ -74,7 +78,7 @@ export function VoiceBar({
         </span>
       )
     return (
-      <button className="voice-btn primary" onClick={() => void recorder.start()}>
+      <button className="voice-btn primary" disabled={disabled} onClick={() => void recorder.start()}>
         🎤 {t('voice.speak')}
       </button>
     )
@@ -86,7 +90,7 @@ export function VoiceBar({
       <button
         className="voice-btn"
         aria-label={t('voice.listen')}
-        disabled={voiceBusy}
+        disabled={disabled || voiceBusy}
         onClick={() => void play(text, language)}
       >
         🔊 {t('voice.listen')}
@@ -95,7 +99,7 @@ export function VoiceBar({
         className="voice-btn"
         aria-pressed={muted}
         aria-label={t('voice.muteToggle')}
-        disabled={voiceBusy}
+        disabled={disabled || voiceBusy}
         onClick={toggleMute}
       >
         {muted ? '🔇' : '🔈'} {muted ? t('voice.audioOff') : t('voice.audioOn')}
