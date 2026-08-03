@@ -32,16 +32,9 @@ test('LanguagePicker has no a11y violations', async () => {
 })
 
 test('StartCodeEntry has no a11y violations', async () => {
-  const { container } = renderWithProviders(<StartCodeEntry onSubmit={noop} onLanguageChange={noop} />)
-  await expectNoA11yViolations(container)
-})
-
-// Also audit the post-language-selection state, since that's when the
-// VoiceBar mounts and is the more representative state (mirrors
-// FollowupEntry below).
-test('StartCodeEntry (after picking a language) has no a11y violations', async () => {
-  const { container } = renderWithProviders(<StartCodeEntry onSubmit={noop} onLanguageChange={noop} />)
-  await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
+  // Code-only screen (language already chosen on LanguagePicker); the VoiceBar
+  // mounts immediately, so this single state is the representative one.
+  const { container } = renderWithProviders(<StartCodeEntry onSubmit={noop} />)
   await expectNoA11yViolations(container)
 })
 

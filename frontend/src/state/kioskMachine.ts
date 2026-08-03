@@ -68,14 +68,10 @@ export type Action =
   // off changes, mirroring what `selectLanguage` does for `language` minus
   // the screen transition.
   | { type: 'previewFollowupLanguage'; language: string }
-  // Start-code path (re-identification, Task 8): additive on top of the
-  // follow-up path above, same shapes/reasoning, one screen earlier (the
-  // FIRST-interview entry point, right after LanguagePicker, instead of the
-  // follow-up link). `submitStartCode` mirrors `submitFollowupCredentials`;
-  // `previewStartCodeLanguage` mirrors `previewFollowupLanguage` (voice
-  // retargeting while still on the start-code entry screen).
-  | { type: 'submitStartCode'; code: string; language: string }
-  | { type: 'previewStartCodeLanguage'; language: string }
+  // Start-code path (re-identification, Task 8): the FIRST-interview entry
+  // point, right after LanguagePicker (so the language is already chosen —
+  // the start-code screen only captures the code, no second language pick).
+  | { type: 'submitStartCode'; code: string }
 
 // Step kinds map 1:1 to screens of the same name.
 function screenFor(kind: StepKind): Screen {
@@ -149,10 +145,9 @@ export function reducer(state: MachineState, action: Action): MachineState {
       return { ...state, language: action.language }
     case 'submitFollowupCredentials':
       return { ...state, followupToken: action.token, language: action.language, screen: 'followupConsent' }
-    case 'previewStartCodeLanguage':
-      return { ...state, language: action.language }
     case 'submitStartCode':
-      return { ...state, startCode: action.code, language: action.language, screen: 'consent' }
+      // The language was already set by selectLanguage (LanguagePicker); keep it.
+      return { ...state, startCode: action.code, screen: 'consent' }
     case 'startedFollowup': {
       if (!state.pending) return state
       const r = action.result

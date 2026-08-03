@@ -41,17 +41,11 @@ export function App({
     dispatch({ type: 'started', result })
   }, [client, state.language, state.startCode])
 
-  // Re-identification (Task 8): mirrors `previewFollowupLanguage` — retargets
-  // voice narration on the start-code entry screen the moment a tile is
-  // tapped, before the code is even submitted.
-  const previewStartCodeLanguage = useCallback((code: string) => {
-    dispatch({ type: 'previewStartCodeLanguage', language: code })
-  }, [])
-
-  // Mirrors `submitFollowupCredentials`: captures the code+language and
-  // moves on to the (unchanged) consent screen — no network call yet.
-  const submitStartCode = useCallback((code: string, language: string) => {
-    dispatch({ type: 'submitStartCode', code, language })
+  // Re-identification (Task 8): captures the start code (the language was
+  // already chosen on LanguagePicker) and moves on to the (unchanged) consent
+  // screen — no network call yet.
+  const submitStartCode = useCallback((code: string) => {
+    dispatch({ type: 'submitStartCode', code })
   }, [])
 
   const openFollowupEntry = useCallback(() => {
@@ -112,7 +106,7 @@ export function App({
       case 'language':
         return <LanguagePicker onSelect={selectLanguage} onFollowupEntry={openFollowupEntry} />
       case 'startCodeEntry':
-        return <StartCodeEntry onSubmit={submitStartCode} onLanguageChange={previewStartCodeLanguage} />
+        return <StartCodeEntry onSubmit={submitStartCode} />
       case 'consent':
         return <Consent onAccept={start} onDecline={decline} busy={state.pending} />
       case 'followupEntry':
