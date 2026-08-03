@@ -1,4 +1,4 @@
-from bussola.voice.tts import TextToSpeech
+from bussola.voice.tts import TextToSpeech, strip_emoji
 
 _VOICES = {"it": "it.onnx", "en": "en.onnx"}
 
@@ -37,6 +37,24 @@ def test_selects_voice_model_for_language():
     engine = FakeTts()
     TextToSpeech(engine=engine, voices=_VOICES).synthesize("hello", "en")
     assert engine.calls == [("hello", "en.onnx")]
+
+
+def test_strips_emoji_before_speaking():
+    # The text is read aloud; an emoji would be spoken as its name ("smiling
+    # face"), so it must be gone before it reaches the engine.
+    engine = FakeTts()
+    TextToSpeech(engine=engine, voices=_VOICES).synthesize("😊 Sai fare il falegname 👍", "it")
+    assert engine.calls == [("Sai fare il falegname", "it.onnx")]
+
+
+def test_strip_emoji_collapses_leftover_spaces():
+    assert strip_emoji("ciao 😊 👍 bravo") == "ciao bravo"
+
+
+def test_strip_emoji_keeps_arabic_and_accents():
+    # Stripping must touch only pictographs — never letters/marks.
+    assert strip_emoji("مرحبا 🙂") == "مرحبا"
+    assert strip_emoji("perché è così 🎉") == "perché è così"
 
 
 def test_engine_construction_failure_returns_none(monkeypatch):
