@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { expect, test, afterEach } from 'vitest'
 import { Routes, Route } from 'react-router-dom'
 import { renderWithProviders } from '../../test/utils'
-import { makeFakeClient, operatorWith, REPORT } from '../../test/fakeClient'
+import { makeFakeClient, operatorWith, REPORT, EXPORT_REQUEST } from '../../test/fakeClient'
 import { setToken } from '../../auth/session'
 import { ReportPanel } from './ReportPanel'
 
@@ -52,13 +52,32 @@ test('network error shows the retryable message', async () => {
   expect(await screen.findByText('Si è verificato un errore. Riprova.')).toBeInTheDocument()
 })
 
-test('«Esporta report» calls createReportExport and shows the pending message (no download UI)', async () => {
+test('«Esporta report» exports (auto-approved) and offers immediate JSON/CSV download', async () => {
   setToken('tok')
-  const client = supervisor({ report: { status: 'ok', report: REPORT } })
-  renderWithProviders(harness(), { client, route: '/report' })
+  const saved: { name: string }[] = []
+  const client = supervisor({
+    report: { status: 'ok', report: REPORT },
+    createReportExp: { status: 'ok', request: { ...EXPORT_REQUEST, id: 42, kind: 'report', status: 'approved' } },
+  })
+  function harnessWithSave() {
+    return (
+      <Routes>
+        <Route path="/report" element={<ReportPanel saveBlob={(_b, name) => saved.push({ name })} />} />
+        <Route path="/login" element={<div>LOGIN</div>} />
+      </Routes>
+    )
+  }
+  renderWithProviders(harnessWithSave(), { client, route: '/report' })
   await screen.findByText('60%')
   await userEvent.click(screen.getByRole('button', { name: 'Esporta report' }))
   await waitFor(() => expect(client.calls.reportExport).toBe(1))
-  expect(await screen.findByText('Richiesta inviata, in attesa di approvazione')).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Scarica' })).not.toBeInTheDocument()
+  // No "awaiting approval" dead-end: download buttons appear right away.
+  const jsonBtn = await screen.findByRole('button', { name: 'Scarica JSON' })
+  const csvBtn = screen.getByRole('button', { name: 'Scarica CSV' })
+
+  await userEvent.click(jsonBtn)
+  await waitFor(() => expect(client.downloadedIds).toContain(42))
+  await userEvent.click(csvBtn)
+  await waitFor(() => expect(client.downloadFormats).toContain('csv'))
+  expect(saved.map((s) => s.name)).toEqual(['report.json', 'report.csv'])
 })

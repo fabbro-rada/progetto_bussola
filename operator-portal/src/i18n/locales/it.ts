@@ -279,7 +279,9 @@ export const it = {
     profilesByWeek: 'Profili per settimana',
     jobRequestsByWeek: 'Richieste di lavoro per settimana',
     export: 'Esporta report',
-    exportPending: 'Richiesta inviata, in attesa di approvazione',
+    exportReady: 'Report pronto. Scaricalo nel formato che preferisci:',
+    downloadJson: 'Scarica JSON',
+    downloadCsv: 'Scarica CSV',
     empty: '—',
   },
   deanonymize: {

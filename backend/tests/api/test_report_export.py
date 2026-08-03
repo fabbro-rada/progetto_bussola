@@ -94,9 +94,10 @@ def test_profiles_export_round_trip_is_unchanged(client_as, app_conn: psycopg.Co
 
 
 def test_report_export_end_to_end(client_as):
+    # #1: the aggregate report is AUTO-APPROVED on creation (supervisor is the
+    # sole authority) -> immediately downloadable, no separate approve step.
     rid = client_as("supervisor").post("/report/export").json()["id"]
     assert client_as("operator").post("/report/export").status_code == 403  # only VIEW_METRICS
-    assert client_as("supervisor").post(f"/exports/{rid}/approve").status_code == 204
 
     j = client_as("supervisor").get(f"/exports/{rid}/download?format=json")
     assert j.status_code == 200
@@ -108,28 +109,39 @@ def test_report_export_end_to_end(client_as):
     assert "section,key,value" in c.text
 
 
-def test_report_export_created_with_kind_report(client_as):
+def test_report_export_is_created_already_approved(client_as):
     body = client_as("supervisor").post("/report/export").json()
     assert body["kind"] == "report"
-    assert body["status"] == "pending"
+    assert body["status"] == "approved"  # auto-approved, not left pending
 
 
-def test_report_download_gated_until_approved(client_as):
+def test_report_export_is_immediately_downloadable(client_as):
+    # No "pending" window for the report kind: download works right after create.
     rid = client_as("supervisor").post("/report/export").json()["id"]
-    assert client_as("supervisor").get(f"/exports/{rid}/download").status_code == 409  # pending
+    assert client_as("supervisor").get(f"/exports/{rid}/download").status_code == 200
+
+
+def test_report_export_still_audits_request_and_approval(client_as, auditor_conn):
+    # §7.3 «ogni export passa da un'approvazione»: even auto-approved, BOTH the
+    # request and the approval must remain in the immutable audit log.
+    client_as("supervisor").post("/report/export")
+    auditor_conn.rollback()  # fresh snapshot of everything committed above
+    with auditor_conn.cursor() as cur:
+        cur.execute("SELECT action FROM audit.audit_log")
+        actions = [r[0] for r in cur.fetchall()]
+    assert "export_requested" in actions
+    assert "export_approved" in actions
 
 
 def test_report_download_by_non_owner_supervisor_is_not_found(client, client_as, make_operator):
-    rid = client_as("supervisor").post("/report/export").json()["id"]
-    client_as("supervisor").post(f"/exports/{rid}/approve")
+    rid = client_as("supervisor").post("/report/export").json()["id"]  # already approved
     user2, temp2 = make_operator("sup2", Role.SUPERVISOR)
     token2 = _login(client, user2, temp2)
     assert client.get(f"/exports/{rid}/download", headers=_auth(token2)).status_code == 404
 
 
 def test_operator_cannot_download_report_even_with_export_data(client_as):
-    rid = client_as("supervisor").post("/report/export").json()["id"]
-    client_as("supervisor").post(f"/exports/{rid}/approve")
+    rid = client_as("supervisor").post("/report/export").json()["id"]  # already approved
     # the operator holds EXPORT_DATA but not APPROVE_EXPORTS: report
     # downloads require the latter, so this stays 403 (never EXPORT_DATA
     # for report-kind requests).

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import { useApiError } from '../../hooks/useApiError'
 import { useFetchOnMount } from '../../hooks/useFetchOnMount'
+import { saveBlob as defaultSaveBlob } from '../exports/download'
 import type { Count } from '../../types'
 
 // A suppressed small cell is the STRING "<5" (anonymity, k=5 small-cell
@@ -35,7 +36,7 @@ function DistributionTable({ title, data }: { title: string; data: Record<string
   )
 }
 
-export function ReportPanel() {
+export function ReportPanel({ saveBlob = defaultSaveBlob }: { saveBlob?: (blob: Blob, filename: string) => void } = {}) {
   const { t } = useTranslation()
   const { client } = useAuth()
   const handleError = useApiError()
@@ -44,7 +45,10 @@ export function ReportPanel() {
 
   const [exportBusy, setExportBusy] = useState(false)
   const [exportError, setExportError] = useState('')
-  const [exportPending, setExportPending] = useState(false)
+  // Once the report export is created it is auto-approved server-side (§7.3
+  // approval still audited), so we get an id we can download right away — no
+  // "in attesa di approvazione" step.
+  const [exportId, setExportId] = useState<number | null>(null)
 
   async function onExport() {
     setExportError('')
@@ -52,11 +56,20 @@ export function ReportPanel() {
     const r = await client.createReportExport()
     setExportBusy(false)
     if (r.status === 'ok') {
-      setExportPending(true)
+      setExportId(r.request.id)
     } else {
       const outcome = handleError(r.status)
       if (outcome !== 'handled') setExportError(t(outcome === 'forbidden' ? 'errors.forbidden' : 'errors.generic'))
     }
+  }
+
+  async function onDownload(format: 'json' | 'csv') {
+    if (exportId === null) return
+    setExportError('')
+    const r = await client.downloadExport(exportId, format === 'csv' ? 'csv' : undefined)
+    if (r.status === 'ok') saveBlob(r.blob, `report.${format}`)
+    else if (r.status === 'unauthorized') handleError(r.status)
+    else setExportError(t(r.status === 'forbidden' ? 'errors.forbidden' : 'errors.generic'))
   }
 
   return (
@@ -131,7 +144,13 @@ export function ReportPanel() {
                 {t('report.export')}
               </button>
               {exportError && <p className="error" role="alert">{exportError}</p>}
-              {exportPending && <p>{t('report.exportPending')}</p>}
+              {exportId !== null && (
+                <div className="export-download">
+                  <p>{t('report.exportReady')}</p>
+                  <button type="button" onClick={() => void onDownload('json')}>{t('report.downloadJson')}</button>
+                  <button type="button" onClick={() => void onDownload('csv')}>{t('report.downloadCsv')}</button>
+                </div>
+              )}
             </section>
           </>
         )
