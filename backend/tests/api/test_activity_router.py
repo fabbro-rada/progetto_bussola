@@ -27,7 +27,12 @@ def test_operator_and_auditor_are_forbidden(client, make_operator):
     for name, role in [("op1", Role.OPERATOR), ("aud1", Role.AUDITOR)]:
         user, temp = make_operator(name, role)
         token = _login(client, user, temp)
-        assert client.get("/operator-activity", headers={"Authorization": f"Bearer {token}"}).status_code == 403
+        assert (
+            client.get(
+                "/operator-activity", headers={"Authorization": f"Bearer {token}"}
+            ).status_code
+            == 403
+        )
 
 
 def test_view_is_audited(client, make_operator, app_conn: psycopg.Connection):

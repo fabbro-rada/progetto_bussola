@@ -45,7 +45,9 @@ def provisioned(app_conn: psycopg.Connection) -> Provisioned:
     return Provisioned(pseudonym=pseudonym, matricola="MAT-777")
 
 
-def test_supervisor_resolves_pseudonym_to_matricola(client, make_operator, provisioned: Provisioned):
+def test_supervisor_resolves_pseudonym_to_matricola(
+    client, make_operator, provisioned: Provisioned
+):
     sup, sup_temp = make_operator("sup1", Role.SUPERVISOR)
     sup_tok = _login(client, sup, sup_temp)
     r = client.post(
@@ -76,30 +78,48 @@ def test_unknown_pseudonym_is_omitted_from_results(client, make_operator, provis
 def test_operator_admin_and_auditor_cannot_resolve(client, make_operator):
     op, op_temp = make_operator("op1", Role.OPERATOR)
     op_tok = _login(client, op, op_temp)
-    assert client.post(
-        "/identity/resolve", json={"pseudonym_ids": ["P-x"]}, headers=_auth(op_tok)
-    ).status_code == 403
-    assert client.post(
-        "/identity/resolve-matricola", json={"matricola": "MAT-x"}, headers=_auth(op_tok)
-    ).status_code == 403
+    assert (
+        client.post(
+            "/identity/resolve", json={"pseudonym_ids": ["P-x"]}, headers=_auth(op_tok)
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/identity/resolve-matricola", json={"matricola": "MAT-x"}, headers=_auth(op_tok)
+        ).status_code
+        == 403
+    )
 
     admin, admin_temp = make_operator("admin1", Role.ADMIN)
     admin_tok = _login(client, admin, admin_temp)
-    assert client.post(
-        "/identity/resolve", json={"pseudonym_ids": ["P-x"]}, headers=_auth(admin_tok)
-    ).status_code == 403
-    assert client.post(
-        "/identity/resolve-matricola", json={"matricola": "MAT-x"}, headers=_auth(admin_tok)
-    ).status_code == 403
+    assert (
+        client.post(
+            "/identity/resolve", json={"pseudonym_ids": ["P-x"]}, headers=_auth(admin_tok)
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/identity/resolve-matricola", json={"matricola": "MAT-x"}, headers=_auth(admin_tok)
+        ).status_code
+        == 403
+    )
 
     aud, aud_temp = make_operator("aud1", Role.AUDITOR)
     aud_tok = _login(client, aud, aud_temp)
-    assert client.post(
-        "/identity/resolve", json={"pseudonym_ids": ["P-x"]}, headers=_auth(aud_tok)
-    ).status_code == 403
-    assert client.post(
-        "/identity/resolve-matricola", json={"matricola": "MAT-x"}, headers=_auth(aud_tok)
-    ).status_code == 403
+    assert (
+        client.post(
+            "/identity/resolve", json={"pseudonym_ids": ["P-x"]}, headers=_auth(aud_tok)
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/identity/resolve-matricola", json={"matricola": "MAT-x"}, headers=_auth(aud_tok)
+        ).status_code
+        == 403
+    )
 
 
 def test_resolve_matricola_reverse_and_404(client, make_operator, provisioned: Provisioned):
@@ -146,9 +166,7 @@ def test_resolution_is_audited(
 def test_unknown_pseudonym_is_not_audited(client, make_operator, owner_conn: psycopg.Connection):
     sup, sup_temp = make_operator("sup1", Role.SUPERVISOR)
     sup_tok = _login(client, sup, sup_temp)
-    r = client.post(
-        "/identity/resolve", json={"pseudonym_ids": ["P-nope"]}, headers=_auth(sup_tok)
-    )
+    r = client.post("/identity/resolve", json={"pseudonym_ids": ["P-nope"]}, headers=_auth(sup_tok))
     assert r.status_code == 200
     assert r.json()["results"] == []
 

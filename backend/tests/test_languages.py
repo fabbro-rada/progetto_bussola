@@ -20,5 +20,6 @@ def test_language_name_falls_back_to_the_code_for_unknown():
 def test_consumers_share_the_same_constant():
     from bussola.guardrails import refusal
     from bussola.system import service
+
     assert refusal.SUPPORTED_LANGUAGES is SUPPORTED_LANGUAGES
     assert service.SUPPORTED_LANGUAGES is SUPPORTED_LANGUAGES

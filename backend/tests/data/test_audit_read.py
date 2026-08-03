@@ -21,7 +21,14 @@ def test_lists_newest_first(app_conn: psycopg.Connection):
     # entry exposes who/what/when/details, not the hashes
     top = entries[0]
     assert top.actor == "sup1" and top.target_pseudonym is None
-    assert set(top.model_dump()) == {"id", "occurred_at", "actor", "action", "target_pseudonym", "details"}
+    assert set(top.model_dump()) == {
+        "id",
+        "occurred_at",
+        "actor",
+        "action",
+        "target_pseudonym",
+        "details",
+    }
 
 
 def test_cursor_before_and_limit_cap(app_conn: psycopg.Connection):

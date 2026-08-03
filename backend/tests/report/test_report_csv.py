@@ -29,9 +29,7 @@ def _minimal_report(*, languages: dict[str, Count] | None = None) -> Report:
         availability={},
         constraints={},
         total_job_requests=0,
-        matching=MatchingAgg(
-            runs=0, evaluated=0, compatible=0, compatible_rate=0.0, top_gaps={}
-        ),
+        matching=MatchingAgg(runs=0, evaluated=0, compatible=0, compatible_rate=0.0, top_gaps={}),
         trends=Trends(profiles_by_week={}, job_requests_by_week={}),
     )
 

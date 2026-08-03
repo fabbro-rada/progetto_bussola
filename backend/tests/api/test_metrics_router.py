@@ -27,7 +27,9 @@ def test_supervisor_gets_aggregate_metrics(client, make_operator, app_conn: psyc
             pseudonym_id="P-C",
             languages=[LanguageKnown(language="it", level=LanguageLevel.FLUENT)],
             skills=[Skill(name="Cucina", kind=SkillKind.TECHNICAL, evidence=EvidenceGrade.STATED)],
-            experiences=[WorkExperience(role="Aiuto cuoco", sector="Ristorazione", duration_months=12)],
+            experiences=[
+                WorkExperience(role="Aiuto cuoco", sector="Ristorazione", duration_months=12)
+            ],
             aspiration=Aspiration(fields_of_interest=["Ristorazione"]),
             desired_training=[DesiredTraining(topic="HACCP")],
         )

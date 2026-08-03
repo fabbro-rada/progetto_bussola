@@ -275,9 +275,7 @@ class Interview:
         partial profile, and return the summary step, awaiting confirmation.
         Shared by a first answer and every subsequent correction, so a
         correction re-extracts from the full text (original + corrections)."""
-        extracted = extract_section(
-            self._client, section, self._section_answer, self._language
-        )
+        extracted = extract_section(self._client, section, self._section_answer, self._language)
         summary_text = self._present(summarize(self._client, section, extracted, self._language))
         if summary_text is None:
             # The generated summary failed the outbound scope guard (§9): never

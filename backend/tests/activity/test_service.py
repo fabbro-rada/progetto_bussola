@@ -19,7 +19,9 @@ def test_counts_work_actions_per_actor_and_excludes_non_work(app_conn: psycopg.C
     # non-work / other-role / kiosk events must NOT create rows or counts
     append_audit(app_conn, action="login_succeeded", actor="op1")
     append_audit(app_conn, action="operator_created", actor="admin")
-    append_audit(app_conn, action="interview_section_confirmed", actor="kiosk", target_pseudonym="P-1")
+    append_audit(
+        app_conn, action="interview_section_confirmed", actor="kiosk", target_pseudonym="P-1"
+    )
 
     rows = {a.actor: a for a in compute_operator_activity(app_conn)}
     assert set(rows) == {"op1", "op2"}  # admin/kiosk absent (no work actions)

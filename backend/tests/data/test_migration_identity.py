@@ -25,7 +25,11 @@ def test_identity_and_startcode_tables_exist_and_are_segregated():
                 "WHERE table_schema='startcode' AND table_name='start_code' ORDER BY 1"
             )
             assert [r[0] for r in cur.fetchall()] == [
-                "code_hash", "created_at", "expires_at", "pseudonym_id", "used_at",
+                "code_hash",
+                "created_at",
+                "expires_at",
+                "pseudonym_id",
+                "used_at",
             ]
 
 

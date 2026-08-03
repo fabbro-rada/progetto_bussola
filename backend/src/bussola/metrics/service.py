@@ -44,7 +44,9 @@ def compute_metrics(conn: psycopg.Connection) -> Metrics:
         # (consistent with ProfileRepository.search/list_all, which also drop
         # them). See bussola.data.profiles.is_contentless.
         profiles: list[dict[str, Any]] = [
-            row[0] for row in cur.fetchall() if not is_contentless(WorkProfile.model_validate(row[0]))
+            row[0]
+            for row in cur.fetchall()
+            if not is_contentless(WorkProfile.model_validate(row[0]))
         ]
         cur.execute("SELECT COUNT(*) FROM matching.job_request")
         jr_row = cur.fetchone()

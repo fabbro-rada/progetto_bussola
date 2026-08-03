@@ -28,9 +28,7 @@ def test_sanitize_redacts_pii_in_free_text(redactor):
                 evidence=EvidenceGrade.STATED,
             )
         ],
-        experiences=[
-            WorkExperience(role="aiuto cuoco", sector="ristorazione", duration_months=12)
-        ],
+        experiences=[WorkExperience(role="aiuto cuoco", sector="ristorazione", duration_months=12)],
     )
     clean = sanitize_profile(profile, redactor, language="it")
 
@@ -65,15 +63,10 @@ def test_sanitize_handles_redaction_that_expands_field_length(redactor):
     in. `sanitize_profile` must still return a schema-valid `WorkProfile`
     in that case, never a silently invalid one."""
     original_pii = "a@b.co"
-    role = (
-        "responsabile assistenza clienti e contatto diretto quotidiano "
-        f"{original_pii} in sede"
-    )
+    role = f"responsabile assistenza clienti e contatto diretto quotidiano {original_pii} in sede"
     profile = WorkProfile(
         pseudonym_id="P-012",
-        experiences=[
-            WorkExperience(role=role, sector="ristorazione", duration_months=6)
-        ],
+        experiences=[WorkExperience(role=role, sector="ristorazione", duration_months=6)],
     )
 
     clean = sanitize_profile(profile, redactor, language="it")
@@ -91,12 +84,8 @@ def test_sanitize_redacts_pii_in_aspiration_and_desired_training(redactor):
     with no NER model."""
     profile = WorkProfile(
         pseudonym_id="P-013",
-        aspiration=Aspiration(
-            fields_of_interest=["contattami a mario@example.com per proposte"]
-        ),
-        desired_training=[
-            DesiredTraining(topic="corso richiesto, scrivere a laura@example.com")
-        ],
+        aspiration=Aspiration(fields_of_interest=["contattami a mario@example.com per proposte"]),
+        desired_training=[DesiredTraining(topic="corso richiesto, scrivere a laura@example.com")],
     )
 
     clean = sanitize_profile(profile, redactor, language="it")

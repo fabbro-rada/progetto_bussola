@@ -22,5 +22,7 @@ def get_system_config(
     conn: psycopg.Connection = Depends(get_conn),
 ) -> SystemConfig:
     config = compute_system_config()
-    append_audit(conn, action="system_config_viewed", actor=operator.username, target_pseudonym=None)
+    append_audit(
+        conn, action="system_config_viewed", actor=operator.username, target_pseudonym=None
+    )
     return config

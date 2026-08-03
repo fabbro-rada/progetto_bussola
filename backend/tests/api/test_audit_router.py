@@ -46,7 +46,9 @@ def test_filters_and_cursor_are_applied(client, make_operator, app_conn: psycopg
     tok = _login(client, user, temp)
     only = client.get("/audit?action=metrics_viewed", headers=_auth(tok)).json()
     assert [e["action"] for e in only] == ["metrics_viewed"]
-    assert all(e["actor"] == "op1" for e in client.get("/audit?actor=op1", headers=_auth(tok)).json())
+    assert all(
+        e["actor"] == "op1" for e in client.get("/audit?actor=op1", headers=_auth(tok)).json()
+    )
     one = client.get("/audit?limit=1", headers=_auth(tok)).json()
     assert len(one) == 1
 

@@ -21,7 +21,11 @@ def _auth(token: str) -> dict[str, str]:
 def test_operator_creates_and_lists_own_pending_request(client, make_operator):
     user, temp = make_operator("op1", Role.OPERATOR)
     tok = _login(client, user, temp)
-    r = client.post("/exports", json={"filters": {"skill_query": "cucina"}, "reason": "Azienda X"}, headers=_auth(tok))
+    r = client.post(
+        "/exports",
+        json={"filters": {"skill_query": "cucina"}, "reason": "Azienda X"},
+        headers=_auth(tok),
+    )
     assert r.status_code == 201
     assert r.json()["status"] == "pending"
     lst = client.get("/exports", headers=_auth(tok))
@@ -38,19 +42,29 @@ def test_operator_cannot_approve_or_see_pending(client, make_operator):
 def test_supervisor_cannot_create_or_download(client, make_operator):
     sup, temp = make_operator("sup1", Role.SUPERVISOR)
     tok = _login(client, sup, temp)
-    assert client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(tok)).status_code == 403
+    assert (
+        client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(tok)).status_code
+        == 403
+    )
     assert client.get("/exports/1/download", headers=_auth(tok)).status_code == 403
 
 
 def test_full_flow_request_approve_download(client, make_operator, app_conn: psycopg.Connection):
     ProfileRepository(app_conn, PiiRedactor()).save(
-        WorkProfile(pseudonym_id="P-1", skills=[Skill(name="Cucina", kind=SkillKind.TECHNICAL, evidence=EvidenceGrade.STATED)])
+        WorkProfile(
+            pseudonym_id="P-1",
+            skills=[Skill(name="Cucina", kind=SkillKind.TECHNICAL, evidence=EvidenceGrade.STATED)],
+        )
     )
     op, otemp = make_operator("op1", Role.OPERATOR)
     sup, stemp = make_operator("sup1", Role.SUPERVISOR)
     otok = _login(client, op, otemp)
     stok = _login(client, sup, stemp)
-    rid = client.post("/exports", json={"filters": {"skill_query": "cucina"}, "reason": "Azienda X"}, headers=_auth(otok)).json()["id"]
+    rid = client.post(
+        "/exports",
+        json={"filters": {"skill_query": "cucina"}, "reason": "Azienda X"},
+        headers=_auth(otok),
+    ).json()["id"]
     # not approved yet → 409
     assert client.get(f"/exports/{rid}/download", headers=_auth(otok)).status_code == 409
     # supervisor sees it pending and approves
@@ -69,7 +83,9 @@ def test_download_of_other_operators_request_is_404(client, make_operator):
     op2, t2 = make_operator("op2", Role.OPERATOR)
     sup, st = make_operator("sup1", Role.SUPERVISOR)
     tok1, tok2, stok = _login(client, op1, t1), _login(client, op2, t2), _login(client, sup, st)
-    rid = client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(tok1)).json()["id"]
+    rid = client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(tok1)).json()[
+        "id"
+    ]
     client.post(f"/exports/{rid}/approve", headers=_auth(stok))
     assert client.get(f"/exports/{rid}/download", headers=_auth(tok2)).status_code == 404
 
@@ -78,7 +94,9 @@ def test_approve_twice_conflicts(client, make_operator):
     op, ot = make_operator("op1", Role.OPERATOR)
     sup, st = make_operator("sup1", Role.SUPERVISOR)
     otok, stok = _login(client, op, ot), _login(client, sup, st)
-    rid = client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(otok)).json()["id"]
+    rid = client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(otok)).json()[
+        "id"
+    ]
     assert client.post(f"/exports/{rid}/approve", headers=_auth(stok)).status_code == 204
     assert client.post(f"/exports/{rid}/approve", headers=_auth(stok)).status_code == 409
     assert client.post("/exports/999/approve", headers=_auth(stok)).status_code == 404
@@ -88,11 +106,21 @@ def test_supervisor_denies_and_operator_cannot(client, make_operator):
     op, ot = make_operator("op1", Role.OPERATOR)
     sup, st = make_operator("sup1", Role.SUPERVISOR)
     otok, stok = _login(client, op, ot), _login(client, sup, st)
-    rid = client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(otok)).json()["id"]
+    rid = client.post("/exports", json={"filters": {}, "reason": "r"}, headers=_auth(otok)).json()[
+        "id"
+    ]
     # operator cannot deny (needs APPROVE_EXPORTS)
-    assert client.post(f"/exports/{rid}/deny", json={"reason": "no"}, headers=_auth(otok)).status_code == 403
+    assert (
+        client.post(f"/exports/{rid}/deny", json={"reason": "no"}, headers=_auth(otok)).status_code
+        == 403
+    )
     # supervisor denies → 204
-    assert client.post(f"/exports/{rid}/deny", json={"reason": "fuori scopo"}, headers=_auth(stok)).status_code == 204
+    assert (
+        client.post(
+            f"/exports/{rid}/deny", json={"reason": "fuori scopo"}, headers=_auth(stok)
+        ).status_code
+        == 204
+    )
     # denied request is not downloadable
     assert client.get(f"/exports/{rid}/download", headers=_auth(otok)).status_code == 409
     # decision reflected in the owner's list
@@ -105,6 +133,14 @@ def test_malformed_create_body_is_rejected(client, make_operator):
     op, ot = make_operator("op1", Role.OPERATOR)
     otok = _login(client, op, ot)
     # extra field forbidden (extra="forbid")
-    assert client.post("/exports", json={"filters": {}, "reason": "r", "x": 1}, headers=_auth(otok)).status_code == 422
+    assert (
+        client.post(
+            "/exports", json={"filters": {}, "reason": "r", "x": 1}, headers=_auth(otok)
+        ).status_code
+        == 422
+    )
     # empty reason rejected (min_length=1)
-    assert client.post("/exports", json={"filters": {}, "reason": ""}, headers=_auth(otok)).status_code == 422
+    assert (
+        client.post("/exports", json={"filters": {}, "reason": ""}, headers=_auth(otok)).status_code
+        == 422
+    )

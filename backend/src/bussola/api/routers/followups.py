@@ -41,6 +41,8 @@ def provision_followup(
     def audit(**kw: object) -> None:
         append_audit(conn, commit=False, **kw)  # type: ignore[arg-type]
 
-    token = FollowupTokenService(conn, audit=audit).issue(body.pseudonym_id, actor=operator.username)
+    token = FollowupTokenService(conn, audit=audit).issue(
+        body.pseudonym_id, actor=operator.username
+    )
     conn.commit()
     return ProvisionFollowupResponse(token=token)

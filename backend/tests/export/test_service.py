@@ -23,7 +23,9 @@ def _seed_profile(conn: psycopg.Connection, pid: str, skill: str) -> None:
 
 def test_create_starts_pending_and_lists_for_owner(app_conn: psycopg.Connection):
     svc = ExportService(app_conn)
-    req = svc.create_request(actor="op1", filters=ExportFilters(skill_query="cucina"), reason="Azienda X")
+    req = svc.create_request(
+        actor="op1", filters=ExportFilters(skill_query="cucina"), reason="Azienda X"
+    )
     assert req.status == "pending"
     assert req.requested_by == "op1"
     assert svc.list_own(actor="op1")[0].id == req.id
@@ -34,7 +36,9 @@ def test_approve_then_download_returns_matching_work_profiles(app_conn: psycopg.
     _seed_profile(app_conn, "P-1", "Cucina")
     _seed_profile(app_conn, "P-2", "Muratura")
     svc = ExportService(app_conn)
-    req = svc.create_request(actor="op1", filters=ExportFilters(skill_query="cucina"), reason="Azienda X")
+    req = svc.create_request(
+        actor="op1", filters=ExportFilters(skill_query="cucina"), reason="Azienda X"
+    )
     svc.approve(actor="sup1", request_id=req.id)
     payload = svc.generate_payload(actor="op1", request_id=req.id)
     assert [p.pseudonym_id for p in payload] == ["P-1"]
