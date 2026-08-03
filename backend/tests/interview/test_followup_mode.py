@@ -154,14 +154,13 @@ def test_followup_never_downgrades_or_drops(make_fake_json_llm):
 
 
 def test_followup_reject_and_reanswer_never_accumulates_or_leaks_rejected_data(make_fake_json_llm):
-    """§5-critical: the person may see the summary, REJECT it, and RE-ANSWER
-    the SAME section before confirming (interview.py re-asks without
-    advancing, so `merge()` runs more than once for that section). The
-    rejected answer's contribution must be fully REPLACED by the corrected
-    one — never stacked (experiences), and never left behind as a stale
-    skill/language/aspiration/digital_literacy from the rejected attempt —
-    while the prior (pre-follow-up) baseline is still preserved and evidence
-    upgrades still never downgrade."""
+    """§5-critical: the person may see the summary and CORRECT it before
+    confirming (interview.py re-summarizes the SAME section without advancing,
+    so `merge()` runs more than once for that section). The rejected answer's
+    contribution must be fully REPLACED by the corrected one — never stacked
+    (experiences), and never left behind as a stale skill/language/aspiration/
+    digital_literacy from the rejected attempt — while the prior (pre-follow-up)
+    baseline is still preserved and evidence upgrades still never downgrade."""
     existing = WorkProfile(
         pseudonym_id="P-x",
         experiences=[WorkExperience(role="magazziniere", sector="logistica", duration_months=12)],
@@ -226,21 +225,24 @@ def test_followup_reject_and_reanswer_never_accumulates_or_leaks_rejected_data(m
 
     itw.start_followup("P-x")
 
-    # experiences: answer -> reject -> re-answer -> confirm
+    # A "not confirmed" reply is now a CORRECTION to the same section (§5): it
+    # re-summarizes (stays on the section), it does NOT re-ask. So each section
+    # is: answer (rejected data) -> correction (final data) -> confirm. The
+    # follow-up merge recomputes from the baseline, so the rejected attempt's
+    # data must never survive the correction.
+
+    # experiences: answer (rejected) -> correction (final) -> confirm
     assert itw.submit("ho fatto il cameriere per 6 mesi").kind == "summary"
-    assert itw.submit("no, non è corretto").kind == "question"
     assert itw.submit("scusa, in realtà ho fatto il cuoco per 8 mesi").kind == "summary"
     assert itw.submit("sì, corretto").kind == "question"
 
-    # skills: answer -> reject -> re-answer -> confirm
+    # skills: answer (rejected) -> correction (final) -> confirm
     assert itw.submit("faccio il barista e parlo spagnolo").kind == "summary"
-    assert itw.submit("no").kind == "question"
     assert itw.submit("scusa, correggo: so cucinare e parlo francese").kind == "summary"
     assert itw.submit("sì").kind == "question"
 
-    # aspirations: answer -> reject -> re-answer -> confirm (last section)
+    # aspirations: answer (rejected) -> correction (final) -> confirm (last section)
     assert itw.submit("mi piacerebbe l'edilizia, corso di saldatura").kind == "summary"
-    assert itw.submit("no").kind == "question"
     assert itw.submit("scusa, mi interessa il catering, corso HACCP").kind == "summary"
     final = itw.submit("sì, confermo")
     assert final.kind == "completed"
