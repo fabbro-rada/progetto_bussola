@@ -39,3 +39,21 @@ test('dictated text lands in the field for review (does not auto-submit)', async
   expect(onSubmit).not.toHaveBeenCalled() // review, not auto-submit
   vi.unstubAllGlobals()
 })
+
+test('the textarea and «Avanti» are disabled while a dictation is in progress', async () => {
+  await i18n.changeLanguage('it')
+  stubMedia(true)
+  const client = makeVoiceClient({ transcript: 'ho lavorato in cucina', audio: null })
+  renderWithProviders(<AnswerPrompt text="Che lavoro sai fare?" onSubmit={vi.fn()} />, { voiceClient: client })
+  const textarea = screen.getByRole('textbox')
+  expect(textarea).not.toBeDisabled()
+  await userEvent.click(await screen.findByRole('button', { name: /Parla/ }))
+  await screen.findByRole('button', { name: /Stop/ }) // recording in progress
+  expect(textarea).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Avanti' })).toBeDisabled()
+  // when the dictation finishes, the field re-enables with the transcript
+  await userEvent.click(screen.getByRole('button', { name: /Stop/ }))
+  await waitFor(() => expect(textarea).not.toBeDisabled())
+  expect(textarea).toHaveValue('ho lavorato in cucina')
+  vi.unstubAllGlobals()
+})
