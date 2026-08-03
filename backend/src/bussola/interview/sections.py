@@ -78,7 +78,7 @@ SECTIONS: tuple[Section, ...] = (
             "es": "¿Qué trabajos has hecho hasta ahora? También los cortos u ocasionales. Para cada uno, dime qué hacías y durante cuánto tiempo.",
             "ar": "ما الأعمال التي قمت بها حتى الآن؟ حتى القصيرة أو المؤقّتة منها. لكلّ عمل، أخبرني بما كنت تفعله وكم من الوقت.",
         },
-        "Extract past work experiences (role, sector, duration in months) from their reply. Only what they actually said. Keep the person's own everyday words for the role; do NOT translate them into a technical or specialised term.",
+        "Extract past work experiences (role, sector, duration in months) from their reply. Only what they actually said. The role is the JOB/occupation the person named (e.g. 'consulente', 'cameriere', 'muratore'), in their own everyday words — NEVER a generic verb such as 'lavorato', 'fatto' or 'occupato', and never translated into a technical or specialised term. If they named an occupation, use exactly that; if they only said they 'worked' somewhere without naming the job, capture the sector and leave the role as what they said, not an invented title.",
     ),
     Section(
         "aspirations",
