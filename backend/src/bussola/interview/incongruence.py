@@ -38,7 +38,8 @@ def find_incongruence(client: LlmClient, profile: WorkProfile, language: str) ->
         "If (and only if) you find a real contradiction, write ONE gentle, "
         f"non-judgmental clarification question ENTIRELY in {name} (language code "
         f"'{language}') — every word in {name}, never in English or any other language "
-        "(never accuse; simply ask the person to clarify). "
+        "(never accuse; simply ask the person to clarify). Use simple, everyday words "
+        "and do NOT use any emoji, emoticons or symbols (the text is read aloud). "
         'Reply JSON {"has_incongruence": bool, "clarification": string}. '
         "Use has_incongruence=false with an empty clarification when there is no "
         "clear contradiction."

@@ -32,3 +32,10 @@ def test_clarification_prompt_names_the_target_language(make_fake_json_llm):
         find_incongruence(client, WorkProfile(pseudonym_id="P-1"), code)
         system = client.calls[0]["messages"][0]["content"]
         assert name in system
+
+
+def test_clarification_prompt_forbids_emoji(make_fake_json_llm):
+    # The clarification is read aloud → no emoji (a voice would speak its name).
+    client = make_fake_json_llm(json_responses=[{"has_incongruence": False, "clarification": ""}])
+    find_incongruence(client, WorkProfile(pseudonym_id="P-1"), "it")
+    assert "emoji" in client.calls[0]["messages"][0]["content"].lower()

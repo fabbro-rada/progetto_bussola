@@ -7,10 +7,33 @@ piper-tts to be installed."""
 from __future__ import annotations
 
 import io
+import re
 import wave
 from typing import Protocol
 
 from bussola.voice import config
+
+# Emoji / pictographic symbols a TTS voice would otherwise read aloud (Piper
+# speaks e.g. "smiling face"). We strip only the pictographic Unicode blocks —
+# never letters or marks — so Arabic and accented Latin text stay intact. This
+# is a safety net: the interview prompts also instruct the LLM to avoid emoji.
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001f300-\U0001faff"  # symbols & pictographs, emoticons, transport, extended-A
+    "\U0001f1e6-\U0001f1ff"  # regional indicators (flags)
+    "\U00002600-\U000027bf"  # miscellaneous symbols + dingbats
+    "\U00002300-\U000023ff"  # miscellaneous technical (⌛ ⏳ …)
+    "\U00002b00-\U00002bff"  # miscellaneous symbols and arrows (★ … )
+    "\U0000fe00-\U0000fe0f"  # variation selectors
+    "\U0000200d"             # zero-width joiner
+    "]"
+)
+
+
+def strip_emoji(text: str) -> str:
+    """Remove emoji/pictographs and collapse the whitespace they leave behind,
+    so read-aloud text never speaks an emoji's name."""
+    return re.sub(r" {2,}", " ", _EMOJI_RE.sub("", text)).strip()
 
 
 class TtsEngine(Protocol):
@@ -33,8 +56,9 @@ class TextToSpeech:
         voice_model = self._voices.get(language)
         if voice_model is None:
             return None  # no voice for this language (e.g. Arabic) -> text fallback
+        spoken = strip_emoji(text)  # never read an emoji's name aloud
         try:
-            return self._get_engine().synthesize(text, voice_model)
+            return self._get_engine().synthesize(spoken, voice_model)
         except Exception:  # TTS failure -> text fallback, never blocks (§3)
             return None
 

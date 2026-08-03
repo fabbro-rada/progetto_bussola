@@ -19,6 +19,16 @@ def test_summarize_prompt_names_the_target_language(make_fake_json_llm):
         assert name in system
 
 
+def test_summarize_prompt_asks_for_simple_words_and_no_emoji(make_fake_json_llm):
+    # The confirmation must use the person's own plain words (not jargon like
+    # 'carpenteria') and no emoji (the text is read aloud).
+    client = make_fake_json_llm(text_responses=["ok"])
+    summarize(client, SECTIONS[0], SkillsExtraction(), "it")
+    system = client.calls[0]["messages"][0]["content"].lower()
+    assert "emoji" in system
+    assert "simple" in system  # "simple, everyday words"
+
+
 def test_interpret_confirmation_true(make_fake_json_llm):
     client = make_fake_json_llm(json_responses=[{"confirmed": True}])
     assert interpret_confirmation(client, "sì esatto", "it") is True

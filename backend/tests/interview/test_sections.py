@@ -20,6 +20,15 @@ def test_base_question_returns_requested_language():
     assert base_question(SECTIONS[0], "it") == SECTIONS[0].base_question["it"]
 
 
+def test_skills_extraction_keeps_the_persons_own_words():
+    # The extraction must not rewrite plain job words into technical terms
+    # (e.g. 'falegname' -> 'carpenteria'), so the person recognises the summary.
+    skills = next(s for s in SECTIONS if s.key == "skills")
+    prompt = skills.extraction_prompt.lower()
+    assert "own everyday words" in prompt
+    assert "falegname" in prompt and "carpenteria" in prompt
+
+
 def test_extraction_models_forbid_extra_fields():
     import pytest
     from pydantic import ValidationError

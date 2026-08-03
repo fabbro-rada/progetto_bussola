@@ -23,6 +23,12 @@ def summarize(client: LlmClient, section: Section, extracted: BaseModel, languag
         f"(language code '{language}') — every word in {name}, never in English or any "
         "other language. In one or two short sentences, summarize back to the person what "
         f"you understood for the '{section.key}' section, then ask if it is correct. "
+        "Use simple, everyday words that anyone can understand: reuse the plain words the "
+        "person themselves would use, and NEVER replace them with a technical, specialised "
+        "or fancier synonym (for example, if the data says a job like 'falegname', say "
+        "'falegname', not 'carpenteria'). "
+        "Do NOT use any emoji, emoticons or symbols — the text is read aloud, and a voice "
+        "would speak the emoji's name. "
         "Be encouraging, never judgmental."
     )
     return client.chat(
