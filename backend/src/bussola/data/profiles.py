@@ -11,6 +11,22 @@ from bussola.profile.enums import Availability, OperationalNoteCategory
 from bussola.profile.models import WorkProfile
 
 
+def create_empty_profile(conn: psycopg.Connection) -> str:
+    """Create an empty work profile under a fresh pseudonym; return the pseudonym.
+
+    Redactor-free (the operator provisioning path must not load NLP models).
+    No commit here — the caller owns the transaction.
+    """
+    pseudonym = generate_pseudonym()
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO profiles.work_profile (pseudonym_id, profile) VALUES (%s, %s) "
+            "ON CONFLICT (pseudonym_id) DO NOTHING",
+            (pseudonym, WorkProfile(pseudonym_id=pseudonym).model_dump_json()),
+        )
+    return pseudonym
+
+
 class ProfileRepository:
     """Reads and writes work profiles.
 
@@ -27,9 +43,14 @@ class ProfileRepository:
         self._language = language
 
     def create_new(self) -> str:
-        """Create an empty profile under a fresh pseudonym; return the pseudonym."""
-        pseudonym = generate_pseudonym()
-        self._upsert(WorkProfile(pseudonym_id=pseudonym))
+        """Create an empty profile under a fresh pseudonym; return the pseudonym.
+
+        Delegates to the module-level `create_empty_profile` (DRY) but keeps
+        this method's existing commit-internally behavior, since callers
+        elsewhere (e.g. the follow-up flow) rely on it.
+        """
+        pseudonym = create_empty_profile(self._conn)
+        self._conn.commit()
         return pseudonym
 
     def save(self, profile: WorkProfile) -> WorkProfile:
