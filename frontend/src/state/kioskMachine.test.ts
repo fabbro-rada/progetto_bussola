@@ -187,28 +187,19 @@ test('a late started/submitted after a reset is ignored (pending=false → no-op
 
 // --- Start-code path (re-identification, Task 8): the kiosk no longer
 // self-starts anonymously. `selectLanguage` (above) now lands on
-// 'startCodeEntry' instead of 'consent'; `submitStartCode` captures the
-// code+language and moves on to the (unchanged) consent screen, mirroring
-// `submitFollowupCredentials`/`previewFollowupLanguage` above.
+// 'startCodeEntry' instead of 'consent'; the language is chosen there, so
+// `submitStartCode` only captures the code and moves on to the (unchanged)
+// consent screen, preserving the already-chosen language.
 
-test('submitStartCode stores the code and language and moves to consent', () => {
-  const s = reducer({ ...initialState, screen: 'startCodeEntry' }, {
+test('submitStartCode stores the code, keeps the chosen language, and moves to consent', () => {
+  // language 'ar' was already set by selectLanguage before reaching this screen
+  const s = reducer({ ...initialState, screen: 'startCodeEntry', language: 'ar' }, {
     type: 'submitStartCode',
     code: 'S-123',
-    language: 'ar',
   })
   expect(s.screen).toBe('consent')
   expect(s.startCode).toBe('S-123')
-  expect(s.language).toBe('ar')
-})
-
-test('previewStartCodeLanguage updates the language without changing the screen (voice retargeting)', () => {
-  const s = reducer({ ...initialState, screen: 'startCodeEntry' }, {
-    type: 'previewStartCodeLanguage',
-    language: 'ar',
-  })
-  expect(s.screen).toBe('startCodeEntry')
-  expect(s.language).toBe('ar')
+  expect(s.language).toBe('ar') // preserved, not re-supplied
 })
 
 test('declining consent from the start-code path resets to the initial state (reuses declineConsent)', () => {

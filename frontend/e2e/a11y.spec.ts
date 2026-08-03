@@ -40,13 +40,10 @@ async function audit(page: Page, label: string): Promise<void> {
 }
 
 // Re-identification (Task 8): the kiosk no longer self-starts anonymously --
-// after picking a language, the person now lands on the start-code entry
-// screen (its own language grid + a code field, mirroring FollowupEntry)
-// before reaching consent. `languageName` must match whatever was just
-// tapped on the language picker (its label is in that language once
-// applied).
-async function enterStartCode(page: Page, languageName: string, code: string): Promise<void> {
-  await page.getByRole('button', { name: languageName }).click() // start-code entry's own grid
+// after picking a language on LanguagePicker, the person lands on the
+// start-code entry screen (code field only; the language is already chosen,
+// so it is NOT re-asked here) before reaching consent.
+async function enterStartCode(page: Page, code: string): Promise<void> {
   await page.locator('#start-code').fill(code)
   await page.locator('.big-confirm').click() // submit -> consent
 }
@@ -57,7 +54,7 @@ async function reachAfterSubmit(page: Page, nextStep: Step): Promise<void> {
   await mockKiosk(page, { nextStep })
   await page.goto('/')
   await page.getByRole('button', { name: 'Italiano' }).click()
-  await enterStartCode(page, 'Italiano', 'S-E2E1')
+  await enterStartCode(page, 'S-E2E1')
   await page.locator('.big-confirm').click() // accept consent -> question
   await expect(page.locator('.prompt-text')).toBeVisible()
   await page.getByPlaceholder('Scrivi qui la tua risposta…').fill('faccio il cuoco')
@@ -75,7 +72,7 @@ test('consent screen — Italian', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Italiano' }).click()
-  await enterStartCode(page, 'Italiano', 'S-E2E1')
+  await enterStartCode(page, 'S-E2E1')
   await expect(page.getByRole('button', { name: 'Ho capito, iniziamo' })).toBeVisible()
   await audit(page, 'consent-it')
 })
@@ -84,7 +81,7 @@ test('consent screen — Arabic (RTL)', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'العربية' }).click()
-  await enterStartCode(page, 'العربية', 'S-E2E1')
+  await enterStartCode(page, 'S-E2E1')
   await expect(page.locator('.big-confirm')).toBeVisible() // on the Consent screen (not a fallback)
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await audit(page, 'consent-ar-rtl')
@@ -94,7 +91,7 @@ test('question screen — Arabic (RTL)', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'العربية' }).click()
-  await enterStartCode(page, 'العربية', 'S-E2E1')
+  await enterStartCode(page, 'S-E2E1')
   await page.locator('.big-confirm').click() // consent accept (language-neutral selector)
   await expect(page.locator('.prompt-text')).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
@@ -105,7 +102,7 @@ test('question screen — Italian', async ({ page }) => {
   await mockKiosk(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Italiano' }).click()
-  await enterStartCode(page, 'Italiano', 'S-E2E1')
+  await enterStartCode(page, 'S-E2E1')
   await page.locator('.big-confirm').click()
   await expect(page.locator('.prompt-text')).toBeVisible()
   await audit(page, 'question-it')
@@ -151,7 +148,7 @@ test('a rejected start (bad code or unauthorized device) fails closed to the una
   await mockKiosk(page, { startStatus: 401 })
   await page.goto('/')
   await page.getByRole('button', { name: 'Italiano' }).click()
-  await enterStartCode(page, 'Italiano', 'S-E2E1')
+  await enterStartCode(page, 'S-E2E1')
   await page.locator('.big-confirm').click() // accept -> start returns 401
   await expect(page.getByText('Un momento, ci riprovo tra poco. Puoi anche scrivere di nuovo.')).toBeVisible()
   await audit(page, 'unavailable-after-rejected-start')

@@ -7,17 +7,16 @@ import { App } from './App'
 import type { KioskClient, SubmitResult } from './types'
 
 // Task 8 (re-identification): the kiosk no longer self-starts anonymously --
-// after picking a language, the person now lands on the start-code entry
-// screen (mirrors FollowupEntry: its own language grid + a code field) and
-// must key in the one-time code an operator gave them before reaching
-// consent. `START_CODE` is an arbitrary, synthetic placeholder (§9); no test
-// below asserts a *specific* code value beyond that it round-trips.
+// after picking a language on LanguagePicker, the person lands on the
+// start-code entry screen (code field only — the language is already chosen,
+// so it is NOT re-asked here) and must key in the one-time code an operator
+// gave them before reaching consent. `START_CODE` is an arbitrary, synthetic
+// placeholder (§9); the happy path asserts it round-trips to startInterview.
 const START_CODE = 'S-ABC123'
 
 async function chooseItalianAndConsent() {
-  await userEvent.click(screen.getByRole('button', { name: 'Italiano' }))
-  await userEvent.click(await screen.findByRole('button', { name: 'Italiano' }))
-  await userEvent.type(screen.getByLabelText(/codice/i), START_CODE)
+  await userEvent.click(screen.getByRole('button', { name: 'Italiano' })) // LanguagePicker
+  await userEvent.type(await screen.findByLabelText(/codice/i), START_CODE) // start-code screen (code only)
   await userEvent.click(screen.getByRole('button', { name: 'Continua' }))
   await userEvent.click(await screen.findByRole('button', { name: 'Ho capito, iniziamo' }))
 }
@@ -186,11 +185,10 @@ test('choosing Arabic sets the document direction to rtl', async () => {
 test('declining consent in Arabic returns to an ltr language picker', async () => {
   renderWithProviders(<App client={makeFakeClient({})} voiceClient={noopVoiceClient} />)
   await userEvent.click(screen.getByRole('button', { name: 'العربية' }))
-  // Land on the start-code entry screen first (Task 8) -- pick the language
-  // there too (its own grid, mirroring FollowupEntry) and key in a code
-  // before consent is even reachable.
-  await userEvent.click(await screen.findByRole('button', { name: 'العربية' }))
-  const input = document.querySelector('#start-code') as HTMLInputElement
+  // Land on the start-code entry screen first (Task 8) -- language already
+  // chosen on the picker, so this screen only asks for the code. Submit is the
+  // last button in the DOM (its label is Arabic once the language is applied).
+  const input = (await screen.findByLabelText(/الرمز|codice/i)) as HTMLInputElement
   await userEvent.type(input, 'S-AR1')
   const codeButtons = screen.getAllByRole('button')
   await userEvent.click(codeButtons[codeButtons.length - 1])
