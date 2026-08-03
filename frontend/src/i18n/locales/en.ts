@@ -11,6 +11,13 @@ export const en = {
     accept: "I understand, let's start",
     decline: 'Not now',
   },
+  startCode: {
+    title: 'Enter your code',
+    languageGroupLabel: 'Language',
+    codeLabel: 'Enter the code an operator gave you',
+    codePlaceholder: 'Code…',
+    submit: 'Continue',
+  },
   followupEntry: {
     title: 'Do you have a follow-up code?',
     languageGroupLabel: 'Language',

@@ -11,6 +11,13 @@ export const es = {
     accept: 'Entendido, empecemos',
     decline: 'Ahora no',
   },
+  startCode: {
+    title: 'Introduce tu código',
+    languageGroupLabel: 'Idioma',
+    codeLabel: 'Introduce el código que te dio un operador',
+    codePlaceholder: 'Código…',
+    submit: 'Continuar',
+  },
   followupEntry: {
     title: '¿Tienes un código de seguimiento?',
     languageGroupLabel: 'Idioma',

@@ -1,9 +1,11 @@
 import { expect, test } from 'vitest'
 import { initialState, reducer } from './kioskMachine'
 
-test('selectLanguage moves to consent and records the language', () => {
+test('selectLanguage moves to the start-code entry screen and records the language', () => {
+  // Task 8: the kiosk no longer self-starts anonymously -- a language pick
+  // now leads to the start-code entry screen, not straight to consent.
   const s = reducer(initialState, { type: 'selectLanguage', language: 'ar' })
-  expect(s.screen).toBe('consent')
+  expect(s.screen).toBe('startCodeEntry')
   expect(s.language).toBe('ar')
 })
 
@@ -20,8 +22,16 @@ test('started ok derives the screen from the step kind and stores the session to
   expect(s).toMatchObject({ screen: 'question', sessionToken: 'tok', step: { kind: 'question', text: 'Q1' } })
 })
 
-test('started unauthorized/unavailable route to their screens', () => {
-  expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unauthorized' } }).screen).toBe('unauthorized')
+// Task 8: `start` now consumes a person-entered start code. The backend
+// returns the SAME 401 for a bad/used/expired start code and for a bad
+// device-level kiosk token (deliberately indistinguishable, to leak
+// nothing about which one it was). Routing 'unauthorized' to the
+// "station not authorized" screen would misdirect the person (and any
+// operator helping them) toward a device problem that may not exist, so
+// `started` now fails closed to 'unavailable' for BOTH statuses -- exactly
+// mirroring `startedFollowup` below.
+test('started unauthorized/unavailable both fail closed to the gentle unavailable screen', () => {
+  expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unauthorized' } }).screen).toBe('unavailable')
   expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unavailable' } }).screen).toBe('unavailable')
 })
 
@@ -173,4 +183,40 @@ test('a late started/submitted after a reset is ignored (pending=false → no-op
     result: { status: 'ok', step: { kind: 'summary', text: 'RECAP' } },
   })
   expect(lateSubmitted).toEqual(initialState)
+})
+
+// --- Start-code path (re-identification, Task 8): the kiosk no longer
+// self-starts anonymously. `selectLanguage` (above) now lands on
+// 'startCodeEntry' instead of 'consent'; `submitStartCode` captures the
+// code+language and moves on to the (unchanged) consent screen, mirroring
+// `submitFollowupCredentials`/`previewFollowupLanguage` above.
+
+test('submitStartCode stores the code and language and moves to consent', () => {
+  const s = reducer({ ...initialState, screen: 'startCodeEntry' }, {
+    type: 'submitStartCode',
+    code: 'S-123',
+    language: 'ar',
+  })
+  expect(s.screen).toBe('consent')
+  expect(s.startCode).toBe('S-123')
+  expect(s.language).toBe('ar')
+})
+
+test('previewStartCodeLanguage updates the language without changing the screen (voice retargeting)', () => {
+  const s = reducer({ ...initialState, screen: 'startCodeEntry' }, {
+    type: 'previewStartCodeLanguage',
+    language: 'ar',
+  })
+  expect(s.screen).toBe('startCodeEntry')
+  expect(s.language).toBe('ar')
+})
+
+test('declining consent from the start-code path resets to the initial state (reuses declineConsent)', () => {
+  const mid = { ...initialState, screen: 'consent' as const, startCode: 'S-123', language: 'ar' }
+  expect(reducer(mid, { type: 'declineConsent' })).toEqual(initialState)
+})
+
+test('stop resets the start-code path too (Ferma from startCodeEntry)', () => {
+  const mid = { ...initialState, screen: 'startCodeEntry' as const, startCode: 'S-123', language: 'ar' }
+  expect(reducer(mid, { type: 'stop' })).toEqual(initialState)
 })

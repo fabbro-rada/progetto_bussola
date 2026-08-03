@@ -7,13 +7,13 @@ function headers(): Record<string, string> {
   return { 'Content-Type': 'application/json', 'X-Kiosk-Token': TOKEN }
 }
 
-async function startInterview(language: string): Promise<StartResult> {
+async function startInterview(startCode: string, language: string): Promise<StartResult> {
   let res: Response
   try {
     res = await fetch(`${BASE}/kiosk/interview/start`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ language }),
+      body: JSON.stringify({ start_code: startCode, language }),
     })
   } catch {
     return { status: 'unavailable' }

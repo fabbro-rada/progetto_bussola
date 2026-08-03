@@ -22,6 +22,11 @@ export interface MachineState {
   // start-followup calls startFollowup again instead of starting a fresh
   // first interview (§4 — the person should not have to re-key their code).
   followupToken: string | null
+  // Re-identification (Task 8): the kiosk no longer self-starts anonymously.
+  // Set once the person enters the one-time start code an operator gave
+  // them (before `start` is called) and kept around for the same retry
+  // reason as `followupToken` above.
+  startCode: string | null
 }
 
 export const initialState: MachineState = {
@@ -34,6 +39,7 @@ export const initialState: MachineState = {
   lastAnswer: null,
   pending: false,
   followupToken: null,
+  startCode: null,
 }
 
 export type Action =
@@ -62,6 +68,14 @@ export type Action =
   // off changes, mirroring what `selectLanguage` does for `language` minus
   // the screen transition.
   | { type: 'previewFollowupLanguage'; language: string }
+  // Start-code path (re-identification, Task 8): additive on top of the
+  // follow-up path above, same shapes/reasoning, one screen earlier (the
+  // FIRST-interview entry point, right after LanguagePicker, instead of the
+  // follow-up link). `submitStartCode` mirrors `submitFollowupCredentials`;
+  // `previewStartCodeLanguage` mirrors `previewFollowupLanguage` (voice
+  // retargeting while still on the start-code entry screen).
+  | { type: 'submitStartCode'; code: string; language: string }
+  | { type: 'previewStartCodeLanguage'; language: string }
 
 // Step kinds map 1:1 to screens of the same name.
 function screenFor(kind: StepKind): Screen {
@@ -78,7 +92,11 @@ function nextPrompt(step: Step, prev: string | null): string | null {
 export function reducer(state: MachineState, action: Action): MachineState {
   switch (action.type) {
     case 'selectLanguage':
-      return { ...state, language: action.language, screen: 'consent' }
+      // Re-identification (Task 8): the kiosk no longer self-starts
+      // anonymously -- a language pick now leads to the start-code entry
+      // screen, not straight to consent (that only happens once a start
+      // code has been captured, see `submitStartCode` below).
+      return { ...state, language: action.language, screen: 'startCodeEntry' }
     case 'declineConsent':
       return initialState
     case 'starting':
@@ -86,8 +104,16 @@ export function reducer(state: MachineState, action: Action): MachineState {
     case 'started': {
       if (!state.pending) return state
       const r = action.result
-      if (r.status === 'unauthorized') return { ...state, screen: 'unauthorized', pending: false }
-      if (r.status === 'unavailable') return { ...state, screen: 'unavailable', pending: false }
+      // Fail-closed (Task 8, mirrors `startedFollowup` below): `start` now
+      // consumes a person-entered start code, and the backend returns the
+      // SAME 401 for an invalid/used/expired code as for a genuinely
+      // unauthorized device (deliberately indistinguishable, to leak
+      // nothing about which one it was). Routing to 'unauthorized' ("this
+      // station is not authorized") would misdirect the person -- and any
+      // operator helping them -- toward a device problem that may not
+      // exist, so both statuses route to the same gentle 'unavailable'
+      // screen instead.
+      if (r.status !== 'ok') return { ...state, screen: 'unavailable', pending: false }
       return {
         ...state,
         sessionToken: r.sessionToken,
@@ -123,6 +149,10 @@ export function reducer(state: MachineState, action: Action): MachineState {
       return { ...state, language: action.language }
     case 'submitFollowupCredentials':
       return { ...state, followupToken: action.token, language: action.language, screen: 'followupConsent' }
+    case 'previewStartCodeLanguage':
+      return { ...state, language: action.language }
+    case 'submitStartCode':
+      return { ...state, startCode: action.code, language: action.language, screen: 'consent' }
     case 'startedFollowup': {
       if (!state.pending) return state
       const r = action.result
