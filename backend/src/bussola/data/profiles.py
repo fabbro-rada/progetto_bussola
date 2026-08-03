@@ -27,16 +27,18 @@ def create_empty_profile(conn: psycopg.Connection) -> str:
     return pseudonym
 
 
-def _is_contentless(profile: WorkProfile) -> bool:
+def is_contentless(profile: WorkProfile) -> bool:
     """True for a just-provisioned empty profile (exactly `create_empty_profile`'s
     output: no skills/languages/experiences/desired_training/operational_notes,
     no digital_literacy, and no aspiration with any field set).
 
-    Excluded from `ProfileRepository.search`/`list_all` (§7.3/§11): an empty
-    profile has nothing to match on or search for, and surfacing it would let
-    an operator set-diff the profile list around a provisioning call to see a
-    new empty profile appear and self-map matricola -> pseudonym, bypassing
-    the supervisor-only de-anonymization.
+    Excluded from `ProfileRepository.search`/`list_all` and from the quality
+    metrics (§7.2/§7.3/§11): an empty profile has nothing to match on or search
+    for, and surfacing it would let an operator set-diff the profile list (or
+    the counts) around a provisioning call to see a new empty profile appear and
+    self-map matricola -> pseudonym, bypassing the supervisor-only
+    de-anonymization. It would also dilute `average_completeness` with a run of
+    zeros that reflect provisioning, not interview quality.
     """
     aspiration_empty = profile.aspiration is None or (
         not profile.aspiration.fields_of_interest
@@ -73,8 +75,16 @@ class ProfileRepository:
         """Create an empty profile under a fresh pseudonym; return the pseudonym.
 
         Delegates to the module-level `create_empty_profile` (DRY) but keeps
-        this method's existing commit-internally behavior, since callers
-        elsewhere (e.g. the follow-up flow) rely on it.
+        this method's existing commit-internally behavior.
+
+        TEST-ONLY (re-identification, §5/§6): its sole caller is
+        `Interview.start()`, which is itself test-only. In production a first
+        interview is provisioned by an operator (`create_empty_profile` +
+        `IdentityService.link` in one transaction) and started via
+        `Interview.start_on(pseudonym)`. Do NOT call this (or `start()`) from
+        any endpoint or production path: it would mint a pseudonym with no
+        entry in the segregated identity register — an unlinkable profile that
+        the supervisor could never resolve back to a person.
         """
         pseudonym = create_empty_profile(self._conn)
         self._conn.commit()
@@ -100,7 +110,7 @@ class ProfileRepository:
             cur.execute("SELECT profile FROM profiles.work_profile ORDER BY pseudonym_id")
             rows = cur.fetchall()
         profiles = [WorkProfile.model_validate(r[0]) for r in rows]
-        return [p for p in profiles if not _is_contentless(p)]
+        return [p for p in profiles if not is_contentless(p)]
 
     def search(
         self,
@@ -138,7 +148,7 @@ class ProfileRepository:
             )
             rows = cur.fetchall()
         profiles = [WorkProfile.model_validate(r[0]) for r in rows]
-        return [p for p in profiles if not _is_contentless(p)]
+        return [p for p in profiles if not is_contentless(p)]
 
     def _upsert(self, profile: WorkProfile) -> None:
         with self._conn.cursor() as cur:
