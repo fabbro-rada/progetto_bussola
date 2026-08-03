@@ -315,3 +315,60 @@ def test_generated_summary_is_pii_redacted_before_display(make_fake_json_llm):
     assert "mario@example.com" not in step.text
     assert "<EMAIL_ADDRESS>" in step.text
     assert redactor.seen  # the redactor was actually consulted
+
+
+def test_generated_summary_is_scope_checked_on_output_and_blocked_if_off_scope(make_fake_json_llm):
+    # Defense in depth (§9 "guardrail in uscita"): even a summary the model
+    # generates is scope-checked on the way out. If it somehow goes off-scope, it
+    # must NOT be shown, and no state may change (nothing persisted, not awaiting
+    # a confirmation) — the flow degrades gracefully instead.
+    repo = FakeRepo()
+    client = make_fake_json_llm(
+        json_responses=[COMP],
+        # ALLOW: input guard for answer #1; summary text; REFUSE: input guard for
+        # answer #2 (proving the blocked summary left NO awaiting-confirmation state).
+        text_responses=[ALLOW, "Riepilogo con contenuto fuori ambito. Giusto?", REFUSE],
+        output_responses=[REFUSE],  # the OUTBOUND guard rejects the generated summary
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    step = itw.submit("so cucinare")
+    assert step.kind == "unavailable"  # not "summary" — the off-scope text is withheld
+    assert repo.saved == []  # nothing persisted
+    # the outbound guard actually ran on the generated summary text
+    assert client.output_calls
+    assert "Riepilogo con contenuto fuori ambito. Giusto?" in (
+        client.output_calls[0]["messages"][1]["content"]
+    )
+    # State untouched: the next answer is a fresh guarded turn (guard -> REFUSE),
+    # NOT treated as a confirmation reply.
+    step2 = itw.submit("che tempo fa domani?")
+    assert step2.kind == "refusal"
+
+
+def test_final_clarification_failing_outbound_scope_guard_is_skipped_and_completes(
+    make_fake_json_llm,
+):
+    # If the generated final clarification fails the outbound scope guard, it is
+    # skipped and the interview completes (the confirmed profile stands) rather
+    # than showing off-scope text or trapping the person (§3/§9).
+    repo = FakeRepo()
+    json_responses: list[dict] = []
+    text_responses: list[str] = []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": True, "clarification": "Testo fuori ambito?"})
+    # 5 section summaries pass the outbound guard; the final clarification (6th
+    # outbound check) is rejected.
+    output_responses = [ALLOW, ALLOW, ALLOW, ALLOW, ALLOW, REFUSE]
+    client = make_fake_json_llm(
+        json_responses=json_responses,
+        text_responses=text_responses,
+        output_responses=output_responses,
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    last = None
+    for _ in range(5):
+        assert itw.submit("una risposta di lavoro").kind == "summary"
+        last = itw.submit("sì, è corretto")
+    assert last is not None and last.kind == "completed"  # clarification skipped, not shown

@@ -84,6 +84,20 @@ class Interview:
             self._redactor = PiiRedactor()
         return self._redactor.redact(text, self._language)
 
+    def _present(self, text: str) -> str | None:
+        """Outbound gate for LLM-generated, person-facing text (summaries and
+        clarifications): scope-check the OUTPUT (§9, fail-closed) THEN redact PII
+        (§7.3 "prima di mostrare"). Returns the safe text to show, or None if the
+        output scope guard tripped — the model produced off-scope content, which
+        must never be shown. Defense in depth: the person's input was already
+        scope-checked and the summary is built from constrained extraction, so
+        this should essentially never trip in normal use; it exists so a
+        manipulated/malfunctioning model cannot make the assistant emit
+        off-scope text."""
+        if not self._guard.check_output(text, self._language).allow:
+            return None
+        return self._redact(text)
+
     def _question_step(self) -> Step:
         section = self._session.current_section  # type: ignore[union-attr]
         assert section is not None
@@ -136,9 +150,16 @@ class Interview:
         clarification; otherwise the interview completes."""
         clarification = find_incongruence(self._client, session.profile, self._language)
         if clarification is not None:
+            shown = self._present(clarification)
+            if shown is None:
+                # The generated clarification failed the outbound scope guard —
+                # never show it. It is an optional nicety, so skip it and finish
+                # rather than trap the person; the confirmed profile stands (§3
+                # degrado elegante).
+                return self._complete()
             self._awaiting_final_clarification = True
             self._final_clarification = clarification
-            return Step("clarification", self._redact(clarification))
+            return Step("clarification", shown)
         return self._complete()
 
     def _complete(self) -> Step:
@@ -251,7 +272,12 @@ class Interview:
         extracted = extract_section(
             self._client, section, self._section_answer, self._language
         )
-        summary_text = self._redact(summarize(self._client, section, extracted, self._language))
+        summary_text = self._present(summarize(self._client, section, extracted, self._language))
+        if summary_text is None:
+            # The generated summary failed the outbound scope guard (§9): never
+            # show it, and mutate no state (no merge, not awaiting) — the person
+            # simply gets the graceful-degrade step and can answer again.
+            return self._unavailable()
         session.merge(extracted)
         self._awaiting_confirmation = True
         # Remember it so a correction reply is scope-judged against this summary.

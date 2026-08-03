@@ -51,6 +51,12 @@ class FakeJsonLlm:
         self._text = list(text_responses or [])
 
     def chat(self, messages, *, temperature=0.0, max_tokens=None):
+        # Outbound scope guard (ScopeGuard.check_output) — recognised by the
+        # "[assistant reply]" marker — defaults to ALLOW without consuming the
+        # scripted text queue, so these submit-flow tests need no extra entries.
+        user = messages[-1]["content"] if messages else ""
+        if user.startswith("[assistant reply]"):
+            return '{"allow": true, "category": null, "reason": "ok"}'
         return self._text.pop(0)
 
     def chat_json(self, messages, *, json_schema, temperature=0.0, max_tokens=None):
