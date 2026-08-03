@@ -33,6 +33,7 @@ import type {
   OperatorActivityResult,
   OperatorClient,
   ProfileFilters,
+  ProvisionInterviewResult,
   Report,
   ReportResult,
   ResetPasswordResult,
@@ -242,6 +243,29 @@ async function createFollowup(pseudonymId: string): Promise<CreateFollowupResult
   try {
     const data = (await res.json()) as { token: string }
     return { status: 'ok', token: data.token }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+async function provisionInterview(matricola: string): Promise<ProvisionInterviewResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/interviews/provision`, {
+      method: 'POST',
+      headers: headers(true),
+      body: JSON.stringify({ matricola }),
+    })
+  } catch {
+    return { status: 'error' }
+  }
+  if (res.status === 401) return { status: 'unauthorized' }
+  if (res.status === 403) return { status: 'forbidden' }
+  if (res.status === 409) return { status: 'conflict' }
+  if (!res.ok) return { status: 'error' }
+  try {
+    const data = (await res.json()) as { start_code: string }
+    return { status: 'ok', startCode: data.start_code }
   } catch {
     return { status: 'error' }
   }
@@ -546,6 +570,7 @@ export const operatorClient: OperatorClient = {
   searchProfiles,
   getProfile,
   createFollowup,
+  provisionInterview,
   listOperators,
   createOperator,
   disableOperator,

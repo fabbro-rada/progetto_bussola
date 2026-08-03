@@ -156,6 +156,17 @@ export type CreateFollowupResult =
   | { status: 'forbidden' }
   | { status: 'error' }
 
+// One-time interview start code (Task 9): the operator enters a matricola and
+// gets a code to hand to the person; the pseudonym itself is never exposed to
+// the caller (§2/§5). A duplicate matricola is a 409 -> 'conflict', distinct
+// from 'error', so the screen can show a specific message.
+export type ProvisionInterviewResult =
+  | { status: 'ok'; startCode: string }
+  | { status: 'unauthorized' }
+  | { status: 'forbidden' }
+  | { status: 'conflict' }
+  | { status: 'error' }
+
 export interface CreateOperatorRequest {
   username: string
   display_name: string
@@ -339,6 +350,7 @@ export interface OperatorClient {
   searchProfiles(filters: ProfileFilters): Promise<SearchProfilesResult>
   getProfile(pseudonym: string): Promise<GetProfileResult>
   createFollowup(pseudonymId: string): Promise<CreateFollowupResult>
+  provisionInterview(matricola: string): Promise<ProvisionInterviewResult>
   listOperators(): Promise<ListOperatorsResult>
   createOperator(body: CreateOperatorRequest): Promise<CreateOperatorResult>
   disableOperator(id: number): Promise<MutateOperatorResult>

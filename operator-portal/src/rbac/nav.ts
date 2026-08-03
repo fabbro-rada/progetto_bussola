@@ -11,6 +11,7 @@ export interface NavItem {
 // section can render as a disabled placeholder instead of a real link.
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   operator: [
+    { path: '/new-interview', labelKey: 'nav.newInterview', built: true },
     { path: '/job-requests', labelKey: 'nav.jobRequests', built: true },
     { path: '/profiles', labelKey: 'nav.profiles', built: true },
     { path: '/export', labelKey: 'nav.export', built: true },

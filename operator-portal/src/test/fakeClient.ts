@@ -30,6 +30,7 @@ import type {
   OperatorActivityResult,
   OperatorClient,
   ProfileFilters,
+  ProvisionInterviewResult,
   Report,
   ReportResult,
   ResetPasswordResult,
@@ -149,6 +150,7 @@ export function makeFakeClient(opts: {
   profiles?: SearchProfilesResult
   profile?: GetProfileResult
   createFollowup?: CreateFollowupResult
+  provisionInterview?: ProvisionInterviewResult
   operators?: ListOperatorsResult
   createOp?: CreateOperatorResult
   disable?: MutateOperatorResult
@@ -181,6 +183,7 @@ export function makeFakeClient(opts: {
     psearch: number
     pget: number
     followupCreate: number
+    provisionInterview: number
     lops: number
     opcreate: number
     opdisable: number
@@ -203,6 +206,7 @@ export function makeFakeClient(opts: {
   created: JobRequestCreate[]
   searched: ProfileFilters[]
   followupPseudonyms: string[]
+  provisionedMatriculas: string[]
   createdOperators: CreateOperatorRequest[]
   disabledIds: number[]
   enabledIds: number[]
@@ -215,7 +219,7 @@ export function makeFakeClient(opts: {
 } {
   const calls = {
     login: 0, me: 0, logout: 0, change: 0, list: 0, get: 0, create: 0, match: 0, psearch: 0, pget: 0,
-    followupCreate: 0,
+    followupCreate: 0, provisionInterview: 0,
     lops: 0, opcreate: 0, opdisable: 0, openable: 0, opreset: 0, metrics: 0, report: 0, reportExport: 0,
     expList: 0, expPending: 0, expCreate: 0, expApprove: 0, expDeny: 0, expDownload: 0,
     audList: 0, audVerify: 0, activity: 0, systemConfig: 0,
@@ -223,6 +227,7 @@ export function makeFakeClient(opts: {
   const created: JobRequestCreate[] = []
   const searched: ProfileFilters[] = []
   const followupPseudonyms: string[] = []
+  const provisionedMatriculas: string[] = []
   const createdOperators: CreateOperatorRequest[] = []
   const disabledIds: number[] = []
   const enabledIds: number[] = []
@@ -238,6 +243,7 @@ export function makeFakeClient(opts: {
     created,
     searched,
     followupPseudonyms,
+    provisionedMatriculas,
     createdOperators,
     disabledIds,
     enabledIds,
@@ -292,6 +298,11 @@ export function makeFakeClient(opts: {
       calls.followupCreate++
       followupPseudonyms.push(pseudonymId)
       return opts.createFollowup ?? { status: 'ok', token: 'FUP-9K2M-7QRT' }
+    },
+    async provisionInterview(matricola) {
+      calls.provisionInterview++
+      provisionedMatriculas.push(matricola)
+      return opts.provisionInterview ?? { status: 'ok', startCode: 'START-7Q2K-9MRT' }
     },
     async listOperators() {
       calls.lops++

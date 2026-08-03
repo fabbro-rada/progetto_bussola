@@ -29,6 +29,7 @@ test('admin sees «Gestione utenze» and «Configurazione» as real links', asyn
 test('the built sections render real links; Export is built too', async () => {
   setToken('tok')
   renderWithProviders(<Nav />, { client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } }) })
+  expect(await screen.findByRole('link', { name: /Nuovo colloquio/ })).toHaveAttribute('href', '/new-interview')
   expect(await screen.findByRole('link', { name: /Richieste di lavoro/ })).toHaveAttribute('href', '/job-requests')
   expect(await screen.findByRole('link', { name: /Profili/ })).toHaveAttribute('href', '/profiles')
   expect(await screen.findByRole('link', { name: /Export/ })).toHaveAttribute('href', '/export')

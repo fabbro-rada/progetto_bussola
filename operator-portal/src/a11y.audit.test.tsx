@@ -19,6 +19,8 @@ import { ProfileSearch } from './screens/profiles/ProfileSearch'
 import { ProfileDetail } from './screens/profiles/ProfileDetail'
 import { FollowupTokenModal } from './screens/profiles/FollowupTokenModal'
 import { OperatorList } from './screens/operators/OperatorList'
+import { NewInterview } from './screens/interviews/NewInterview'
+import { StartCodeModal } from './screens/interviews/StartCodeModal'
 
 import { Login } from './screens/Login'
 import { ChangePassword } from './screens/ChangePassword'
@@ -229,6 +231,28 @@ test('ChangePassword has no a11y violations', async () => {
     { client, route: '/change-password' },
   )
   await screen.findByLabelText('Password attuale')
+  await expectNoA11yViolations(container)
+})
+
+test('NewInterview has no a11y violations', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith() } })
+  const { container } = renderWithProviders(
+    <Routes>
+      <Route path="/new-interview" element={<NewInterview />} />
+    </Routes>,
+    { client, route: '/new-interview' },
+  )
+  await screen.findByLabelText('Matricola')
+  await expectNoA11yViolations(container)
+})
+
+test('StartCodeModal has no a11y violations', async () => {
+  const copy = vi.fn().mockResolvedValue(undefined)
+  const { container } = renderWithProviders(
+    <StartCodeModal code="START-7Q2K-9MRT" subtitle="Consegna questo codice alla persona." onClose={noop} copy={copy} />,
+  )
+  await screen.findByText('START-7Q2K-9MRT')
   await expectNoA11yViolations(container)
 })
 

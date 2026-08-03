@@ -73,6 +73,14 @@ test('deep link to a protected route while unauthenticated → login', async () 
   expect(await screen.findByRole('button', { name: 'Entra' })).toBeInTheDocument()
 })
 
+test('an authenticated operator can reach the new-interview section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } })
+  renderApp(client, '/new-interview')
+  // «Genera codice» is rendered only by NewInterview → proves the route mounted
+  expect(await screen.findByRole('button', { name: 'Genera codice' })).toBeInTheDocument()
+})
+
 test('an authenticated operator can navigate to the job-requests section', async () => {
   setToken('tok')
   const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } })
