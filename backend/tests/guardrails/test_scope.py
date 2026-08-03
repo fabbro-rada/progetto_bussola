@@ -1,5 +1,14 @@
+from bussola.guardrails.prompts import scope_classifier_prompt
 from bussola.guardrails.refusal import RefusalCategory
 from bussola.guardrails.scope import ScopeGuard
+
+
+def test_scope_prompt_treats_confirmation_and_correction_replies_as_in_scope():
+    # A reply to a "…is it correct?" summary (yes / no / a correction) must be
+    # allowed — otherwise a plain "no" during confirmation is wrongly refused.
+    p = scope_classifier_prompt().lower()
+    assert "confirm or correct" in p
+    assert "in-scope" in p
 
 
 def test_allows_in_scope(make_fake_llm):
