@@ -63,3 +63,20 @@ test('auditor sees «Log di audit» as a real link', async () => {
   })
   expect(await screen.findByRole('link', { name: /Log di audit/ })).toHaveAttribute('href', '/audit')
 })
+
+test('supervisor sees «De-anonimizza» as a real link', async () => {
+  setToken('tok')
+  renderWithProviders(<Nav />, {
+    client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } }),
+  })
+  expect(await screen.findByRole('link', { name: /De-anonimizza/ })).toHaveAttribute('href', '/deanonymize')
+})
+
+test('operator does not see «De-anonimizza»', async () => {
+  setToken('tok')
+  renderWithProviders(<Nav />, {
+    client: makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'operator' }) } }),
+  })
+  await waitFor(() => expect(screen.getByText('Richieste di lavoro')).toBeInTheDocument())
+  expect(screen.queryByText('De-anonimizza')).not.toBeInTheDocument()
+})

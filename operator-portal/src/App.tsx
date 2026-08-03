@@ -19,6 +19,7 @@ import { ExportApprovals } from './screens/exports/ExportApprovals'
 import { AuditLog } from './screens/audit/AuditLog'
 import { OperatorActivityPanel } from './screens/activity/OperatorActivityPanel'
 import { SystemConfigPanel } from './screens/system/SystemConfigPanel'
+import { Deanonymize } from './screens/identity/Deanonymize'
 
 export function App() {
   return (
@@ -56,6 +57,7 @@ export function App() {
         <Route path="audit" element={<AuditLog />} />
         <Route path="activity" element={<OperatorActivityPanel />} />
         <Route path="config" element={<SystemConfigPanel />} />
+        <Route path="deanonymize" element={<Deanonymize />} />
         {/* later sub-projects add nested section routes here */}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

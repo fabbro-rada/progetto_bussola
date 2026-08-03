@@ -160,3 +160,11 @@ test('an authenticated admin can reach the system-config section', async () => {
   // «Modello linguistico» is a section heading rendered only by SystemConfigPanel → proves the route mounted
   expect(await screen.findByText('Modello linguistico')).toBeInTheDocument()
 })
+
+test('an authenticated supervisor can reach the deanonymize section', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } })
+  renderApp(client, '/deanonymize')
+  // «De-anonimizza» is rendered only by Deanonymize → proves the route mounted
+  expect(await screen.findByRole('button', { name: 'De-anonimizza' })).toBeInTheDocument()
+})

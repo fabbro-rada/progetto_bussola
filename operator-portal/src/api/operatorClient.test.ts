@@ -219,6 +219,46 @@ test('provisionInterview POSTs {matricola} with Bearer and maps 201→ok{startCo
   expect(await operatorClient.provisionInterview('MAT-100')).toEqual({ status: 'error' })
 })
 
+test('resolveIdentity POSTs {pseudonym_ids} with Bearer and maps 200→ok{results}; 401→unauthorized; 403→forbidden; network→error', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(200, { results: [{ pseudonym_id: 'P-4F2A', matricola: 'MAT-100' }] }))
+  vi.stubGlobal('fetch', f)
+  const r = await operatorClient.resolveIdentity(['P-4F2A', 'P-UNKNOWN'])
+  expect(r).toEqual({ status: 'ok', results: [{ pseudonymId: 'P-4F2A', matricola: 'MAT-100' }] })
+  const [url, init] = f.mock.calls[0]
+  expect(String(url)).toMatch(/\/identity\/resolve$/)
+  expect((init as RequestInit).method).toBe('POST')
+  expect(JSON.parse((init as RequestInit).body as string)).toEqual({ pseudonym_ids: ['P-4F2A', 'P-UNKNOWN'] })
+  expect((init!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(401)))
+  expect(await operatorClient.resolveIdentity(['P-4F2A'])).toEqual({ status: 'unauthorized' })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.resolveIdentity(['P-4F2A'])).toEqual({ status: 'forbidden' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.resolveIdentity(['P-4F2A'])).toEqual({ status: 'error' })
+})
+
+test('resolveMatricola POSTs {matricola} with Bearer and maps 200→ok{pseudonymId}; 401→unauthorized; 403→forbidden; 404→not-found; network→error', async () => {
+  setToken('tok')
+  const f = vi.fn().mockResolvedValue(res(200, { pseudonym_id: 'P-4F2A' }))
+  vi.stubGlobal('fetch', f)
+  const r = await operatorClient.resolveMatricola('MAT-100')
+  expect(r).toEqual({ status: 'ok', pseudonymId: 'P-4F2A' })
+  const [url, init] = f.mock.calls[0]
+  expect(String(url)).toMatch(/\/identity\/resolve-matricola$/)
+  expect((init as RequestInit).method).toBe('POST')
+  expect(JSON.parse((init as RequestInit).body as string)).toEqual({ matricola: 'MAT-100' })
+  expect((init!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(401)))
+  expect(await operatorClient.resolveMatricola('MAT-100')).toEqual({ status: 'unauthorized' })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(403)))
+  expect(await operatorClient.resolveMatricola('MAT-100')).toEqual({ status: 'forbidden' })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(404)))
+  expect(await operatorClient.resolveMatricola('MAT-100')).toEqual({ status: 'not-found' })
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net')))
+  expect(await operatorClient.resolveMatricola('MAT-100')).toEqual({ status: 'error' })
+})
+
 const OPS = [
   { id: 1, username: 'm.rossi', display_name: 'Maria Rossi', role: 'operator', is_active: true, must_change_password: false },
   { id: 3, username: 'a.verdi', display_name: 'Aldo Verdi', role: 'operator', is_active: false, must_change_password: false },

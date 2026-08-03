@@ -21,6 +21,7 @@ import { FollowupTokenModal } from './screens/profiles/FollowupTokenModal'
 import { OperatorList } from './screens/operators/OperatorList'
 import { NewInterview } from './screens/interviews/NewInterview'
 import { StartCodeModal } from './screens/interviews/StartCodeModal'
+import { Deanonymize } from './screens/identity/Deanonymize'
 
 import { Login } from './screens/Login'
 import { ChangePassword } from './screens/ChangePassword'
@@ -242,6 +243,19 @@ test('NewInterview has no a11y violations', async () => {
       <Route path="/new-interview" element={<NewInterview />} />
     </Routes>,
     { client, route: '/new-interview' },
+  )
+  await screen.findByLabelText('Matricola')
+  await expectNoA11yViolations(container)
+})
+
+test('Deanonymize (loaded) has no a11y violations', async () => {
+  setToken('tok')
+  const client = makeFakeClient({ me: { status: 'ok', operator: operatorWith({ role: 'supervisor' }) } })
+  const { container } = renderWithProviders(
+    <Routes>
+      <Route path="/deanonymize" element={<Deanonymize />} />
+    </Routes>,
+    { client, route: '/deanonymize' },
   )
   await screen.findByLabelText('Matricola')
   await expectNoA11yViolations(container)
