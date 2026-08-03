@@ -227,6 +227,7 @@ export function makeFakeClient(opts: {
   approvedIds: number[]
   deniedExports: { id: number; reason: string }[]
   downloadedIds: number[]
+  downloadFormats: (('csv' | undefined))[]
   auditQueries: AuditFilters[]
 } {
   const calls = {
@@ -251,6 +252,7 @@ export function makeFakeClient(opts: {
   const approvedIds: number[] = []
   const deniedExports: { id: number; reason: string }[] = []
   const downloadedIds: number[] = []
+  const downloadFormats: (('csv' | undefined))[] = []
   const auditQueries: AuditFilters[] = []
   let auditPageIdx = 0
   return {
@@ -270,6 +272,7 @@ export function makeFakeClient(opts: {
     approvedIds,
     deniedExports,
     downloadedIds,
+    downloadFormats,
     auditQueries,
     async login() {
       calls.login++
@@ -396,9 +399,10 @@ export function makeFakeClient(opts: {
       deniedExports.push({ id, reason })
       return opts.denyExp ?? { status: 'ok' }
     },
-    async downloadExport(id) {
+    async downloadExport(id, format) {
       calls.expDownload++
       downloadedIds.push(id)
+      downloadFormats.push(format)
       return opts.download ?? { status: 'ok', blob: new Blob(['[]'], { type: 'application/json' }) }
     },
     async listAudit(filters) {

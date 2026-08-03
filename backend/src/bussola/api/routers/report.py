@@ -36,13 +36,24 @@ def create_report_export(
     """Create a `kind='report'` export request, gated on VIEW_METRICS (the
     supervisor's own permission) rather than EXPORT_DATA — so the
     supervisor can request the anonymous report export without gaining
-    EXPORT_DATA, which would also open raw-profile export (§2/§6). It then
-    flows through the SAME S16 approval workflow (`POST /exports/*`); for
-    this kind, requester and approver are both the supervisor (design-
-    approved relaxation: the payload is anonymous/aggregate — §7.3)."""
-    return ExportService(conn).create_request(
+    EXPORT_DATA, which would also open raw-profile export (§2/§6).
+
+    Auto-approved in the same call: for `kind='report'` the requester and the
+    approver are the same authority (the supervisor), so a separate manual
+    approval step is redundant friction. The approval still HAPPENS and is
+    audited (`export_requested` + `export_approved`, §7.3 «ogni export passa da
+    un'approvazione») — it is just no longer a second click. The returned
+    request is already `approved`, so the UI can download it immediately. The
+    profiles-export flow (operator requests, supervisor approves) is untouched:
+    there the two roles differ and the manual approval is the real control."""
+    svc = ExportService(conn)
+    request = svc.create_request(
         actor=operator.username,
         filters=ExportFilters(),
         reason="report finale",
         kind="report",
     )
+    svc.approve(actor=operator.username, request_id=request.id)
+    approved = svc.get(request_id=request.id)
+    assert approved is not None
+    return approved

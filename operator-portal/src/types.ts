@@ -398,7 +398,7 @@ export interface OperatorClient {
   listPendingExports(): Promise<ListExportsResult>
   approveExport(id: number): Promise<MutateExportResult>
   denyExport(id: number, reason: string): Promise<MutateExportResult>
-  downloadExport(id: number): Promise<DownloadExportResult>
+  downloadExport(id: number, format?: 'csv'): Promise<DownloadExportResult>
   listAudit(filters: AuditFilters): Promise<AuditListResult>
   verifyAudit(): Promise<VerifyAuditResult>
   getOperatorActivity(): Promise<OperatorActivityResult>

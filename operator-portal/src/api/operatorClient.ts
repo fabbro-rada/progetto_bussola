@@ -535,10 +535,11 @@ function denyExport(id: number, reason: string): Promise<MutateExportResult> {
   return decideExport(id, 'deny', reason)
 }
 
-async function downloadExport(id: number): Promise<DownloadExportResult> {
+async function downloadExport(id: number, format?: 'csv'): Promise<DownloadExportResult> {
+  const query = format === 'csv' ? '?format=csv' : ''
   let res: Response
   try {
-    res = await fetch(`${BASE}/exports/${id}/download`, { headers: headers(false) })
+    res = await fetch(`${BASE}/exports/${id}/download${query}`, { headers: headers(false) })
   } catch {
     return { status: 'error' }
   }

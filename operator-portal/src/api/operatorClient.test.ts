@@ -454,6 +454,11 @@ test('downloadExport returns a Blob on 200, not-approved on 409, not-found on 40
   expect(r).toEqual({ status: 'ok', blob })
   expect(String(f.mock.calls[0][0])).toMatch(/\/exports\/5\/download$/)
   expect((f.mock.calls[0][1]!.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+  // format='csv' appends the query so the backend materializes CSV
+  const fc = vi.fn().mockResolvedValue({ status: 200, ok: true, blob: async () => blob })
+  vi.stubGlobal('fetch', fc)
+  await operatorClient.downloadExport(5, 'csv')
+  expect(String(fc.mock.calls[0][0])).toMatch(/\/exports\/5\/download\?format=csv$/)
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 409, ok: false, blob: async () => new Blob() }))
   expect(await operatorClient.downloadExport(5)).toEqual({ status: 'not-approved' })
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, ok: false, blob: async () => new Blob() }))

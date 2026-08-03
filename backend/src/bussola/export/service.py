@@ -84,6 +84,15 @@ class ExportService:
         self._conn.commit()
         return _row_to_request(row)
 
+    def get(self, *, request_id: int) -> ExportRequest | None:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "SELECT " + _COLUMNS + " FROM export.export_request WHERE id = %s",
+                (request_id,),
+            )
+            row = cur.fetchone()
+        return _row_to_request(row) if row is not None else None
+
     def list_own(self, *, actor: str) -> list[ExportRequest]:
         with self._conn.cursor() as cur:
             cur.execute(
