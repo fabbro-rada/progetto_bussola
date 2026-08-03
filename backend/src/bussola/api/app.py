@@ -13,6 +13,7 @@ from bussola.api.routers import auth as auth_router
 from bussola.api.routers import exports as exports_router
 from bussola.api.routers import followups as followups_router
 from bussola.api.routers import health as health_router
+from bussola.api.routers import interviews as interviews_router
 from bussola.api.routers import job_requests as job_requests_router
 from bussola.api.routers import matching as matching_router
 from bussola.api.routers import metrics as metrics_router
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(report_router.router)
     app.include_router(system_router.router)
     app.include_router(followups_router.router)
+    app.include_router(interviews_router.router)
     app.include_router(kiosk_interview_router.router)
     app.include_router(kiosk_voice_router.router)
     return app

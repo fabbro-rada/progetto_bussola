@@ -30,6 +30,7 @@ class Permission(str, Enum):
     READ_AUDIT = "read_audit"
     CONFIGURE_SYSTEM = "configure_system"
     PROVISION_FOLLOWUP = "provision_followup"
+    PROVISION_INTERVIEW = "provision_interview"
 
 
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
@@ -40,6 +41,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.RUN_MATCHING,
             Permission.EXPORT_DATA,
             Permission.PROVISION_FOLLOWUP,
+            Permission.PROVISION_INTERVIEW,
         }
     ),
     Role.SUPERVISOR: frozenset(
