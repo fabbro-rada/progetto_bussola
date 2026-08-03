@@ -17,7 +17,16 @@ export function JobRequestDetail() {
   const [error, setError] = useState('')
   const [matching, setMatching] = useState(false)
   const mountedRef = useRef(true)
-  useEffect(() => () => { mountedRef.current = false }, [])
+  // Reset on (re)mount: React 18 StrictMode mounts → unmounts → remounts in
+  // dev, so a cleanup-only effect would fire once and leave mountedRef stuck
+  // false — runMatch would then bail after the 200 and never clear the
+  // "calcolando…" state or render results. Setting it true here keeps it honest.
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
