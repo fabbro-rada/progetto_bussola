@@ -69,7 +69,7 @@ test('Summary has no a11y violations', async () => {
 })
 
 test('Refusal has no a11y violations', async () => {
-  const { container } = renderWithProviders(<Refusal text="Parliamo di lavoro." onSubmit={noop} />)
+  const { container } = renderWithProviders(<Refusal question="Che lavoro sai fare?" onSubmit={noop} />)
   await expectNoA11yViolations(container)
 })
 

@@ -82,6 +82,21 @@ test('after a correction, the updated summary shows the Sì/No choice again (not
   expect(client.calls.answers).toEqual(['falegname e muratore', 'so fare anche il cameriere'])
 })
 
+test('a refusal re-shows the question that was asked, with the scope banner', async () => {
+  const client = makeFakeClient({
+    start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Che lavoro sai fare?') },
+    submits: [{ status: 'ok', step: step('refusal', 'Restiamo sul lavoro.') }],
+  })
+  renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
+  await chooseItalianAndConsent()
+
+  await userEvent.type(await screen.findByRole('textbox'), 'che tempo fa domani?')
+  await userEvent.click(screen.getByRole('button', { name: 'Avanti' }))
+
+  expect(await screen.findByText('Posso aiutarti solo con lavoro e formazione.')).toBeInTheDocument()
+  expect(screen.getByText('Che lavoro sai fare?')).toBeInTheDocument() // original question re-shown
+})
+
 test('«Ferma» resets to the language picker from mid-interview', async () => {
   const client = makeFakeClient({ start: { status: 'ok', sessionToken: 'tok', step: step('question', 'Domanda') } })
   renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)

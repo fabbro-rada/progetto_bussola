@@ -112,7 +112,9 @@ export function App({
       case 'clarification':
         return <Clarification key={state.stepSeq} text={state.step!.text} onSubmit={submit} busy={state.pending} />
       case 'refusal':
-        return <Refusal key={state.stepSeq} text={state.step!.text} onSubmit={submit} busy={state.pending} />
+        // Re-show the question the person was answering (the refusal step itself
+        // only carries the notice, surfaced as the banner inside Refusal).
+        return <Refusal key={state.stepSeq} question={state.lastPrompt ?? ''} onSubmit={submit} busy={state.pending} />
       case 'unavailable':
         return <Unavailable onRetry={retry} busy={state.pending} />
       case 'completed':
