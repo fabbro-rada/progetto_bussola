@@ -211,3 +211,13 @@ test('stop resets the start-code path too (Ferma from startCodeEntry)', () => {
   const mid = { ...initialState, screen: 'startCodeEntry' as const, startCode: 'S-123', language: 'ar' }
   expect(reducer(mid, { type: 'stop' })).toEqual(initialState)
 })
+
+// --- Recap step (final confirmation of the work profile).
+
+test('submitted recap maps to the recap screen and keeps the profile payload', () => {
+  const base = { ...initialState, sessionToken: 'tok', pending: true }
+  const profile = { pseudonym_id: 'P-1', skills: [], languages: [], experiences: [], desired_training: [], operational_notes: [], aspiration: null, digital_literacy: null }
+  const s = reducer(base, { type: 'submitted', result: { status: 'ok', step: { kind: 'recap', text: 'Ecco', recap: profile } } })
+  expect(s.screen).toBe('recap')
+  expect(s.step?.recap?.pseudonym_id).toBe('P-1')
+})

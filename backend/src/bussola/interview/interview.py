@@ -9,6 +9,7 @@ from typing import Callable, Protocol
 from bussola.guardrails.pii import PiiRedactor
 from bussola.guardrails.refusal import RefusalCategory, refusal_message, unavailable_message
 from bussola.guardrails.scope import ScopeGuard
+from bussola.interview.clarify import apply_recap_correction, find_section_clarification
 from bussola.interview.confirm import interpret_confirmation, summarize
 from bussola.interview.extraction import extract_section
 from bussola.interview.incongruence import find_incongruence
@@ -20,8 +21,9 @@ from bussola.profile.models import WorkProfile
 
 @dataclass(frozen=True)
 class Step:
-    kind: str  # question | summary | clarification | refusal | unavailable | completed
+    kind: str  # question | summary | clarification | refusal | unavailable | completed | recap
     text: str
+    recap: WorkProfile | None = None
 
 
 class ProfileStore(Protocol):
@@ -60,6 +62,11 @@ class Interview:
         self._session: InterviewSession | None = None
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        # Set once the interview has emitted the final RECAP step (§5): the
+        # person is reviewing the whole confirmed profile before completion.
+        # Confirming/correcting it is Task 4; this task only reaches and
+        # carries it.
+        self._awaiting_recap = False
         # The current section's answer text, accumulated across corrections: a
         # "not confirmed" reply is a correction to the SAME section, so we keep
         # the original answer plus each correction and re-extract from the whole
@@ -73,6 +80,14 @@ class Interview:
         # otherwise a plain "no"/short correction is measured against the section
         # question and wrongly refused as off-topic.
         self._last_summary: str = ""
+        # Set while an open per-section clarification is pending a reply (§5/§7.1,
+        # max ONE per section): kept True through the reply's guard check so
+        # `_summarize_section`'s re-entry skips a second clarity check and goes
+        # straight to the summary.
+        self._awaiting_section_clarification = False
+        # The open clarification question asked (if any), kept so the scope
+        # guard can judge the reply as an answer to THAT question.
+        self._section_clarification: str | None = None
 
     def _redact(self, text: str) -> str:
         """Redact personal data from LLM-generated text before it is shown to
@@ -125,9 +140,12 @@ class Interview:
         self._session = InterviewSession(pseudonym, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        self._awaiting_recap = False
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
+        self._awaiting_section_clarification = False
+        self._section_clarification = None
         return self._question_step()
 
     def start_on(self, pseudonym_id: str) -> Step:
@@ -137,9 +155,12 @@ class Interview:
         self._session = InterviewSession(pseudonym_id, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        self._awaiting_recap = False
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
+        self._awaiting_section_clarification = False
+        self._section_clarification = None
         return self._question_step()
 
     def start_followup(self, pseudonym_id: str) -> Step:
@@ -153,28 +174,43 @@ class Interview:
         self._session = InterviewSession.for_followup(profile, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        self._awaiting_recap = False
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
+        self._awaiting_section_clarification = False
+        self._section_clarification = None
         return self._question_step()
 
     def _finalize(self, session: InterviewSession) -> Step:
         """All sections confirmed: run the incongruence check ONCE on the whole
         profile. A real cross-section contradiction surfaces a gentle
-        clarification; otherwise the interview completes."""
+        clarification; otherwise the interview enters the final recap (§5)."""
         clarification = find_incongruence(self._client, session.profile, self._language)
         if clarification is not None:
             shown = self._present(clarification)
             if shown is None:
                 # The generated clarification failed the outbound scope guard —
-                # never show it. It is an optional nicety, so skip it and finish
-                # rather than trap the person; the confirmed profile stands (§3
-                # degrado elegante).
-                return self._complete()
+                # never show it. It is an optional nicety, so skip it and go to
+                # the recap rather than trap the person; the confirmed profile
+                # stands (§3 degrado elegante).
+                return self._enter_recap()
             self._awaiting_final_clarification = True
             self._final_clarification = clarification
             return Step("clarification", shown)
-        return self._complete()
+        return self._enter_recap()
+
+    def _enter_recap(self) -> Step:
+        """All sections confirmed and the incongruence check cleared (or was
+        skipped/withheld): show the person a schematic recap of the whole
+        saved profile before completion (§5 "riepilogo ... alla fine del
+        colloquio"). Built directly from `session.profile` -- already
+        PII-filtered on each section save -- so no LLM call is needed here.
+        Confirming/correcting the recap is Task 4; this only reaches it."""
+        session = self._session
+        assert session is not None
+        self._awaiting_recap = True
+        return Step("recap", _recap_intro(self._language), recap=session.profile)
 
     def _complete(self) -> Step:
         """Common completion path (reached either directly from `_finalize`,
@@ -207,10 +243,65 @@ class Interview:
             return self._unavailable()
 
     def _submit(self, session: InterviewSession, answer: str) -> Step:
+        # Recap surfaced (§5, terminal state): the person is confirming or
+        # correcting the WHOLE saved profile. A confirmation completes the
+        # interview; anything else is a free-text correction, routed to the
+        # section it changes, re-extracted and re-shown as an updated recap
+        # (never re-asked as a section question, never lost — fail-closed to
+        # "keep the recap unchanged" if unroutable/on error).
+        if self._awaiting_recap:
+            if interpret_confirmation(self._client, answer, self._language):
+                self._awaiting_recap = False
+                return self._complete()
+            decision = self._guard.check(
+                answer, self._language, question=_recap_intro(self._language)
+            )
+            if not decision.allow:
+                return Step(
+                    "refusal",
+                    refusal_message(
+                        decision.category or RefusalCategory.OUT_OF_SCOPE, self._language
+                    ),
+                )
+            if isinstance(session, FollowupInterviewSession):
+                # Fail-closed (§3): `apply_recap_correction` re-extracts the
+                # WHOLE routed section, but a follow-up session's `merge()`
+                # uses APPEND/UPGRADE semantics. For experiences that is a
+                # plain concatenation onto the baseline with NO dedup, so a
+                # routed correction would silently duplicate the experience
+                # (skills/aspirations happen to dedup by name/string, but the
+                # risk is not section-specific and duplication must never
+                # happen, §5). So no recap correction is ever applied on a
+                # follow-up session: keep the recap unchanged and ask to
+                # rephrase, exactly like the unroutable case.
+                return Step("recap", _recap_retry(self._language), recap=session.profile)
+            extracted = apply_recap_correction(
+                self._client, answer, session.profile, self._language
+            )
+            if extracted is None:
+                # not routable: keep the recap, ask to rephrase (static message)
+                return Step("recap", _recap_retry(self._language), recap=session.profile)
+            try:
+                session.merge(extracted)
+            except Exception:
+                # The routed section is not one this session mode can merge
+                # (e.g. a follow-up session, whose `merge()` only understands
+                # experiences/skills/aspirations, routed to "constraints" or
+                # "preferences"). Fail closed like the unroutable case: keep
+                # the recap unchanged and ask to rephrase -- never crash to
+                # `unavailable`, never lose the turn (§3).
+                return Step("recap", _recap_retry(self._language), recap=session.profile)
+            # `save` returns a re-validated, PII-redacted DEEP COPY (§7.3
+            # "prima di mostrare") -- carry THAT forward, not the pre-save
+            # profile, so the re-shown recap always reflects what was
+            # actually persisted.
+            session.profile = self._repo.save(session.profile)
+            return Step("recap", _recap_intro(self._language), recap=session.profile)
+
         # Final incongruence surfaced: the person is replying to the gentle
-        # clarification. Guard the reply, then complete (surfacing the question
-        # and hearing the person is the Fase-1 contract; targeted re-extraction
-        # from a final clarification is Fase 2).
+        # clarification. Guard the reply, then enter the recap (surfacing the
+        # question and hearing the person is the Fase-1 contract; targeted
+        # re-extraction from a final clarification is Fase 2).
         if self._awaiting_final_clarification:
             decision = self._guard.check(answer, self._language, question=self._final_clarification)
             if not decision.allow:
@@ -221,14 +312,42 @@ class Interview:
                     ),
                 )
             self._awaiting_final_clarification = False
-            return self._complete()
+            return self._enter_recap()
+
+        # Open per-section clarification surfaced: the person is replying to
+        # it. Guard the reply against THAT question, append it to the
+        # section's accumulated answer, and re-extract — `_awaiting_section_
+        # clarification` stays True through this, so `_summarize_section`
+        # skips a second clarity check (max ONE per section, §5/§7.1) and
+        # goes straight to the summary (which clears the flag).
+        if self._awaiting_section_clarification:
+            section = session.current_section
+            assert section is not None
+            decision = self._guard.check(
+                answer,
+                self._language,
+                question=self._section_clarification or base_question(section, self._language),
+            )
+            if not decision.allow:
+                return Step(
+                    "refusal",
+                    refusal_message(
+                        decision.category or RefusalCategory.OUT_OF_SCOPE, self._language
+                    ),
+                )
+            self._section_answer = f"{self._section_answer}\n{answer}".strip()
+            return self._summarize_section(session, section)
 
         if self._awaiting_confirmation:
             if interpret_confirmation(self._client, answer, self._language):
                 # Confirmed by the person: persist this section and advance.
                 # The incongruence check runs once at the end, on the whole
                 # profile (contradictions are cross-section), NOT per section.
-                self._repo.save(session.profile)
+                # `save` returns a re-validated, PII-redacted DEEP COPY (§7.3
+                # "prima di mostrare") -- carry THAT forward so the eventual
+                # recap (and any later save) reflects what was persisted, not
+                # the raw pre-save profile.
+                session.profile = self._repo.save(session.profile)
                 if self._audit is not None:
                     self._audit(
                         action="interview_section_confirmed",
@@ -282,8 +401,27 @@ class Interview:
         """Extract from the section's accumulated answer, merge it into the
         partial profile, and return the summary step, awaiting confirmation.
         Shared by a first answer and every subsequent correction, so a
-        correction re-extracts from the full text (original + corrections)."""
+        correction re-extracts from the full text (original + corrections).
+
+        Before building the summary, checks whether the extraction is
+        ambiguous (§5/§7.1): if so, and this isn't already the re-entry after
+        that clarification's reply, it emits an open `clarification` step
+        instead (max ONE per section — `_awaiting_section_clarification`
+        stays True through the reply, so the re-entry falls straight through
+        to the summary)."""
         extracted = extract_section(self._client, section, self._section_answer, self._language)
+        if not self._awaiting_section_clarification:
+            question = find_section_clarification(
+                self._client, section, extracted, session.profile, self._language
+            )
+            if question is not None:
+                shown = self._present(question)
+                if shown is not None:  # off-scope generated text withheld (§9); else fall through
+                    self._awaiting_section_clarification = True
+                    self._section_clarification = question
+                    return Step("clarification", shown)
+        self._awaiting_section_clarification = False
+        self._section_clarification = None
         summary_text = self._present(summarize(self._client, section, extracted, self._language))
         if summary_text is None:
             # The generated summary failed the outbound scope guard (§9, already
@@ -299,6 +437,28 @@ class Interview:
         # Remember it so a correction reply is scope-judged against this summary.
         self._last_summary = summary_text
         return Step("summary", summary_text)
+
+
+def _recap_intro(language: str) -> str:
+    messages = {
+        "it": "Ecco cosa ho capito del tuo profilo. Controlla che sia giusto.",
+        "en": "Here's what I understood about your profile. Please check it's right.",
+        "fr": "Voici ce que j'ai compris de ton profil. Vérifie que c'est correct.",
+        "es": "Esto es lo que he entendido de tu perfil. Comprueba que esté bien.",
+        "ar": "هذا ما فهمته عن ملفك. تحقّق من أنه صحيح.",
+    }
+    return messages.get(language, messages["en"])
+
+
+def _recap_retry(language: str) -> str:
+    messages = {
+        "it": "Non ho capito la correzione. Puoi ridirla in modo semplice?",
+        "en": "I didn't catch that correction. Can you say it again simply?",
+        "fr": "Je n'ai pas compris la correction. Peux-tu la redire simplement ?",
+        "es": "No he entendido la corrección. ¿Puedes repetirla de forma sencilla?",
+        "ar": "لم أفهم التصحيح. هل يمكنك إعادته ببساطة؟",
+    }
+    return messages.get(language, messages["en"])
 
 
 def _final_summary(language: str) -> str:

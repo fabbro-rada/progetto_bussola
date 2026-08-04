@@ -46,6 +46,7 @@ class FakeRepo:
 
 
 ALLOW = '{"allow": true, "category": null, "reason": "ok"}'
+REFUSE = '{"allow": false, "category": "out_of_scope", "reason": "off"}'
 
 # Section extraction payloads (reduced follow-up order: experiences, skills,
 # aspirations).
@@ -64,6 +65,10 @@ SKILL_STATED = {
     "digital_literacy": None,
 }
 CONFIRM = {"confirmed": True}
+# The per-section clarity check (interview.py's `_summarize_section`) makes one
+# extra `chat_json` call per extraction; these fakes script "no clarification
+# needed" so the flow proceeds straight to the summary, as in normal use.
+CLARITY_NO = {"needs_clarification": False, "question": ""}
 
 
 def _existing_profile(pseudonym: str = "P-x") -> WorkProfile:
@@ -90,7 +95,14 @@ def test_followup_appends_experience_and_upgrades_evidence(make_fake_json_llm):
     )
     repo = FakeRepo({"P-x": existing})
     client = make_fake_json_llm(
-        json_responses=[NEW_EXPERIENCE, CONFIRM, SKILL_DEMONSTRATED, CONFIRM],
+        json_responses=[
+            NEW_EXPERIENCE,
+            CLARITY_NO,
+            CONFIRM,
+            SKILL_DEMONSTRATED,
+            CLARITY_NO,
+            CONFIRM,
+        ],
         text_responses=[
             ALLOW,
             "Riepilogo esperienza. Giusto?",
@@ -130,7 +142,7 @@ def test_followup_never_downgrades_or_drops(make_fake_json_llm):
     )
     repo = FakeRepo({"P-x": existing})
     client = make_fake_json_llm(
-        json_responses=[EMPTY_EXPERIENCE, CONFIRM, SKILL_STATED, CONFIRM],
+        json_responses=[EMPTY_EXPERIENCE, CLARITY_NO, CONFIRM, SKILL_STATED, CLARITY_NO, CONFIRM],
         text_responses=[ALLOW, "Riepilogo. Giusto?", ALLOW, "Riepilogo. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it")
@@ -206,16 +218,22 @@ def test_followup_reject_and_reanswer_never_accumulates_or_leaks_rejected_data(m
 
     json_responses = [
         exp_rejected,
+        CLARITY_NO,
         {"confirmed": False},
         exp_final,
+        CLARITY_NO,
         {"confirmed": True},
         skills_rejected,
+        CLARITY_NO,
         {"confirmed": False},
         skills_final,
+        CLARITY_NO,
         {"confirmed": True},
         asp_rejected,
+        CLARITY_NO,
         {"confirmed": False},
         asp_final,
+        CLARITY_NO,
         {"confirmed": True},
         {"has_incongruence": False, "clarification": ""},
     ]
@@ -245,7 +263,10 @@ def test_followup_reject_and_reanswer_never_accumulates_or_leaks_rejected_data(m
     assert itw.submit("mi piacerebbe l'edilizia, corso di saldatura").kind == "summary"
     assert itw.submit("scusa, mi interessa il catering, corso HACCP").kind == "summary"
     final = itw.submit("sì, confermo")
-    assert final.kind == "completed"
+    # The interview now ends at the RECAP step, not "completed" directly --
+    # completing requires confirming the recap (Task 4). The merge assertions
+    # below are unaffected: each section was already saved on confirmation.
+    assert final.kind == "recap"
 
     saved = repo.get("P-x")
     assert saved is not None
@@ -303,19 +324,23 @@ EMPTY_ASPIRATION = {"fields_of_interest": [], "desired_training": []}
 
 def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_llm):
     """§7.3 accountability: an auditor must be able to tell a follow-up ran to
-    completion apart from "confirmed some sections and walked away". Drives
-    all three follow-up sections (empty answers, just to reach completion)
-    then asserts exactly one `followup_completed` event, targeting the right
-    pseudonym."""
+    completion apart from "confirmed some sections and walked away". Drives all
+    three follow-up sections (empty answers, just to reach the recap), then
+    confirms the recap too (Task 4's confirm path) and asserts the
+    `followup_completed` audit fires EXACTLY ONCE, at `_complete()`."""
     repo = FakeRepo({"P-x": _existing_profile()})
     json_responses = [
         EMPTY_EXPERIENCE,
+        CLARITY_NO,
         CONFIRM,
         SKILL_STATED,
+        CLARITY_NO,
         CONFIRM,
         EMPTY_ASPIRATION,
+        CLARITY_NO,
         CONFIRM,
         {"has_incongruence": False, "clarification": ""},
+        {"confirmed": True},  # recap confirm
     ]
     text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
     client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
@@ -327,11 +352,13 @@ def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_
     for _ in range(3):
         itw.submit("una risposta")
         final = itw.submit("sì")
-    assert final is not None and final.kind == "completed"
+    assert final is not None and final.kind == "recap"
+
+    final = itw.submit("sì, confermo il riepilogo")
+    assert final.kind == "completed"
 
     completed = [e for e in audit.events if e["action"] == "followup_completed"]
-    assert len(completed) == 1
-    assert completed[0]["target_pseudonym"] == "P-x"
+    assert len(completed) == 1  # fires exactly once, at recap confirmation
 
 
 def test_first_interview_completion_does_not_emit_followup_completed_audit(make_fake_json_llm):
@@ -351,7 +378,7 @@ def test_first_interview_completion_does_not_emit_followup_completed_audit(make_
     ]
     for extraction in empty_first_interview_extractions:
         text_responses.extend([ALLOW, "Riepilogo. Giusto?"])
-        json_responses.extend([extraction, CONFIRM])
+        json_responses.extend([extraction, CLARITY_NO, CONFIRM])
     json_responses.append({"has_incongruence": False, "clarification": ""})
     client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
     audit = AuditRecorder()
@@ -362,7 +389,9 @@ def test_first_interview_completion_does_not_emit_followup_completed_audit(make_
     for _ in range(5):
         itw.submit("una risposta")
         final = itw.submit("sì")
-    assert final is not None and final.kind == "completed"
+    # The interview now ends at the RECAP step, not "completed" directly
+    # (Task 4 completes after the recap is confirmed).
+    assert final is not None and final.kind == "recap"
 
     assert not any(e["action"] == "followup_completed" for e in audit.events)
     assert len([e for e in audit.events if e["action"] == "interview_section_confirmed"]) == 5
@@ -380,6 +409,7 @@ def test_first_interview_mode_unchanged(make_fake_json_llm):
                 "languages": [],
                 "digital_literacy": None,
             },
+            CLARITY_NO,
             CONFIRM,
         ],
         text_responses=[ALLOW, "Riepilogo. Giusto?"],
@@ -397,3 +427,114 @@ def test_first_interview_mode_unchanged(make_fake_json_llm):
     saved = repo.get(repo.saved[0].pseudonym_id)
     assert saved is not None
     assert saved.skills[0].name == "cooking"
+
+
+def test_followup_recap_correction_routed_to_unsupported_section_fails_closed(make_fake_json_llm):
+    """§3 fail-closed: apply_recap_correction can route a recap correction to
+    ANY of the 5 sections, but FollowupInterviewSession.merge() only
+    understands experiences/skills/aspirations -- constraints/preferences are
+    first-interview-only and raise TypeError for a follow-up session. Routing
+    a follow-up recap correction to "constraints" must NOT crash to
+    `unavailable`: it must keep the recap unchanged (nothing new persisted)
+    and ask the person to rephrase, exactly like the unroutable case."""
+    repo = FakeRepo({"P-x": _existing_profile()})
+    json_responses = [
+        EMPTY_EXPERIENCE,
+        CLARITY_NO,
+        CONFIRM,
+        SKILL_STATED,
+        CLARITY_NO,
+        CONFIRM,
+        EMPTY_ASPIRATION,
+        CLARITY_NO,
+        CONFIRM,
+        {"has_incongruence": False, "clarification": ""},
+        {"confirmed": False},  # recap: not a confirmation -> correction
+        {"section": "constraints"},  # routed to a section unsupported in follow-up mode
+        {"availability": "full_time", "constraints": []},  # re-extract (never merged)
+    ]
+    text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, ALLOW]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+
+    itw.start_followup("P-x")
+    final = None
+    for _ in range(3):
+        itw.submit("una risposta")
+        final = itw.submit("sì")
+    assert final is not None and final.kind == "recap"
+
+    saves_before = len(repo.saved)
+    step = itw.submit("niente più turni di notte")
+    assert step.kind == "recap"
+    assert step.text != final.text  # the static retry message, not the recap intro again
+    assert len(repo.saved) == saves_before  # fail-closed: nothing new persisted
+    assert step.recap is final.recap  # session.profile untouched by the failed merge
+
+
+def test_followup_recap_correction_to_experiences_fails_closed_no_duplication(make_fake_json_llm):
+    """§3/§5-critical: unlike constraints/preferences (unsupported, raises
+    TypeError in merge()), "experiences" IS a section FollowupInterviewSession.
+    merge() understands -- but its append/upgrade semantics for experiences
+    are a plain `baseline + extracted` concatenation with NO dedup. If a recap
+    correction were routed there, the re-extracted (whole-section) result
+    would be appended on top of the baseline and silently DUPLICATE it --
+    corrupting the profile with no error raised. So a follow-up recap
+    correction must be rejected fail-closed BEFORE routing/re-extraction is
+    even attempted: the recap stays unchanged, nothing new is persisted, and
+    the person is asked to rephrase -- same observable outcome as the
+    unroutable/unsupported-section cases, but here to prevent silent
+    corruption rather than a crash.
+
+    The scope guard must still run FIRST (§9): an off-scope reply at the same
+    recap step is refused, not silently treated as an unroutable correction.
+    """
+    repo = FakeRepo({"P-x": _existing_profile()})
+    json_responses = [
+        EMPTY_EXPERIENCE,
+        CLARITY_NO,
+        CONFIRM,
+        SKILL_STATED,
+        CLARITY_NO,
+        CONFIRM,
+        EMPTY_ASPIRATION,
+        CLARITY_NO,
+        CONFIRM,
+        {"has_incongruence": False, "clarification": ""},
+        {"confirmed": False},  # off-scope reply: not a confirmation -> guard runs
+        {"confirmed": False},  # in-scope reply: not a confirmation -> follow-up fail-closed
+    ]
+    text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, REFUSE, ALLOW]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+
+    itw.start_followup("P-x")
+    final = None
+    for _ in range(3):
+        itw.submit("una risposta")
+        final = itw.submit("sì")
+    assert final is not None and final.kind == "recap"
+    baseline_experiences = list(final.recap.experiences)  # type: ignore[union-attr]
+
+    # An off-scope reply at the recap is refused -- the guard runs BEFORE the
+    # follow-up fail-closed check, so an off-topic message never reaches it.
+    off_scope_step = itw.submit("che tempo fa domani?")
+    assert off_scope_step.kind == "refusal"
+
+    # An in-scope free-text correction to experiences is rejected fail-closed:
+    # the recap is kept (retry text, not the intro again), nothing new is
+    # persisted, and the profile's experiences are UNCHANGED -- no
+    # duplication of the baseline experience.
+    saves_before = len(repo.saved)
+    step = itw.submit("in realtà ho fatto anche il cuoco per 8 mesi")
+    assert step.kind == "recap"
+    assert step.text != final.text  # the static retry message, not the recap intro again
+    assert len(repo.saved) == saves_before  # fail-closed: nothing new persisted
+    assert step.recap is final.recap  # session.profile untouched -- no merge attempted
+    assert step.recap.experiences == baseline_experiences  # unchanged, not duplicated
+    assert len(step.recap.experiences) == 1
+    assert step.recap.experiences[0].role == "magazziniere"

@@ -208,6 +208,29 @@ def test_completed_submit_discards_session_and_closes_conn(monkeypatch):
     assert again.status_code == 404
 
 
+def test_submit_recap_step_serializes_the_profile(monkeypatch):
+    monkeypatch.setattr(config, "KIOSK_TOKEN", TOKEN)
+
+    class RecapInterview(Interview):
+        def __init__(self) -> None:  # type: ignore[super-init-not-called]
+            pass
+
+        def submit(self, answer: str) -> Step:
+            from bussola.profile.models import WorkProfile
+
+            return Step("recap", "Ecco il tuo profilo.", recap=WorkProfile(pseudonym_id="P-1"))
+
+    token = REGISTRY.create(RecapInterview(), on_evict=lambda: None)
+    r = TestClient(create_app()).post(
+        "/kiosk/interview/submit", json={"session_token": token, "answer": "x"}, headers=_h()
+    )
+    assert r.status_code == 200
+    body = r.json()["step"]
+    assert body["kind"] == "recap"
+    assert body["recap"]["pseudonym_id"] == "P-1"
+    REGISTRY.discard(token)
+
+
 def test_start_failure_closes_connection(monkeypatch, issued_start_code: str):
     monkeypatch.setattr(config, "KIOSK_TOKEN", TOKEN)
     opened: list[psycopg.Connection] = []

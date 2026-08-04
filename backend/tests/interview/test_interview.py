@@ -60,7 +60,7 @@ def test_start_on_uses_the_given_pseudonym_without_creating_a_new_one(make_fake_
 def test_start_on_confirmed_section_persists_under_the_given_pseudonym(make_fake_json_llm):
     repo = FakeRepo()
     client = make_fake_json_llm(
-        json_responses=[COMP, {"confirmed": True}],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}, {"confirmed": True}],
         text_responses=[ALLOW, "Riepilogo: sai cucinare. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it")
@@ -90,7 +90,7 @@ def test_confirmed_section_persists_and_advances(make_fake_json_llm):
     # answer2 (confirm): interpret_confirmation True (json) -> save + advance ->
     # next question. NO per-section incongruence check (it runs once at the end).
     client = make_fake_json_llm(
-        json_responses=[COMP, {"confirmed": True}],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}, {"confirmed": True}],
         text_responses=[ALLOW, "Riepilogo: sai cucinare. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
@@ -126,11 +126,18 @@ def test_correction_updates_the_same_section_without_re_asking(make_fake_json_ll
         "digital_literacy": None,
     }
     client = make_fake_json_llm(
-        # a1: guard ALLOW(text) + extract two_skills(json) + summary(text)
+        # a1: guard ALLOW(text) + extract two_skills(json) + clarity NO(json) + summary(text)
         # a2 (correction): interpret_confirmation False(json) + guard ALLOW(text)
-        #                  + re-extract three_skills(json) + summary(text)
+        #                  + re-extract three_skills(json) + clarity NO(json) + summary(text)
         # a3 (confirm):    interpret_confirmation True(json) -> save + advance
-        json_responses=[two_skills, {"confirmed": False}, three_skills, {"confirmed": True}],
+        json_responses=[
+            two_skills,
+            {"needs_clarification": False, "question": ""},
+            {"confirmed": False},
+            three_skills,
+            {"needs_clarification": False, "question": ""},
+            {"confirmed": True},
+        ],
         text_responses=[
             ALLOW,
             "So fare il falegname e il muratore. Giusto?",
@@ -155,7 +162,7 @@ def test_scope_guard_judges_the_answer_with_the_question_as_context(make_fake_js
     # The guard must see the section question, so a short answer that only makes
     # sense against it is judged in context (§2/§9), not on the answer alone.
     client = make_fake_json_llm(
-        json_responses=[COMP],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}],
         text_responses=[ALLOW, "Riepilogo. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=_FakeRedactor())
@@ -177,7 +184,13 @@ def test_correction_is_scope_judged_against_the_summary_not_the_question(make_fa
         "digital_literacy": None,
     }
     client = make_fake_json_llm(
-        json_responses=[skills, {"confirmed": False}, skills],
+        json_responses=[
+            skills,
+            {"needs_clarification": False, "question": ""},
+            {"confirmed": False},
+            skills,
+            {"needs_clarification": False, "question": ""},
+        ],
         text_responses=[
             ALLOW,
             "Ho capito: falegname. Giusto?",
@@ -189,9 +202,9 @@ def test_correction_is_scope_judged_against_the_summary_not_the_question(make_fa
     itw.start()
     itw.submit("faccio il falegname")  # -> summary "Ho capito: falegname. Giusto?"
     itw.submit("no, anche cameriere")  # correction
-    # calls: 0 guard(a1,text) 1 extract(json) 2 summary(text) 3 interpret(json)
-    #        4 guard(correction,text) ...
-    guard_correction = client.calls[4]
+    # calls: 0 guard(a1,text) 1 extract(json) 2 clarity(json) 3 summary(text)
+    #        4 interpret(json) 5 guard(correction,text) ...
+    guard_correction = client.calls[5]
     assert guard_correction["kind"] == "text"
     assert "Ho capito: falegname. Giusto?" in guard_correction["messages"][1]["content"]
 
@@ -211,15 +224,21 @@ def test_llm_unavailable_yields_controlled_step(make_fake_json_llm):
 
 
 def test_summarize_failure_does_not_leave_awaiting_confirmation():
-    # guard ALLOW (text call #1), extract COMP (json call #1), then the
-    # summarize text call fails -> unavailable, and NO state must have been
-    # mutated: the next answer must be re-guarded from scratch, not treated
-    # as a confirmation reply (which would call interpret_confirmation/
-    # chat_json instead of the guard's chat).
+    # guard ALLOW (text call #1), extract COMP (json call #1), the per-section
+    # clarity check answers "no clarification needed" (json call #2, a valid
+    # response so `find_section_clarification`'s fail-open `except Exception`
+    # doesn't need to catch anything here -- it must stay free to act as a
+    # tripwire below), then the summarize text call fails -> unavailable, and
+    # NO state must have been mutated: the next answer must be re-guarded from
+    # scratch, not treated as a confirmation reply (which would call
+    # interpret_confirmation/chat_json instead of the guard's chat). The
+    # json queue is exhausted after that, so any FURTHER unscripted chat_json
+    # call (a sign that state was wrongly mutated) still trips the
+    # AssertionError tripwire below.
     class SummarizeDown:
         def __init__(self) -> None:
             self._chat_queue: list[str | None] = [ALLOW, None, REFUSE]
-            self._json_queue: list[dict] = [COMP]
+            self._json_queue: list[dict] = [COMP, {"needs_clarification": False, "question": ""}]
 
         def chat(self, messages, *, temperature=0.0, max_tokens=None):
             value = self._chat_queue.pop(0)
@@ -257,11 +276,32 @@ _EMPTY_EXTRACTIONS = [
 
 def _confirm_all_sections(json_responses, text_responses):
     """Extend the fake client's scripted responses to drive all 5 sections:
-    each section answer needs guard ALLOW (text) + extraction (json) + summary
-    (text); each confirmation needs interpret_confirmation True (json)."""
+    each section answer needs guard ALLOW (text) + extraction (json) + clarity
+    check "no clarification needed" (json) + summary (text); each confirmation
+    needs interpret_confirmation True (json)."""
     for extraction in _EMPTY_EXTRACTIONS:
         text_responses.extend([ALLOW, "Riepilogo. Giusto?"])
-        json_responses.extend([extraction, {"confirmed": True}])
+        json_responses.extend(
+            [extraction, {"needs_clarification": False, "question": ""}, {"confirmed": True}]
+        )
+
+
+def test_interview_ends_with_a_recap_carrying_the_profile(make_fake_json_llm):
+    repo = FakeRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(
+        json_responses, text_responses
+    )  # each section: extract + clarity(false) + confirm
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    last = None
+    for _ in range(5):
+        assert itw.submit("una risposta di lavoro").kind == "summary"
+        last = itw.submit("sì, è corretto")
+    assert last is not None and last.kind == "recap"
+    assert last.recap is not None and last.recap.pseudonym_id  # carries the saved profile
 
 
 def test_full_interview_runs_incongruence_once_at_end(make_fake_json_llm):
@@ -280,7 +320,9 @@ def test_full_interview_runs_incongruence_once_at_end(make_fake_json_llm):
         s = itw.submit("una risposta di lavoro")
         assert s.kind == "summary"
         last = itw.submit("sì, è corretto")
-    assert last is not None and last.kind == "completed"
+    # The interview now ends at the RECAP step (not "completed"): completing
+    # requires confirming the recap, which is Task 4.
+    assert last is not None and last.kind == "recap"
     assert len(repo.saved) == 5  # one save per confirmed section
     # All json responses consumed: 5*(extraction+confirm) + 1 final incongruence.
     assert not client._json
@@ -305,9 +347,10 @@ def test_final_incongruence_surfaces_clarification_then_completes(make_fake_json
         clar = itw.submit("sì, è corretto")
     assert clar is not None and clar.kind == "clarification"
     assert "chiarire" in clar.text
-    # Replying to the clarification (in scope) completes the interview.
+    # Replying to the clarification (in scope) now yields the RECAP step (not
+    # "completed" directly) -- completing requires confirming the recap (Task 4).
     final = itw.submit("La durata è di due anni, chiarito.")
-    assert final.kind == "completed"
+    assert final.kind == "recap"
 
 
 def test_generated_summary_is_pii_redacted_before_display(make_fake_json_llm):
@@ -315,7 +358,7 @@ def test_generated_summary_is_pii_redacted_before_display(make_fake_json_llm):
     # scrub it before it is shown to the person (§7.3 "prima di mostrare").
     redactor = _FakeRedactor()
     client = make_fake_json_llm(
-        json_responses=[COMP],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}],
         text_responses=[ALLOW, "Sai cucinare. Scrivimi a mario@example.com. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=redactor)
@@ -336,7 +379,7 @@ def test_blocked_summary_falls_back_to_generic_confirmation_and_audits(make_fake
     events: list[dict] = []
     repo = FakeRepo()
     client = make_fake_json_llm(
-        json_responses=[COMP, {"confirmed": True}],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}, {"confirmed": True}],
         text_responses=[ALLOW, "Riepilogo con contenuto fuori ambito. Giusto?"],
         output_responses=[REFUSE],  # the OUTBOUND guard rejects the generated summary
     )
@@ -395,6 +438,174 @@ def test_final_clarification_failing_outbound_scope_guard_is_skipped_and_complet
     for _ in range(5):
         assert itw.submit("una risposta di lavoro").kind == "summary"
         last = itw.submit("sì, è corretto")
-    assert last is not None and last.kind == "completed"  # clarification skipped, not shown
+    # clarification skipped (not shown), so the interview falls straight through
+    # to the recap step (not "completed" -- Task 4 completes after confirmation).
+    assert last is not None and last.kind == "recap"
     # the clarification trip is audited too (§7.3), like the summary trip
     assert any(e["action"] == "output_guard_blocked" for e in events)
+
+
+def test_ambiguous_section_asks_one_open_clarification_then_summarizes(make_fake_json_llm):
+    # answer -> guard ALLOW(text) + extract(json) + clarity NEEDS(json) -> clarification step;
+    # reply -> guard ALLOW(text) + re-extract(json) + clarity SKIPPED (only once) -> summary(text)
+    skills = {"skills": [], "languages": [], "digital_literacy": None}
+    client = make_fake_json_llm(
+        json_responses=[
+            skills,
+            {"needs_clarification": True, "question": "Che sai fare di preciso?"},
+            skills,
+        ],
+        text_responses=[ALLOW, ALLOW, "Ho capito. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=_FakeRedactor())
+    itw.start()
+    s1 = itw.submit("boh, cose")
+    assert s1.kind == "clarification" and "preciso" in s1.text
+    s2 = itw.submit("so cucinare")
+    assert s2.kind == "summary"  # one clarification only, then summary
+
+
+def test_clear_section_skips_clarification(make_fake_json_llm):
+    skills = {
+        "skills": [{"name": "cucina", "kind": "technical", "evidence": "stated"}],
+        "languages": [],
+        "digital_literacy": None,
+    }
+    client = make_fake_json_llm(
+        json_responses=[skills, {"needs_clarification": False, "question": ""}],
+        text_responses=[ALLOW, "Sai cucinare. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=_FakeRedactor())
+    itw.start()
+    assert itw.submit("so cucinare").kind == "summary"
+
+
+def test_recap_confirm_completes(make_fake_json_llm):
+    repo = FakeRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    json_responses.append({"confirmed": True})  # recap confirm
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        itw.submit("sì, è corretto")
+    assert itw.submit("sì, è tutto giusto").kind == "completed"
+
+
+def test_recap_correction_reextracts_and_reshows(make_fake_json_llm):
+    repo = FakeRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    json_responses.append({"confirmed": False})  # not a confirmation -> correction
+    json_responses.append({"section": "experiences"})  # routing
+    json_responses.append(
+        {"experiences": [{"role": "consulente", "sector": "IT", "duration_months": 24}]}
+    )  # re-extract
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, ALLOW]
+    )  # guard on the correction
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        itw.submit("sì, è corretto")
+    step = itw.submit("no, il consulente era 2 anni")
+    assert step.kind == "recap"
+    assert any(e.role == "consulente" and e.duration_months == 24 for e in step.recap.experiences)
+
+
+def test_recap_off_scope_reply_is_refused(make_fake_json_llm):
+    # While awaiting the recap, a reply the scope guard REJECTS must be a
+    # refusal -- neither treated as a confirmation (it isn't one) nor as a
+    # correction to route (it must never reach apply_recap_correction).
+    repo = FakeRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    json_responses.append({"confirmed": False})  # not a confirmation -> guard next
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, REFUSE]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        itw.submit("sì, è corretto")
+    step = itw.submit("che tempo fa domani?")
+    assert step.kind == "refusal"
+
+
+class _SanitizingRepo(FakeRepo):
+    """Fake repo whose save() returns a DISTINCT sanitized deep copy, like the
+    real ProfileRepository.save (§7.3 "prima di mostrare"): PII redaction runs
+    on a copy, never on the object the caller passed in. Proves the interview
+    must carry the RETURNED profile forward, not the pre-save one."""
+
+    def save(self, profile: WorkProfile) -> WorkProfile:
+        clean = profile.model_copy(deep=True)
+        for skill in clean.skills:
+            skill.name = "<REDACTED>"
+        for experience in clean.experiences:
+            experience.role = "<REDACTED>"
+        self.saved.append(clean)
+        return clean
+
+
+def test_recap_shows_the_sanitized_profile_returned_by_confirmation_save(make_fake_json_llm):
+    # The section-confirmation save site must flow save()'s return value back
+    # into the session, so the eventual recap reflects what was actually
+    # persisted (sanitized), not the raw pre-save profile.
+    repo = _SanitizingRepo()
+    skills_with_name = {
+        "skills": [{"name": "cucina", "kind": "technical", "evidence": "stated"}],
+        "languages": [],
+        "digital_literacy": None,
+    }
+    json_responses: list[dict] = []
+    text_responses: list[str] = []
+    for extraction in [skills_with_name, *_EMPTY_EXTRACTIONS[1:]]:
+        text_responses.extend([ALLOW, "Riepilogo. Giusto?"])
+        json_responses.extend(
+            [extraction, {"needs_clarification": False, "question": ""}, {"confirmed": True}]
+        )
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    last = None
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        last = itw.submit("sì, è corretto")
+    assert last is not None and last.kind == "recap"
+    assert last.recap is not None
+    assert last.recap.skills and last.recap.skills[0].name == "<REDACTED>"
+
+
+def test_recap_correction_shows_the_sanitized_profile_returned_by_save(make_fake_json_llm):
+    # The recap-correction save site must ALSO flow save()'s return value back
+    # into the re-shown recap, not the pre-save (freshly merged) profile.
+    repo = _SanitizingRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    json_responses.append({"confirmed": False})  # not a confirmation -> correction
+    json_responses.append({"section": "experiences"})  # routing
+    json_responses.append(
+        {"experiences": [{"role": "consulente", "sector": "IT", "duration_months": 24}]}
+    )  # re-extract
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, ALLOW]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        itw.submit("sì, è corretto")
+    step = itw.submit("no, il consulente era 2 anni")
+    assert step.kind == "recap"
+    assert step.recap is not None
+    assert step.recap.experiences and all(e.role == "<REDACTED>" for e in step.recap.experiences)
