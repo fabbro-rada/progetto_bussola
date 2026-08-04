@@ -1,3 +1,4 @@
+import logo from '../assets/logo-bussola.png'
 import { LANGUAGES } from '../i18n/languages'
 
 // The picker itself is language-neutral: bilingual title + each endonym in its
@@ -21,6 +22,7 @@ export function LanguagePicker({
 }) {
   return (
     <div className="language-picker">
+      <img src={logo} alt="Progetto Bussola" className="picker-logo" />
       <h1 className="picker-title">Scegli la tua lingua · Choose your language</h1>
       <div className="language-grid">
         {LANGUAGES.map((l) => (

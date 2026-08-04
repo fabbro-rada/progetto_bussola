@@ -1,5 +1,6 @@
 import { useCallback, useReducer } from 'react'
 import { useTranslation } from 'react-i18next'
+import mark from './assets/logo-bussola-mark.png'
 import { kioskClient } from './api/kioskClient'
 import type { KioskClient } from './types'
 import { applyLanguage } from './i18n'
@@ -141,7 +142,10 @@ export function App({
   return (
     <div className="app">
       <header className="chrome">
-        {inSession ? <StopButton onStop={stop} /> : <span />}
+        <div className="chrome-start">
+          <img src={mark} alt="Progetto Bussola" className="chrome-mark" />
+          {inSession && <StopButton onStop={stop} />}
+        </div>
         {state.pending && (
           <div className="pending" role="status" aria-live="polite">
             {t('pending.text')}
