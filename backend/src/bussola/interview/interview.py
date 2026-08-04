@@ -263,18 +263,6 @@ class Interview:
                         decision.category or RefusalCategory.OUT_OF_SCOPE, self._language
                     ),
                 )
-            if isinstance(session, FollowupInterviewSession):
-                # Fail-closed (§3): `apply_recap_correction` re-extracts the
-                # WHOLE routed section, but a follow-up session's `merge()`
-                # uses APPEND/UPGRADE semantics. For experiences that is a
-                # plain concatenation onto the baseline with NO dedup, so a
-                # routed correction would silently duplicate the experience
-                # (skills/aspirations happen to dedup by name/string, but the
-                # risk is not section-specific and duplication must never
-                # happen, §5). So no recap correction is ever applied on a
-                # follow-up session: keep the recap unchanged and ask to
-                # rephrase, exactly like the unroutable case.
-                return Step("recap", _recap_retry(self._language), recap=session.profile)
             extracted = apply_recap_correction(
                 self._client, answer, session.profile, self._language
             )
@@ -282,14 +270,19 @@ class Interview:
                 # not routable: keep the recap, ask to rephrase (static message)
                 return Step("recap", _recap_retry(self._language), recap=session.profile)
             try:
-                session.merge(extracted)
+                # OVERWRITE the routed section (`apply_correction`, not `merge`):
+                # the re-extraction is the corrected FULL section built from the
+                # current data + the person's change. This applies correctly in
+                # BOTH modes and — unlike a follow-up session's append/upgrade
+                # `merge()` — cannot duplicate (e.g. experiences) or crash on a
+                # section a follow-up `merge` doesn't handle (constraints/
+                # preferences). So a follow-up recap correction now actually
+                # updates the profile instead of silently doing nothing.
+                session.apply_correction(extracted)
             except Exception:
-                # The routed section is not one this session mode can merge
-                # (e.g. a follow-up session, whose `merge()` only understands
-                # experiences/skills/aspirations, routed to "constraints" or
-                # "preferences"). Fail closed like the unroutable case: keep
-                # the recap unchanged and ask to rephrase -- never crash to
-                # `unavailable`, never lose the turn (§3).
+                # Defensive: an unexpected extraction shape -> keep the recap and
+                # ask to rephrase; never crash to `unavailable`, never lose the
+                # turn (§3).
                 return Step("recap", _recap_retry(self._language), recap=session.profile)
             # `save` returns a re-validated, PII-redacted DEEP COPY (§7.3
             # "prima di mostrare") -- carry THAT forward, not the pre-save

@@ -150,9 +150,14 @@ class InterviewSession:
             self.profile.aspiration = Aspiration()
         return self.profile.aspiration
 
-    def merge(self, extracted: BaseModel) -> None:
-        """Apply an extracted section model to the partial profile
-        (first-interview semantics: OVERWRITE each section's fields)."""
+    def apply_correction(self, extracted: BaseModel) -> None:
+        """OVERWRITE the routed section's fields from `extracted`. Used for a
+        recap correction, where `extracted` is the corrected FULL section
+        (re-extracted from the current data plus the person's change), so it
+        REPLACES the section. This is the right semantics in BOTH modes — for a
+        follow-up session too, whose append/upgrade `merge()` would otherwise
+        DUPLICATE (e.g. experiences) when handed a whole-section re-extraction.
+        Handles all five section models (unlike a follow-up `merge`)."""
         if isinstance(extracted, SkillsExtraction):
             self.profile.skills = extracted.skills
             self.profile.languages = extracted.languages
@@ -171,6 +176,11 @@ class InterviewSession:
             self.profile.operational_notes = extracted.operational_notes
         else:  # pragma: no cover - defensive
             raise TypeError(f"unknown extraction model: {type(extracted)!r}")
+
+    def merge(self, extracted: BaseModel) -> None:
+        """Apply an extracted section model to the partial profile
+        (first-interview semantics: OVERWRITE each section's fields)."""
+        self.apply_correction(extracted)
 
 
 class FollowupInterviewSession(InterviewSession):
