@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import logo from '../assets/logo-bussola.png'
 
 export function Login() {
   const { t } = useTranslation()
@@ -38,6 +39,7 @@ export function Login() {
 
   return (
     <form className="auth-form" onSubmit={submit}>
+      <img src={logo} alt="Progetto Bussola" className="auth-logo" />
       <h1>{t('login.title')}</h1>
       <label>
         {t('login.username')}

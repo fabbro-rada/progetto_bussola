@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Nav } from './Nav'
+import logoMark from '../assets/logo-bussola-mark.png'
 
 export function AppShell() {
   const { t } = useTranslation()
@@ -9,7 +10,10 @@ export function AppShell() {
   return (
     <div className="shell">
       <header className="shell-header">
-        <span className="brand">Bussola</span>
+        <span className="brand">
+          <img src={logoMark} alt="" className="brand-mark" />
+          Bussola
+        </span>
         {operator && (
           <span className="who">
             {operator.display_name} · {t(`shell.role.${operator.role}`)}
