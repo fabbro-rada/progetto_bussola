@@ -40,6 +40,11 @@ def find_incongruence(client: LlmClient, profile: WorkProfile, language: str) ->
         f"'{language}') — every word in {name}, never in English or any other language "
         "(never accuse; simply ask the person to clarify). Use simple, everyday words "
         "and do NOT use any emoji, emoticons or symbols (the text is read aloud). "
+        "Make it ONE concrete, direct question a person with low literacy understands "
+        "immediately, with no ambiguity: point plainly at the two things that do not add "
+        "up and ask which is right (e.g. 'Hai detto 5 anni come cuoco, ma le date sono 2 "
+        "anni: qual è quello giusto?'). NEVER an abstract question like 'qual è la "
+        "relazione tra le tue competenze e le tue esperienze'. "
         'Reply JSON {"has_incongruence": bool, "clarification": string}. '
         "Use has_incongruence=false with an empty clarification when there is no "
         "clear contradiction."
