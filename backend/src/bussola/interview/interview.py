@@ -269,8 +269,21 @@ class Interview:
             if extracted is None:
                 # not routable: keep the recap, ask to rephrase (static message)
                 return Step("recap", _recap_retry(self._language), recap=session.profile)
-            session.merge(extracted)
-            self._repo.save(session.profile)
+            try:
+                session.merge(extracted)
+            except Exception:
+                # The routed section is not one this session mode can merge
+                # (e.g. a follow-up session, whose `merge()` only understands
+                # experiences/skills/aspirations, routed to "constraints" or
+                # "preferences"). Fail closed like the unroutable case: keep
+                # the recap unchanged and ask to rephrase -- never crash to
+                # `unavailable`, never lose the turn (§3).
+                return Step("recap", _recap_retry(self._language), recap=session.profile)
+            # `save` returns a re-validated, PII-redacted DEEP COPY (§7.3
+            # "prima di mostrare") -- carry THAT forward, not the pre-save
+            # profile, so the re-shown recap always reflects what was
+            # actually persisted.
+            session.profile = self._repo.save(session.profile)
             return Step("recap", _recap_intro(self._language), recap=session.profile)
 
         # Final incongruence surfaced: the person is replying to the gentle
@@ -318,7 +331,11 @@ class Interview:
                 # Confirmed by the person: persist this section and advance.
                 # The incongruence check runs once at the end, on the whole
                 # profile (contradictions are cross-section), NOT per section.
-                self._repo.save(session.profile)
+                # `save` returns a re-validated, PII-redacted DEEP COPY (§7.3
+                # "prima di mostrare") -- carry THAT forward so the eventual
+                # recap (and any later save) reflects what was persisted, not
+                # the raw pre-save profile.
+                session.profile = self._repo.save(session.profile)
                 if self._audit is not None:
                     self._audit(
                         action="interview_section_confirmed",

@@ -426,3 +426,48 @@ def test_first_interview_mode_unchanged(make_fake_json_llm):
     saved = repo.get(repo.saved[0].pseudonym_id)
     assert saved is not None
     assert saved.skills[0].name == "cooking"
+
+
+def test_followup_recap_correction_routed_to_unsupported_section_fails_closed(make_fake_json_llm):
+    """§3 fail-closed: apply_recap_correction can route a recap correction to
+    ANY of the 5 sections, but FollowupInterviewSession.merge() only
+    understands experiences/skills/aspirations -- constraints/preferences are
+    first-interview-only and raise TypeError for a follow-up session. Routing
+    a follow-up recap correction to "constraints" must NOT crash to
+    `unavailable`: it must keep the recap unchanged (nothing new persisted)
+    and ask the person to rephrase, exactly like the unroutable case."""
+    repo = FakeRepo({"P-x": _existing_profile()})
+    json_responses = [
+        EMPTY_EXPERIENCE,
+        CLARITY_NO,
+        CONFIRM,
+        SKILL_STATED,
+        CLARITY_NO,
+        CONFIRM,
+        EMPTY_ASPIRATION,
+        CLARITY_NO,
+        CONFIRM,
+        {"has_incongruence": False, "clarification": ""},
+        {"confirmed": False},  # recap: not a confirmation -> correction
+        {"section": "constraints"},  # routed to a section unsupported in follow-up mode
+        {"availability": "full_time", "constraints": []},  # re-extract (never merged)
+    ]
+    text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, ALLOW]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+
+    itw.start_followup("P-x")
+    final = None
+    for _ in range(3):
+        itw.submit("una risposta")
+        final = itw.submit("sì")
+    assert final is not None and final.kind == "recap"
+
+    saves_before = len(repo.saved)
+    step = itw.submit("niente più turni di notte")
+    assert step.kind == "recap"
+    assert step.text != final.text  # the static retry message, not the recap intro again
+    assert len(repo.saved) == saves_before  # fail-closed: nothing new persisted
+    assert step.recap is final.recap  # session.profile untouched by the failed merge

@@ -72,3 +72,40 @@ def test_apply_recap_correction_routes_and_reextracts():
 def test_apply_recap_correction_none_when_unroutable():
     client = _Json([{"section": "none"}])
     assert apply_recap_correction(client, "boh", WorkProfile(pseudonym_id="P-1"), "it") is None
+
+
+def test_apply_recap_correction_none_on_routing_error():
+    # Mirrors find_section_clarification's test_fail_open_on_llm_error: the
+    # routing `chat_json` call itself blows up -> fail-closed None, never an
+    # exception to the caller (the caller keeps the recap unchanged, §3).
+    class Boom:
+        def chat_json(self, *a, **k):
+            raise RuntimeError("down")
+
+    assert (
+        apply_recap_correction(
+            Boom(), "il consulente era 2 anni", WorkProfile(pseudonym_id="P-1"), "it"
+        )
+        is None
+    )
+
+
+def test_apply_recap_correction_none_on_reextract_error():
+    # Routing succeeds (-> "experiences") but the SECOND chat_json call, the
+    # re-extraction inside extract_section, blows up -> still fail-closed None.
+    class BoomOnSecondCall:
+        def __init__(self) -> None:
+            self._n = 0
+
+        def chat_json(self, *a, **k):
+            self._n += 1
+            if self._n == 1:
+                return {"section": "experiences"}
+            raise RuntimeError("down")
+
+    assert (
+        apply_recap_correction(
+            BoomOnSecondCall(), "il consulente era 2 anni", WorkProfile(pseudonym_id="P-1"), "it"
+        )
+        is None
+    )

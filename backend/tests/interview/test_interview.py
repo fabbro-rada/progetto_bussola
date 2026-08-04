@@ -510,3 +510,96 @@ def test_recap_correction_reextracts_and_reshows(make_fake_json_llm):
     step = itw.submit("no, il consulente era 2 anni")
     assert step.kind == "recap"
     assert any(e.role == "consulente" and e.duration_months == 24 for e in step.recap.experiences)
+
+
+def test_recap_off_scope_reply_is_refused(make_fake_json_llm):
+    # While awaiting the recap, a reply the scope guard REJECTS must be a
+    # refusal -- neither treated as a confirmation (it isn't one) nor as a
+    # correction to route (it must never reach apply_recap_correction).
+    repo = FakeRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    json_responses.append({"confirmed": False})  # not a confirmation -> guard next
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, REFUSE]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        itw.submit("sì, è corretto")
+    step = itw.submit("che tempo fa domani?")
+    assert step.kind == "refusal"
+
+
+class _SanitizingRepo(FakeRepo):
+    """Fake repo whose save() returns a DISTINCT sanitized deep copy, like the
+    real ProfileRepository.save (§7.3 "prima di mostrare"): PII redaction runs
+    on a copy, never on the object the caller passed in. Proves the interview
+    must carry the RETURNED profile forward, not the pre-save one."""
+
+    def save(self, profile: WorkProfile) -> WorkProfile:
+        clean = profile.model_copy(deep=True)
+        for skill in clean.skills:
+            skill.name = "<REDACTED>"
+        for experience in clean.experiences:
+            experience.role = "<REDACTED>"
+        self.saved.append(clean)
+        return clean
+
+
+def test_recap_shows_the_sanitized_profile_returned_by_confirmation_save(make_fake_json_llm):
+    # The section-confirmation save site must flow save()'s return value back
+    # into the session, so the eventual recap reflects what was actually
+    # persisted (sanitized), not the raw pre-save profile.
+    repo = _SanitizingRepo()
+    skills_with_name = {
+        "skills": [{"name": "cucina", "kind": "technical", "evidence": "stated"}],
+        "languages": [],
+        "digital_literacy": None,
+    }
+    json_responses: list[dict] = []
+    text_responses: list[str] = []
+    for extraction in [skills_with_name, *_EMPTY_EXTRACTIONS[1:]]:
+        text_responses.extend([ALLOW, "Riepilogo. Giusto?"])
+        json_responses.extend(
+            [extraction, {"needs_clarification": False, "question": ""}, {"confirmed": True}]
+        )
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    last = None
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        last = itw.submit("sì, è corretto")
+    assert last is not None and last.kind == "recap"
+    assert last.recap is not None
+    assert last.recap.skills and last.recap.skills[0].name == "<REDACTED>"
+
+
+def test_recap_correction_shows_the_sanitized_profile_returned_by_save(make_fake_json_llm):
+    # The recap-correction save site must ALSO flow save()'s return value back
+    # into the re-shown recap, not the pre-save (freshly merged) profile.
+    repo = _SanitizingRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    json_responses.append({"confirmed": False})  # not a confirmation -> correction
+    json_responses.append({"section": "experiences"})  # routing
+    json_responses.append(
+        {"experiences": [{"role": "consulente", "sector": "IT", "duration_months": 24}]}
+    )  # re-extract
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, ALLOW]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        itw.submit("sì, è corretto")
+    step = itw.submit("no, il consulente era 2 anni")
+    assert step.kind == "recap"
+    assert step.recap is not None
+    assert step.recap.experiences and all(e.role == "<REDACTED>" for e in step.recap.experiences)

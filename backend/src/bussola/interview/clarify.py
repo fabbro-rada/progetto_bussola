@@ -101,8 +101,8 @@ def apply_recap_correction(
     # Re-extract the whole section from current data + the correction (extract_section
     # OVERWRITES the section via session.merge's first-interview semantics).
     context = (
-        f"The person's current {section.key} is: {profile.model_dump_json()}. "
-        f"They now correct it: {reply}. Produce the corrected {section.key}."
+        f"The person's current profile is: {profile.model_dump_json()}. "
+        f"They correct the {section.key}: {reply}. Produce the corrected {section.key}."
     )
     try:
         return extract_section(client, section, context, language)
