@@ -60,7 +60,7 @@ def test_start_on_uses_the_given_pseudonym_without_creating_a_new_one(make_fake_
 def test_start_on_confirmed_section_persists_under_the_given_pseudonym(make_fake_json_llm):
     repo = FakeRepo()
     client = make_fake_json_llm(
-        json_responses=[COMP, {"confirmed": True}],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}, {"confirmed": True}],
         text_responses=[ALLOW, "Riepilogo: sai cucinare. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it")
@@ -90,7 +90,7 @@ def test_confirmed_section_persists_and_advances(make_fake_json_llm):
     # answer2 (confirm): interpret_confirmation True (json) -> save + advance ->
     # next question. NO per-section incongruence check (it runs once at the end).
     client = make_fake_json_llm(
-        json_responses=[COMP, {"confirmed": True}],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}, {"confirmed": True}],
         text_responses=[ALLOW, "Riepilogo: sai cucinare. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
@@ -126,11 +126,18 @@ def test_correction_updates_the_same_section_without_re_asking(make_fake_json_ll
         "digital_literacy": None,
     }
     client = make_fake_json_llm(
-        # a1: guard ALLOW(text) + extract two_skills(json) + summary(text)
+        # a1: guard ALLOW(text) + extract two_skills(json) + clarity NO(json) + summary(text)
         # a2 (correction): interpret_confirmation False(json) + guard ALLOW(text)
-        #                  + re-extract three_skills(json) + summary(text)
+        #                  + re-extract three_skills(json) + clarity NO(json) + summary(text)
         # a3 (confirm):    interpret_confirmation True(json) -> save + advance
-        json_responses=[two_skills, {"confirmed": False}, three_skills, {"confirmed": True}],
+        json_responses=[
+            two_skills,
+            {"needs_clarification": False, "question": ""},
+            {"confirmed": False},
+            three_skills,
+            {"needs_clarification": False, "question": ""},
+            {"confirmed": True},
+        ],
         text_responses=[
             ALLOW,
             "So fare il falegname e il muratore. Giusto?",
@@ -155,7 +162,7 @@ def test_scope_guard_judges_the_answer_with_the_question_as_context(make_fake_js
     # The guard must see the section question, so a short answer that only makes
     # sense against it is judged in context (§2/§9), not on the answer alone.
     client = make_fake_json_llm(
-        json_responses=[COMP],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}],
         text_responses=[ALLOW, "Riepilogo. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=_FakeRedactor())
@@ -177,7 +184,13 @@ def test_correction_is_scope_judged_against_the_summary_not_the_question(make_fa
         "digital_literacy": None,
     }
     client = make_fake_json_llm(
-        json_responses=[skills, {"confirmed": False}, skills],
+        json_responses=[
+            skills,
+            {"needs_clarification": False, "question": ""},
+            {"confirmed": False},
+            skills,
+            {"needs_clarification": False, "question": ""},
+        ],
         text_responses=[
             ALLOW,
             "Ho capito: falegname. Giusto?",
@@ -189,9 +202,9 @@ def test_correction_is_scope_judged_against_the_summary_not_the_question(make_fa
     itw.start()
     itw.submit("faccio il falegname")  # -> summary "Ho capito: falegname. Giusto?"
     itw.submit("no, anche cameriere")  # correction
-    # calls: 0 guard(a1,text) 1 extract(json) 2 summary(text) 3 interpret(json)
-    #        4 guard(correction,text) ...
-    guard_correction = client.calls[4]
+    # calls: 0 guard(a1,text) 1 extract(json) 2 clarity(json) 3 summary(text)
+    #        4 interpret(json) 5 guard(correction,text) ...
+    guard_correction = client.calls[5]
     assert guard_correction["kind"] == "text"
     assert "Ho capito: falegname. Giusto?" in guard_correction["messages"][1]["content"]
 
@@ -257,11 +270,14 @@ _EMPTY_EXTRACTIONS = [
 
 def _confirm_all_sections(json_responses, text_responses):
     """Extend the fake client's scripted responses to drive all 5 sections:
-    each section answer needs guard ALLOW (text) + extraction (json) + summary
-    (text); each confirmation needs interpret_confirmation True (json)."""
+    each section answer needs guard ALLOW (text) + extraction (json) + clarity
+    check "no clarification needed" (json) + summary (text); each confirmation
+    needs interpret_confirmation True (json)."""
     for extraction in _EMPTY_EXTRACTIONS:
         text_responses.extend([ALLOW, "Riepilogo. Giusto?"])
-        json_responses.extend([extraction, {"confirmed": True}])
+        json_responses.extend(
+            [extraction, {"needs_clarification": False, "question": ""}, {"confirmed": True}]
+        )
 
 
 def test_full_interview_runs_incongruence_once_at_end(make_fake_json_llm):
@@ -315,7 +331,7 @@ def test_generated_summary_is_pii_redacted_before_display(make_fake_json_llm):
     # scrub it before it is shown to the person (§7.3 "prima di mostrare").
     redactor = _FakeRedactor()
     client = make_fake_json_llm(
-        json_responses=[COMP],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}],
         text_responses=[ALLOW, "Sai cucinare. Scrivimi a mario@example.com. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=redactor)
@@ -336,7 +352,7 @@ def test_blocked_summary_falls_back_to_generic_confirmation_and_audits(make_fake
     events: list[dict] = []
     repo = FakeRepo()
     client = make_fake_json_llm(
-        json_responses=[COMP, {"confirmed": True}],
+        json_responses=[COMP, {"needs_clarification": False, "question": ""}, {"confirmed": True}],
         text_responses=[ALLOW, "Riepilogo con contenuto fuori ambito. Giusto?"],
         output_responses=[REFUSE],  # the OUTBOUND guard rejects the generated summary
     )
@@ -398,3 +414,38 @@ def test_final_clarification_failing_outbound_scope_guard_is_skipped_and_complet
     assert last is not None and last.kind == "completed"  # clarification skipped, not shown
     # the clarification trip is audited too (§7.3), like the summary trip
     assert any(e["action"] == "output_guard_blocked" for e in events)
+
+
+def test_ambiguous_section_asks_one_open_clarification_then_summarizes(make_fake_json_llm):
+    # answer -> guard ALLOW(text) + extract(json) + clarity NEEDS(json) -> clarification step;
+    # reply -> guard ALLOW(text) + re-extract(json) + clarity SKIPPED (only once) -> summary(text)
+    skills = {"skills": [], "languages": [], "digital_literacy": None}
+    client = make_fake_json_llm(
+        json_responses=[
+            skills,
+            {"needs_clarification": True, "question": "Che sai fare di preciso?"},
+            skills,
+        ],
+        text_responses=[ALLOW, ALLOW, "Ho capito. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=_FakeRedactor())
+    itw.start()
+    s1 = itw.submit("boh, cose")
+    assert s1.kind == "clarification" and "preciso" in s1.text
+    s2 = itw.submit("so cucinare")
+    assert s2.kind == "summary"  # one clarification only, then summary
+
+
+def test_clear_section_skips_clarification(make_fake_json_llm):
+    skills = {
+        "skills": [{"name": "cucina", "kind": "technical", "evidence": "stated"}],
+        "languages": [],
+        "digital_literacy": None,
+    }
+    client = make_fake_json_llm(
+        json_responses=[skills, {"needs_clarification": False, "question": ""}],
+        text_responses=[ALLOW, "Sai cucinare. Giusto?"],
+    )
+    itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=_FakeRedactor())
+    itw.start()
+    assert itw.submit("so cucinare").kind == "summary"

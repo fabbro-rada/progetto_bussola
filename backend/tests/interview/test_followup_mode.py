@@ -64,6 +64,10 @@ SKILL_STATED = {
     "digital_literacy": None,
 }
 CONFIRM = {"confirmed": True}
+# The per-section clarity check (interview.py's `_summarize_section`) makes one
+# extra `chat_json` call per extraction; these fakes script "no clarification
+# needed" so the flow proceeds straight to the summary, as in normal use.
+CLARITY_NO = {"needs_clarification": False, "question": ""}
 
 
 def _existing_profile(pseudonym: str = "P-x") -> WorkProfile:
@@ -90,7 +94,14 @@ def test_followup_appends_experience_and_upgrades_evidence(make_fake_json_llm):
     )
     repo = FakeRepo({"P-x": existing})
     client = make_fake_json_llm(
-        json_responses=[NEW_EXPERIENCE, CONFIRM, SKILL_DEMONSTRATED, CONFIRM],
+        json_responses=[
+            NEW_EXPERIENCE,
+            CLARITY_NO,
+            CONFIRM,
+            SKILL_DEMONSTRATED,
+            CLARITY_NO,
+            CONFIRM,
+        ],
         text_responses=[
             ALLOW,
             "Riepilogo esperienza. Giusto?",
@@ -130,7 +141,7 @@ def test_followup_never_downgrades_or_drops(make_fake_json_llm):
     )
     repo = FakeRepo({"P-x": existing})
     client = make_fake_json_llm(
-        json_responses=[EMPTY_EXPERIENCE, CONFIRM, SKILL_STATED, CONFIRM],
+        json_responses=[EMPTY_EXPERIENCE, CLARITY_NO, CONFIRM, SKILL_STATED, CLARITY_NO, CONFIRM],
         text_responses=[ALLOW, "Riepilogo. Giusto?", ALLOW, "Riepilogo. Giusto?"],
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it")
@@ -206,16 +217,22 @@ def test_followup_reject_and_reanswer_never_accumulates_or_leaks_rejected_data(m
 
     json_responses = [
         exp_rejected,
+        CLARITY_NO,
         {"confirmed": False},
         exp_final,
+        CLARITY_NO,
         {"confirmed": True},
         skills_rejected,
+        CLARITY_NO,
         {"confirmed": False},
         skills_final,
+        CLARITY_NO,
         {"confirmed": True},
         asp_rejected,
+        CLARITY_NO,
         {"confirmed": False},
         asp_final,
+        CLARITY_NO,
         {"confirmed": True},
         {"has_incongruence": False, "clarification": ""},
     ]
@@ -310,10 +327,13 @@ def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_
     repo = FakeRepo({"P-x": _existing_profile()})
     json_responses = [
         EMPTY_EXPERIENCE,
+        CLARITY_NO,
         CONFIRM,
         SKILL_STATED,
+        CLARITY_NO,
         CONFIRM,
         EMPTY_ASPIRATION,
+        CLARITY_NO,
         CONFIRM,
         {"has_incongruence": False, "clarification": ""},
     ]
@@ -351,7 +371,7 @@ def test_first_interview_completion_does_not_emit_followup_completed_audit(make_
     ]
     for extraction in empty_first_interview_extractions:
         text_responses.extend([ALLOW, "Riepilogo. Giusto?"])
-        json_responses.extend([extraction, CONFIRM])
+        json_responses.extend([extraction, CLARITY_NO, CONFIRM])
     json_responses.append({"has_incongruence": False, "clarification": ""})
     client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
     audit = AuditRecorder()
@@ -380,6 +400,7 @@ def test_first_interview_mode_unchanged(make_fake_json_llm):
                 "languages": [],
                 "digital_literacy": None,
             },
+            CLARITY_NO,
             CONFIRM,
         ],
         text_responses=[ALLOW, "Riepilogo. Giusto?"],

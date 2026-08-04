@@ -9,6 +9,7 @@ from typing import Callable, Protocol
 from bussola.guardrails.pii import PiiRedactor
 from bussola.guardrails.refusal import RefusalCategory, refusal_message, unavailable_message
 from bussola.guardrails.scope import ScopeGuard
+from bussola.interview.clarify import find_section_clarification
 from bussola.interview.confirm import interpret_confirmation, summarize
 from bussola.interview.extraction import extract_section
 from bussola.interview.incongruence import find_incongruence
@@ -73,6 +74,14 @@ class Interview:
         # otherwise a plain "no"/short correction is measured against the section
         # question and wrongly refused as off-topic.
         self._last_summary: str = ""
+        # Set while an open per-section clarification is pending a reply (§5/§7.1,
+        # max ONE per section): kept True through the reply's guard check so
+        # `_summarize_section`'s re-entry skips a second clarity check and goes
+        # straight to the summary.
+        self._awaiting_section_clarification = False
+        # The open clarification question asked (if any), kept so the scope
+        # guard can judge the reply as an answer to THAT question.
+        self._section_clarification: str | None = None
 
     def _redact(self, text: str) -> str:
         """Redact personal data from LLM-generated text before it is shown to
@@ -128,6 +137,8 @@ class Interview:
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
+        self._awaiting_section_clarification = False
+        self._section_clarification = None
         return self._question_step()
 
     def start_on(self, pseudonym_id: str) -> Step:
@@ -140,6 +151,8 @@ class Interview:
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
+        self._awaiting_section_clarification = False
+        self._section_clarification = None
         return self._question_step()
 
     def start_followup(self, pseudonym_id: str) -> Step:
@@ -156,6 +169,8 @@ class Interview:
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
+        self._awaiting_section_clarification = False
+        self._section_clarification = None
         return self._question_step()
 
     def _finalize(self, session: InterviewSession) -> Step:
@@ -223,6 +238,30 @@ class Interview:
             self._awaiting_final_clarification = False
             return self._complete()
 
+        # Open per-section clarification surfaced: the person is replying to
+        # it. Guard the reply against THAT question, append it to the
+        # section's accumulated answer, and re-extract — `_awaiting_section_
+        # clarification` stays True through this, so `_summarize_section`
+        # skips a second clarity check (max ONE per section, §5/§7.1) and
+        # goes straight to the summary (which clears the flag).
+        if self._awaiting_section_clarification:
+            section = session.current_section
+            assert section is not None
+            decision = self._guard.check(
+                answer,
+                self._language,
+                question=self._section_clarification or base_question(section, self._language),
+            )
+            if not decision.allow:
+                return Step(
+                    "refusal",
+                    refusal_message(
+                        decision.category or RefusalCategory.OUT_OF_SCOPE, self._language
+                    ),
+                )
+            self._section_answer = f"{self._section_answer}\n{answer}".strip()
+            return self._summarize_section(session, section)
+
         if self._awaiting_confirmation:
             if interpret_confirmation(self._client, answer, self._language):
                 # Confirmed by the person: persist this section and advance.
@@ -282,8 +321,27 @@ class Interview:
         """Extract from the section's accumulated answer, merge it into the
         partial profile, and return the summary step, awaiting confirmation.
         Shared by a first answer and every subsequent correction, so a
-        correction re-extracts from the full text (original + corrections)."""
+        correction re-extracts from the full text (original + corrections).
+
+        Before building the summary, checks whether the extraction is
+        ambiguous (§5/§7.1): if so, and this isn't already the re-entry after
+        that clarification's reply, it emits an open `clarification` step
+        instead (max ONE per section — `_awaiting_section_clarification`
+        stays True through the reply, so the re-entry falls straight through
+        to the summary)."""
         extracted = extract_section(self._client, section, self._section_answer, self._language)
+        if not self._awaiting_section_clarification:
+            question = find_section_clarification(
+                self._client, section, extracted, session.profile, self._language
+            )
+            if question is not None:
+                shown = self._present(question)
+                if shown is not None:  # off-scope generated text withheld (§9); else fall through
+                    self._awaiting_section_clarification = True
+                    self._section_clarification = question
+                    return Step("clarification", shown)
+        self._awaiting_section_clarification = False
+        self._section_clarification = None
         summary_text = self._present(summarize(self._client, section, extracted, self._language))
         if summary_text is None:
             # The generated summary failed the outbound scope guard (§9, already
