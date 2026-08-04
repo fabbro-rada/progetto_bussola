@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../i18n/languages'
 import { applyLanguage } from '../i18n'
 import { BigButton } from '../components/BigButton'
+import { Notice } from '../components/Notice'
 import { VoiceBar } from '../components/VoiceBar'
 
 // Follow-up entry (Sottosistema 29, Task 6): a returning person keys in the
@@ -20,6 +21,7 @@ import { VoiceBar } from '../components/VoiceBar'
 export function FollowupEntry({
   onSubmit,
   onLanguageChange,
+  notice = false,
 }: {
   onSubmit: (token: string, language: string) => void
   // Fix round 1 (§4): notifies the app-level state of the chosen language as
@@ -28,6 +30,9 @@ export function FollowupEntry({
   // state) targets the right language while still on THIS screen, not only
   // after the form is submitted.
   onLanguageChange: (language: string) => void
+  // True when the person landed back here after a follow-up code that didn't
+  // work: show a gentle recovery notice so they re-key or ask for a new code.
+  notice?: boolean
 }) {
   const { t } = useTranslation()
   const [language, setLanguage] = useState<string | null>(null)
@@ -44,6 +49,7 @@ export function FollowupEntry({
   return (
     <div className="followup-entry">
       <h1>{t('followupEntry.title')}</h1>
+      {notice && <Notice tone="warn" text={t('followupEntry.retryNotice')} />}
       <div className="language-grid" role="group" aria-label={t('followupEntry.languageGroupLabel')}>
         {LANGUAGES.map((l) => (
           <button

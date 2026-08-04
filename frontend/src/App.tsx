@@ -111,7 +111,7 @@ export function App({
       case 'consent':
         return <Consent onAccept={start} onDecline={decline} busy={state.pending} />
       case 'followupEntry':
-        return <FollowupEntry onSubmit={submitFollowupCredentials} onLanguageChange={previewFollowupLanguage} />
+        return <FollowupEntry onSubmit={submitFollowupCredentials} onLanguageChange={previewFollowupLanguage} notice={state.followupNotice} />
       case 'followupConsent':
         return <FollowupConsent onAccept={startFollowup} onDecline={decline} busy={state.pending} />
       // Key by stepSeq so every new step remounts a fresh input component

@@ -28,8 +28,9 @@ test('started ok derives the screen from the step kind and stores the session to
 // nothing about which one it was). Routing 'unauthorized' to the
 // "station not authorized" screen would misdirect the person (and any
 // operator helping them) toward a device problem that may not exist, so
-// `started` now fails closed to 'unavailable' for BOTH statuses -- exactly
-// mirroring `startedFollowup` below.
+// `started` (the FIRST-interview start-code path) fails closed to 'unavailable'
+// for BOTH statuses. (The follow-up path — `startedFollowup` below — instead
+// routes back to a recoverable entry so a bad code isn't a dead-end.)
 test('started unauthorized/unavailable both fail closed to the gentle unavailable screen', () => {
   expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unauthorized' } }).screen).toBe('unavailable')
   expect(reducer({ ...initialState, pending: true }, { type: 'started', result: { status: 'unavailable' } }).screen).toBe('unavailable')
@@ -143,18 +144,28 @@ test('startedFollowup ok derives the screen from the step kind and stores the se
   expect(s).toMatchObject({ screen: 'question', sessionToken: 'tok', step: { kind: 'question', text: 'Bentornato' } })
 })
 
-test('startedFollowup unauthorized (bad/expired/used token) routes to the gentle unavailable screen, not "unauthorized"', () => {
+test('a failed startedFollowup (bad/expired/used token) routes BACK to the entry to re-key, clearing the spent token + flagging a notice', () => {
   const base = { ...initialState, followupToken: 'F-123', pending: true }
   const s = reducer(base, { type: 'startedFollowup', result: { status: 'unauthorized' } })
-  expect(s.screen).toBe('unavailable')
+  expect(s.screen).toBe('followupEntry') // recoverable: no dead-end
+  expect(s.followupToken).toBeNull() // spent token dropped so a retry can't re-send it
+  expect(s.followupNotice).toBe(true)
   expect(s.pending).toBe(false)
 })
 
-test('startedFollowup unavailable (backend down) also routes to the unavailable screen', () => {
+test('startedFollowup unavailable (backend down) also routes back to the recoverable entry', () => {
   const base = { ...initialState, followupToken: 'F-123', pending: true }
   const s = reducer(base, { type: 'startedFollowup', result: { status: 'unavailable' } })
-  expect(s.screen).toBe('unavailable')
+  expect(s.screen).toBe('followupEntry')
+  expect(s.followupNotice).toBe(true)
   expect(s.pending).toBe(false)
+})
+
+test('re-submitting follow-up credentials clears the retry notice', () => {
+  const base = { ...initialState, screen: 'followupEntry' as const, followupNotice: true }
+  const s = reducer(base, { type: 'submitFollowupCredentials', token: 'F-9', language: 'it' })
+  expect(s.followupNotice).toBe(false)
+  expect(s.screen).toBe('followupConsent')
 })
 
 test('a late startedFollowup after a reset is ignored (pending=false → no-op)', () => {

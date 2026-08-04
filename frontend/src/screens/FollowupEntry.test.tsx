@@ -24,6 +24,18 @@ test('requires both a language and a non-empty code before it can continue', asy
   expect(onSubmit).toHaveBeenCalledWith('F-ABC123', 'it')
 })
 
+test('shows the recovery notice when a prior code failed (notice prop)', async () => {
+  await i18n.changeLanguage('it')
+  renderWithProviders(<FollowupEntry onSubmit={vi.fn()} onLanguageChange={vi.fn()} notice />)
+  expect(screen.getByText(/non ha funzionato/i)).toBeInTheDocument()
+})
+
+test('does not show the recovery notice by default', async () => {
+  await i18n.changeLanguage('it')
+  renderWithProviders(<FollowupEntry onSubmit={vi.fn()} onLanguageChange={vi.fn()} />)
+  expect(screen.queryByText(/non ha funzionato/i)).not.toBeInTheDocument()
+})
+
 test('trims the entered code and reports the chosen language code, not its label', async () => {
   await i18n.changeLanguage('it')
   const onSubmit = vi.fn()

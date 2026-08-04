@@ -24,6 +24,7 @@ export const it = {
     tokenLabel: "Inserisci il codice che ti ha dato l'operatore",
     tokenPlaceholder: 'Codice…',
     submit: 'Continua',
+    retryNotice: 'Questo codice non ha funzionato. Chiedi un nuovo codice all’operatore e inseriscilo qui.',
   },
   followupConsent: {
     title: 'Aggiorniamo il tuo profilo? 👋',

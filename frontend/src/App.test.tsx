@@ -299,17 +299,20 @@ test('follow-up: declining the recap returns to the neutral entry — no session
   expect(client.calls.answers).toEqual([]) // and nothing was ever submitted
 })
 
-test('follow-up: an invalid/expired/used token fails closed to the gentle unavailable screen (no crash, no leak of why)', async () => {
+test('follow-up: an invalid/expired/used token is RECOVERABLE — back to the entry with a notice, not a dead-end', async () => {
   const client = makeFakeClient({ startFollowup: { status: 'unauthorized' } })
   renderWithProviders(<App client={client} voiceClient={noopVoiceClient} />)
 
   await openFollowupWithCode('Italiano', 'F-BAD')
   await userEvent.click(await screen.findByRole('button', { name: 'Sì, aggiorniamo' }))
 
-  expect(await screen.findByText(/Un momento, ci riprovo/)).toBeInTheDocument()
-  // Specifically NOT the station-not-authorized screen — that would
-  // misdirect the person (and any operator helping them) toward a device
-  // problem that doesn't exist.
+  // Routes back to the follow-up entry (re-key a fresh code) with a gentle
+  // notice — not the old "un momento, ci riprovo" dead-end whose retry re-sent
+  // the already-consumed token.
+  expect(await screen.findByText(/non ha funzionato/i)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Continua' })).toBeInTheDocument()
+  expect(screen.queryByText(/Un momento, ci riprovo/)).not.toBeInTheDocument()
+  // Still says nothing device-auth-specific.
   expect(screen.queryByText(/Questa postazione non è autorizzata/)).not.toBeInTheDocument()
 })
 

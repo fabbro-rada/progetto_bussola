@@ -24,6 +24,7 @@ export const es = {
     tokenLabel: 'Introduce el código que te dio un operador',
     tokenPlaceholder: 'Código…',
     submit: 'Continuar',
+    retryNotice: 'Ese código no funcionó. Pide un código nuevo al operador e introdúcelo aquí.',
   },
   followupConsent: {
     title: '¿Actualizamos tu perfil? 👋',

@@ -22,6 +22,11 @@ export interface MachineState {
   // start-followup calls startFollowup again instead of starting a fresh
   // first interview (§4 — the person should not have to re-key their code).
   followupToken: string | null
+  // Set when a follow-up start failed and we routed the person BACK to the
+  // follow-up entry to re-key a fresh code (instead of a dead-end): the entry
+  // screen shows a gentle "that code didn't work, ask the operator for a new
+  // one" notice. Cleared as soon as they submit a new code.
+  followupNotice: boolean
   // Re-identification (Task 8): the kiosk no longer self-starts anonymously.
   // Set once the person enters the one-time start code an operator gave
   // them (before `start` is called) and kept around for the same retry
@@ -39,6 +44,7 @@ export const initialState: MachineState = {
   lastAnswer: null,
   pending: false,
   followupToken: null,
+  followupNotice: false,
   startCode: null,
 }
 
@@ -144,21 +150,25 @@ export function reducer(state: MachineState, action: Action): MachineState {
     case 'previewFollowupLanguage':
       return { ...state, language: action.language }
     case 'submitFollowupCredentials':
-      return { ...state, followupToken: action.token, language: action.language, screen: 'followupConsent' }
+      return { ...state, followupToken: action.token, language: action.language, followupNotice: false, screen: 'followupConsent' }
     case 'submitStartCode':
       // The language was already set by selectLanguage (LanguagePicker); keep it.
       return { ...state, startCode: action.code, screen: 'consent' }
     case 'startedFollowup': {
       if (!state.pending) return state
       const r = action.result
-      // Fail-closed: an invalid/used/expired token and a genuinely down
-      // backend are indistinguishable to the person and MUST NOT be — the
-      // 'unauthorized' screen ("this station is not authorized") would leak
-      // that something about the person's code specifically was rejected and
-      // would misdirect them (and operators) toward a device-auth problem
-      // that doesn't exist. Both statuses route to the same gentle,
-      // no-detail "unavailable" screen instead (brief's Step 3).
-      if (r.status !== 'ok') return { ...state, screen: 'unavailable', pending: false }
+      // A failed follow-up start (bad/used/expired token, or a transient
+      // backend issue) must be RECOVERABLE, not a dead-end: the earlier
+      // "unavailable" routing left the person on a screen whose "Riprova"
+      // re-sent the already-consumed token and never changed anything. Instead
+      // route back to the follow-up ENTRY, clear the spent token, and flag a
+      // gentle notice so they can re-key a fresh code (or ask the operator for
+      // one). We still say nothing device-auth-specific — the notice only says
+      // the code didn't work — so no meaningful leak beyond "this operator-
+      // issued follow-up code failed", which the person must know to recover.
+      // (The first-interview start-code path keeps its own routing.)
+      if (r.status !== 'ok')
+        return { ...state, screen: 'followupEntry', followupToken: null, followupNotice: true, pending: false }
       return {
         ...state,
         sessionToken: r.sessionToken,
