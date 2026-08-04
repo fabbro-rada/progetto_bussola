@@ -5,12 +5,17 @@ import { renderWithProviders } from '../test/utils'
 import { Clarification } from './Clarification'
 import i18n from '../i18n'
 
-test('lets the person correct an incongruence', async () => {
+test('is an OPEN question: a free-text answer box (no Sì/No), submitting what the person writes', async () => {
   await i18n.changeLanguage('it')
   const onSubmit = vi.fn()
-  renderWithProviders(<Clarification text="Hai detto 5 anni, ma le date dicono 2. È corretto?" onSubmit={onSubmit} />)
-  await userEvent.click(screen.getByRole('button', { name: 'No, correggi qualcosa' }))
-  await userEvent.type(screen.getByRole('textbox'), 'erano 2 anni')
-  await userEvent.click(screen.getByRole('button', { name: 'Invia' }))
-  expect(onSubmit).toHaveBeenCalledWith('erano 2 anni')
+  renderWithProviders(
+    <Clarification text="Che cosa facevi di preciso come custode nella scuola?" onSubmit={onSubmit} />,
+  )
+  // A clarification is NOT a confirmation: no "Sì, è corretto" / "No, correggi qualcosa".
+  expect(screen.queryByRole('button', { name: 'Sì, è corretto' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'No, correggi qualcosa' })).not.toBeInTheDocument()
+  // The person answers in an open box and sends it.
+  await userEvent.type(screen.getByRole('textbox'), 'controllavo gli ingressi e chiudevo la scuola')
+  await userEvent.click(screen.getByRole('button', { name: 'Avanti' }))
+  expect(onSubmit).toHaveBeenCalledWith('controllavo gli ingressi e chiudevo la scuola')
 })

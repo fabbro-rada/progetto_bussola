@@ -48,7 +48,12 @@ def find_section_clarification(
         "When in doubt, do NOT ask. If (and only if) needed, write ONE short, gentle, "
         f"non-judgmental OPEN question ENTIRELY in {name} (code '{language}') — every "
         "word in that language, simple everyday words, and NO emoji or symbols (it is "
-        'read aloud). Reply JSON {"needs_clarification": bool, "question": string}; '
+        "read aloud). The question MUST be concrete and about ONE specific thing, so a "
+        "person with low literacy understands it at once with no ambiguity: ask plainly "
+        "what they actually did, e.g. 'Che cosa facevi come custode nella scuola?'. Do "
+        "NOT ask abstract or bureaucratic questions such as 'qual è la tua responsabilità "
+        "nel ruolo di...' or 'qual è la relazione tra X e le tue esperienze'. "
+        'Reply JSON {"needs_clarification": bool, "question": string}; '
         "use false + empty question when no clarification is needed."
     )
     user = (
