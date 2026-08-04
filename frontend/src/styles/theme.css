@@ -1,28 +1,49 @@
 :root {
   --text-scale: 1;
-  --fg: #111111;
-  --bg: #ffffff;
-  --muted: #6b7280;
-  --accent: #2563eb;
-  --confirm: #15803d;
+
+  /* Progetto Bussola — brand palette (same tokens as the operator portal,
+     for cross-app consistency). */
+  --blu-bussola: #174a6e;
+  --blu-profondo: #102f46;
+  --turchese: #20a9a5;
+  --azzurro: #dceff1;
+  --ambra: #e9ad3a;
+  --sabbia: #e9e4da;
+  --bianco: #f7f9f9;
+  --grafite: #29343b;
+
+  /* Generic tokens, routed to the brand palette. Kept as indirection (rather
+     than inlining the brand colours below) so components keep referring to
+     --fg/--accent/--confirm/etc. — no class or component changed shape here,
+     only what the tokens resolve to. */
+  --fg: var(--grafite);
+  --bg: var(--bianco);
+  --muted: #5b6b73;
+  --accent: var(--blu-bussola);
+  --confirm: var(--blu-bussola);
   --danger: #b91c1c;
   --warn-bg: #fffbeb;
 }
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
+  font-family: 'Manrope', system-ui, sans-serif;
   color: var(--fg);
   background: var(--bg);
   font-size: calc(18px * var(--text-scale));
   line-height: 1.5;
 }
+h1 { color: var(--blu-profondo); font-weight: 700; }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; }
 .chrome {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 12px 16px; border-bottom: 2px solid #e5e7eb;
+  gap: 12px; padding: 12px 16px; border-bottom: 2px solid var(--sabbia);
 }
+/* Groups the brand mark with the (optional) Stop button on the leading edge,
+   so the chrome keeps its 3-slot space-between layout with the logo added. */
+.chrome-start { display: flex; align-items: center; gap: 12px; }
+.chrome-mark { height: 36px; width: auto; display: block; }
 main { flex: 1; padding: 24px 16px; max-width: 720px; margin-inline: auto; width: 100%; }
 
 .prompt-text { font-size: calc(24px * var(--text-scale)); font-weight: 700; line-height: 1.35; }
@@ -39,7 +60,10 @@ textarea {
 }
 .big-button:disabled { opacity: 0.5; cursor: not-allowed; }
 .big-confirm { background: var(--confirm); color: #fff; }
-.big-secondary { background: #fff; color: #374151; border-color: #9ca3af; }
+/* Secondary: white surface, brand-blue border/text (never the teal/amber
+   accents as text — those fail AA on a light background, see the palette
+   notes in STATO_TECNICO.md). */
+.big-secondary { background: #fff; color: var(--blu-bussola); border-color: var(--blu-bussola); }
 .big-danger { background: var(--danger); color: #fff; }
 
 .stop-button {
@@ -48,11 +72,17 @@ textarea {
 }
 .notice { padding: 20px; border-radius: 12px; font-size: calc(20px * var(--text-scale)); }
 .notice-warn { background: var(--warn-bg); }
-.notice-info { background: #f8fafc; }
+/* Conversational surface: azure, the palette's colour for dialogue screens.
+   Text stays --fg (grafite) inherited, comfortably AA on this light tint. */
+.notice-info { background: var(--azzurro); }
 .notice-success { background: #f0fdf4; }
 .notice-error { background: #fef2f2; }
 .banner-warn { background: var(--warn-bg); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-weight: 600; }
 
+/* Full wordmark, entry screen only. Caps at ~280px and shrinks on narrower
+   viewports since it never exceeds the container width; centers itself via
+   margin auto regardless of the surrounding (unchanged) text flow. */
+.picker-logo { display: block; max-width: 280px; width: 100%; height: auto; margin: 0 auto 20px; }
 .language-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .language-tile {
   font: inherit; font-size: calc(22px * var(--text-scale)); font-weight: 700;
@@ -64,7 +94,9 @@ textarea {
   margin-top: 28px; max-width: 640px; color: #4b5563;
   font-size: calc(13px * var(--text-scale)); line-height: 1.5;
 }
-.language-tile[aria-pressed='true'] { background: #e5e7eb; border-color: #64748b; }
+/* Selected language: calm azure highlight with a brand-blue border — the
+   conversational-surface tint, not the teal/amber accents (contrast rule). */
+.language-tile[aria-pressed='true'] { background: var(--azzurro); border-color: var(--blu-bussola); }
 /* Discreet on purpose (§4 — an option, not a prompt): text-link styling, not
    a button, so it doesn't compete with the primary language tiles above it. */
 .followup-link {
@@ -78,12 +110,13 @@ textarea {
   font: inherit; font-size: calc(18px * var(--text-scale));
 }
 .pending { color: var(--muted); font-weight: 600; }
-.voice-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block: 12px; padding: 10px 12px; background: #f3f4f6; border-radius: 12px; }
-.voice-btn { font: inherit; font-size: calc(16px * var(--text-scale)); font-weight: 700; padding: 12px 16px; border-radius: 10px; border: 2px solid #2563eb; background: #fff; color: #2563eb; cursor: pointer; }
+/* Conversational surface: azure background for the voice controls strip. */
+.voice-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block: 12px; padding: 10px 12px; background: var(--azzurro); border-radius: 12px; }
+.voice-btn { font: inherit; font-size: calc(16px * var(--text-scale)); font-weight: 700; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--accent); background: #fff; color: var(--accent); cursor: pointer; }
 .voice-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.voice-btn.primary { background: #2563eb; color: #fff; }
+.voice-btn.primary { background: var(--accent); color: #fff; }
 .voice-btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
-.voice-btn[aria-pressed='true'] { background: #e5e7eb; color: #374151; border-color: #9ca3af; }
+.voice-btn[aria-pressed='true'] { background: var(--sabbia); color: var(--grafite); border-color: #9ca3af; }
 .voice-note { color: var(--muted); font-weight: 600; }
 /* The recording indicator must read as clearly "live": red and gently pulsing
    so the person sees the mic is capturing. Motion is disabled below for users
