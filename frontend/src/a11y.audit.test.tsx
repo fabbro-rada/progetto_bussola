@@ -13,6 +13,7 @@ import { Clarification } from './screens/Clarification'
 import { Summary } from './screens/Summary'
 import { Refusal } from './screens/Refusal'
 import { Completed } from './screens/Completed'
+import { Recap } from './screens/Recap'
 import { Unauthorized } from './screens/Unauthorized'
 import { Unavailable } from './screens/Unavailable'
 import { Notice } from './components/Notice'
@@ -83,6 +84,11 @@ test('Refusal has no a11y violations', async () => {
 
 test('Completed has no a11y violations', async () => {
   const { container } = renderWithProviders(<Completed onFinish={noop} />)
+  await expectNoA11yViolations(container)
+})
+
+test('Recap has no a11y violations', async () => {
+  const { container } = renderWithProviders(<Recap profile={{ pseudonym_id: 'P-1', languages: [], digital_literacy: null, skills: [], experiences: [], aspiration: null, desired_training: [], operational_notes: [] }} onSubmit={() => {}} />)
   await expectNoA11yViolations(container)
 })
 
