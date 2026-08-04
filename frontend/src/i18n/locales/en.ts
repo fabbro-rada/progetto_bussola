@@ -24,6 +24,7 @@ export const en = {
     tokenLabel: 'Enter the code an operator gave you',
     tokenPlaceholder: 'Code…',
     submit: 'Continue',
+    retryNotice: 'That code did not work. Ask the operator for a new code and enter it here.',
   },
   followupConsent: {
     title: 'Shall we update your profile? 👋',

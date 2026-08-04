@@ -24,6 +24,7 @@ export const fr = {
     tokenLabel: "Saisis le code qu'un opérateur t'a donné",
     tokenPlaceholder: 'Code…',
     submit: 'Continuer',
+    retryNotice: "Ce code n'a pas fonctionné. Demande un nouveau code à l'opérateur et saisis-le ici.",
   },
   followupConsent: {
     title: 'On met à jour ton profil ? 👋',

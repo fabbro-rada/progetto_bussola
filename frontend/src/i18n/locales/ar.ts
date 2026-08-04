@@ -24,6 +24,7 @@ export const ar = {
     tokenLabel: 'أدخل الرمز الذي أعطاك إياه أحد الموظفين',
     tokenPlaceholder: 'الرمز…',
     submit: 'متابعة',
+    retryNotice: 'لم ينجح هذا الرمز. اطلب رمزًا جديدًا من الموظّف وأدخله هنا.',
   },
   followupConsent: {
     title: 'هل نحدّث ملفك؟ 👋',
