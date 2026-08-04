@@ -5,10 +5,24 @@ export type StepKind =
   | 'refusal'
   | 'unavailable'
   | 'completed'
+  | 'recap'
+
+// Minimal view of the work profile shown at the recap (person's own data).
+export interface WorkProfileView {
+  pseudonym_id: string
+  languages: { language: string; level: string }[]
+  digital_literacy: string | null
+  skills: { name: string; kind: string; evidence: string }[]
+  experiences: { role: string; sector: string; duration_months: number }[]
+  aspiration: { fields_of_interest: string[]; availability: string | null; constraints: string[] } | null
+  desired_training: { topic: string }[]
+  operational_notes: string[]
+}
 
 export interface Step {
   kind: StepKind
   text: string
+  recap?: WorkProfileView
 }
 
 export type StartResult =

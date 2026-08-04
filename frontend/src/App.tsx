@@ -20,6 +20,7 @@ import { Clarification } from './screens/Clarification'
 import { Refusal } from './screens/Refusal'
 import { Unavailable } from './screens/Unavailable'
 import { Completed } from './screens/Completed'
+import { Recap } from './screens/Recap'
 import { Unauthorized } from './screens/Unauthorized'
 
 export function App({
@@ -129,6 +130,8 @@ export function App({
         return <Unavailable onRetry={retry} busy={state.pending} />
       case 'completed':
         return <Completed onFinish={stop} />
+      case 'recap':
+        return <Recap key={state.stepSeq} profile={state.step!.recap!} onSubmit={submit} busy={state.pending} />
       case 'unauthorized':
         return <Unauthorized />
     }
