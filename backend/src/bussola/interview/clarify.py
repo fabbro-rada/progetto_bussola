@@ -92,10 +92,17 @@ def apply_recap_correction(
                 {
                     "role": "system",
                     "content": (
-                        "Which ONE profile section does this correction change? "
+                        "Which ONE profile section does this correction change? The "
+                        "sections are: skills (skills, known languages, digital literacy); "
+                        "experiences (past jobs); aspirations (fields of interest AND "
+                        "desired training/courses/qualifications — e.g. 'voglio prendere "
+                        "il diploma', 'fare un corso da elettricista', 'mi piacerebbe "
+                        "lavorare nella ristorazione'); constraints (availability + "
+                        "work-scheduling constraints); preferences (team/solo work, "
+                        "language/literacy support). "
                         'Reply JSON {"section": one of '
                         "skills|experiences|aspirations|constraints|preferences|none}. "
-                        "Use 'none' if it does not clearly map to a section."
+                        "Use 'none' ONLY if it truly maps to no section."
                     ),
                 },
                 {
@@ -111,11 +118,16 @@ def apply_recap_correction(
     section = _SECTION_BY_KEY.get(key) if isinstance(key, str) else None
     if section is None:
         return None
-    # Re-extract the whole section from current data + the correction (extract_section
-    # OVERWRITES the section via session.merge's first-interview semantics).
+    # Re-extract the WHOLE section from current data + the correction; the caller
+    # OVERWRITES the section with the result (`session.apply_correction`), so the
+    # re-extraction MUST reproduce everything already there plus the change, or
+    # data would be lost. Instruct exactly that.
     context = (
-        f"The person's current profile is: {profile.model_dump_json()}. "
-        f"They correct the {section.key}: {reply}. Produce the corrected {section.key}."
+        f"The person's current {section.key} data is: {profile.model_dump_json()}. "
+        f"They now ask to change it: {reply}. Produce the FULL updated {section.key}: "
+        "keep everything they already had and apply this change — ADD what they ask "
+        "for, and change or remove ONLY what they explicitly mention. Never drop "
+        "existing items that the correction does not touch."
     )
     try:
         return extract_section(client, section, context, language)

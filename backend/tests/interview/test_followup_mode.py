@@ -8,7 +8,14 @@ from __future__ import annotations
 
 from bussola.guardrails.scope import ScopeGuard
 from bussola.interview.interview import Interview
-from bussola.profile.enums import DigitalLiteracy, EvidenceGrade, LanguageLevel, SkillKind
+from bussola.profile.enums import (
+    Availability,
+    DigitalLiteracy,
+    EvidenceGrade,
+    LanguageLevel,
+    SkillKind,
+    WorkConstraint,
+)
 from bussola.profile.models import (
     Aspiration,
     DesiredTraining,
@@ -429,14 +436,23 @@ def test_first_interview_mode_unchanged(make_fake_json_llm):
     assert saved.skills[0].name == "cooking"
 
 
-def test_followup_recap_correction_routed_to_unsupported_section_fails_closed(make_fake_json_llm):
-    """§3 fail-closed: apply_recap_correction can route a recap correction to
-    ANY of the 5 sections, but FollowupInterviewSession.merge() only
-    understands experiences/skills/aspirations -- constraints/preferences are
-    first-interview-only and raise TypeError for a follow-up session. Routing
-    a follow-up recap correction to "constraints" must NOT crash to
-    `unavailable`: it must keep the recap unchanged (nothing new persisted)
-    and ask the person to rephrase, exactly like the unroutable case."""
+def _drive_followup_to_recap(itw):
+    """Run the 3 reduced follow-up sections (each scripted answer+confirm) to the
+    final recap and return the recap step."""
+    final = None
+    for _ in range(3):
+        itw.submit("una risposta")
+        final = itw.submit("sì")
+    assert final is not None and final.kind == "recap"
+    return final
+
+
+def test_followup_recap_correction_applies_via_overwrite_any_section(make_fake_json_llm):
+    """A follow-up recap correction now APPLIES (it is not fail-closed): it is
+    routed and the routed section is OVERWRITTEN via `apply_correction`. This
+    works even for a section the follow-up `merge` cannot handle (constraints/
+    preferences) — `apply_correction` covers all five — so it never crashes and
+    the correction is persisted."""
     repo = FakeRepo({"P-x": _existing_profile()})
     json_responses = [
         EMPTY_EXPERIENCE,
@@ -450,47 +466,35 @@ def test_followup_recap_correction_routed_to_unsupported_section_fails_closed(ma
         CONFIRM,
         {"has_incongruence": False, "clarification": ""},
         {"confirmed": False},  # recap: not a confirmation -> correction
-        {"section": "constraints"},  # routed to a section unsupported in follow-up mode
-        {"availability": "full_time", "constraints": []},  # re-extract (never merged)
+        {"section": "constraints"},  # routed (a section follow-up `merge` can't handle)
+        {"availability": "full_time", "constraints": ["no_night_shifts"]},  # re-extract
     ]
     text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
     client = make_fake_json_llm(
         json_responses=json_responses, text_responses=[*text_responses, ALLOW]
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it")
-
     itw.start_followup("P-x")
-    final = None
-    for _ in range(3):
-        itw.submit("una risposta")
-        final = itw.submit("sì")
-    assert final is not None and final.kind == "recap"
+    final = _drive_followup_to_recap(itw)
 
     saves_before = len(repo.saved)
     step = itw.submit("niente più turni di notte")
     assert step.kind == "recap"
-    assert step.text != final.text  # the static retry message, not the recap intro again
-    assert len(repo.saved) == saves_before  # fail-closed: nothing new persisted
-    assert step.recap is final.recap  # session.profile untouched by the failed merge
+    assert step.text == final.text  # the recap intro again (applied), NOT the retry message
+    assert len(repo.saved) == saves_before + 1  # the correction was persisted
+    assert step.recap is not None and step.recap.aspiration is not None
+    assert step.recap.aspiration.availability == Availability.FULL_TIME
+    assert WorkConstraint.NO_NIGHT_SHIFTS in step.recap.aspiration.constraints
 
 
-def test_followup_recap_correction_to_experiences_fails_closed_no_duplication(make_fake_json_llm):
-    """§3/§5-critical: unlike constraints/preferences (unsupported, raises
-    TypeError in merge()), "experiences" IS a section FollowupInterviewSession.
-    merge() understands -- but its append/upgrade semantics for experiences
-    are a plain `baseline + extracted` concatenation with NO dedup. If a recap
-    correction were routed there, the re-extracted (whole-section) result
-    would be appended on top of the baseline and silently DUPLICATE it --
-    corrupting the profile with no error raised. So a follow-up recap
-    correction must be rejected fail-closed BEFORE routing/re-extraction is
-    even attempted: the recap stays unchanged, nothing new is persisted, and
-    the person is asked to rephrase -- same observable outcome as the
-    unroutable/unsupported-section cases, but here to prevent silent
-    corruption rather than a crash.
-
-    The scope guard must still run FIRST (§9): an off-scope reply at the same
-    recap step is refused, not silently treated as an unroutable correction.
-    """
+def test_followup_recap_correction_to_experiences_overwrites_without_duplication(
+    make_fake_json_llm,
+):
+    """§5-critical: a follow-up recap correction to experiences OVERWRITES with
+    the corrected FULL section (`apply_correction`), it does NOT append onto the
+    baseline — so the baseline experience is NOT duplicated. The re-extraction
+    reproduces the existing experience plus the new one; the result replaces the
+    list. The scope guard still runs FIRST (§9)."""
     repo = FakeRepo({"P-x": _existing_profile()})
     json_responses = [
         EMPTY_EXPERIENCE,
@@ -503,38 +507,71 @@ def test_followup_recap_correction_to_experiences_fails_closed_no_duplication(ma
         CLARITY_NO,
         CONFIRM,
         {"has_incongruence": False, "clarification": ""},
-        {"confirmed": False},  # off-scope reply: not a confirmation -> guard runs
-        {"confirmed": False},  # in-scope reply: not a confirmation -> follow-up fail-closed
+        {"confirmed": False},  # off-scope reply -> guard runs
+        {"confirmed": False},  # in-scope correction
+        {"section": "experiences"},  # routed
+        {  # re-extraction reproduces the existing experience + adds the new one
+            "experiences": [
+                {"role": "magazziniere", "sector": "logistica", "duration_months": 12},
+                {"role": "cuoco", "sector": "ristorazione", "duration_months": 8},
+            ]
+        },
     ]
     text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
     client = make_fake_json_llm(
         json_responses=json_responses, text_responses=[*text_responses, REFUSE, ALLOW]
     )
     itw = Interview(client, ScopeGuard(client), repo, language="it")
-
     itw.start_followup("P-x")
-    final = None
-    for _ in range(3):
-        itw.submit("una risposta")
-        final = itw.submit("sì")
-    assert final is not None and final.kind == "recap"
-    baseline_experiences = list(final.recap.experiences)  # type: ignore[union-attr]
+    final = _drive_followup_to_recap(itw)
 
-    # An off-scope reply at the recap is refused -- the guard runs BEFORE the
-    # follow-up fail-closed check, so an off-topic message never reaches it.
-    off_scope_step = itw.submit("che tempo fa domani?")
-    assert off_scope_step.kind == "refusal"
+    # An off-scope reply at the recap is refused (guard runs first, §9).
+    assert itw.submit("che tempo fa domani?").kind == "refusal"
 
-    # An in-scope free-text correction to experiences is rejected fail-closed:
-    # the recap is kept (retry text, not the intro again), nothing new is
-    # persisted, and the profile's experiences are UNCHANGED -- no
-    # duplication of the baseline experience.
     saves_before = len(repo.saved)
-    step = itw.submit("in realtà ho fatto anche il cuoco per 8 mesi")
+    step = itw.submit("ho fatto anche il cuoco per 8 mesi")
     assert step.kind == "recap"
-    assert step.text != final.text  # the static retry message, not the recap intro again
-    assert len(repo.saved) == saves_before  # fail-closed: nothing new persisted
-    assert step.recap is final.recap  # session.profile untouched -- no merge attempted
-    assert step.recap.experiences == baseline_experiences  # unchanged, not duplicated
-    assert len(step.recap.experiences) == 1
-    assert step.recap.experiences[0].role == "magazziniere"
+    assert step.text == final.text  # applied (intro), not the retry message
+    assert len(repo.saved) == saves_before + 1
+    roles = [e.role for e in step.recap.experiences]  # type: ignore[union-attr]
+    assert roles == ["magazziniere", "cuoco"]  # overwritten with the full list, NO duplicate
+
+
+def test_followup_recap_correction_adds_desired_training(make_fake_json_llm):
+    """The reported case: at the recap the person says 'voglio prendere il diploma
+    / fare formazione elettricista'. It routes to aspirations and the profile IS
+    updated with the desired training (overwrite with a re-extraction that keeps
+    existing fields and adds the new training)."""
+    repo = FakeRepo({"P-x": _existing_profile()})
+    json_responses = [
+        EMPTY_EXPERIENCE,
+        CLARITY_NO,
+        CONFIRM,
+        SKILL_STATED,
+        CLARITY_NO,
+        CONFIRM,
+        EMPTY_ASPIRATION,
+        CLARITY_NO,
+        CONFIRM,
+        {"has_incongruence": False, "clarification": ""},
+        {"confirmed": False},  # recap: correction
+        {"section": "aspirations"},  # routed (training lives in aspirations)
+        {
+            "fields_of_interest": [],
+            "desired_training": [{"topic": "diploma"}, {"topic": "formazione elettricista"}],
+        },
+    ]
+    text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, ALLOW]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+    itw.start_followup("P-x")
+    final = _drive_followup_to_recap(itw)
+
+    step = itw.submit("voglio prendere il diploma e fare formazione da elettricista")
+    assert step.kind == "recap"
+    assert step.text == final.text  # applied, not the retry message
+    topics = [d.topic for d in step.recap.desired_training]  # type: ignore[union-attr]
+    assert "diploma" in topics and "formazione elettricista" in topics  # profile updated
+    assert len(repo.saved) >= 1  # persisted
