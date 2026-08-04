@@ -472,3 +472,41 @@ def test_clear_section_skips_clarification(make_fake_json_llm):
     itw = Interview(client, ScopeGuard(client), FakeRepo(), language="it", redactor=_FakeRedactor())
     itw.start()
     assert itw.submit("so cucinare").kind == "summary"
+
+
+def test_recap_confirm_completes(make_fake_json_llm):
+    repo = FakeRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    json_responses.append({"confirmed": True})  # recap confirm
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        itw.submit("sì, è corretto")
+    assert itw.submit("sì, è tutto giusto").kind == "completed"
+
+
+def test_recap_correction_reextracts_and_reshows(make_fake_json_llm):
+    repo = FakeRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(json_responses, text_responses)
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    json_responses.append({"confirmed": False})  # not a confirmation -> correction
+    json_responses.append({"section": "experiences"})  # routing
+    json_responses.append(
+        {"experiences": [{"role": "consulente", "sector": "IT", "duration_months": 24}]}
+    )  # re-extract
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, ALLOW]
+    )  # guard on the correction
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    for _ in range(5):
+        itw.submit("una risposta di lavoro")
+        itw.submit("sì, è corretto")
+    step = itw.submit("no, il consulente era 2 anni")
+    assert step.kind == "recap"
+    assert any(e.role == "consulente" and e.duration_months == 24 for e in step.recap.experiences)

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from bussola.interview.sections import Section
+from bussola.interview.extraction import extract_section
+from bussola.interview.sections import SECTIONS, Section
 from bussola.languages import language_name
 from bussola.llm.client import LlmClient
 from bussola.profile.models import WorkProfile
@@ -15,6 +16,19 @@ _CLARIFY_SCHEMA = {
     "required": ["needs_clarification", "question"],
     "additionalProperties": False,
 }
+
+_ROUTE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "section": {
+            "type": "string",
+            "enum": ["skills", "experiences", "aspirations", "constraints", "preferences", "none"],
+        }
+    },
+    "required": ["section"],
+    "additionalProperties": False,
+}
+_SECTION_BY_KEY = {s.key: s for s in SECTIONS}
 
 
 def find_section_clarification(
@@ -51,3 +65,46 @@ def find_section_clarification(
     if raw.get("needs_clarification") is True and isinstance(raw.get("question"), str):
         return raw["question"] or None
     return None
+
+
+def apply_recap_correction(
+    client: LlmClient, reply: str, profile: WorkProfile, language: str
+) -> BaseModel | None:
+    """Route a free-text recap correction to a section and return its corrected
+    extraction (constrained), or None if not routable/on error (§3 fail-closed:
+    the caller keeps the recap unchanged)."""
+    try:
+        routed = client.chat_json(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "Which ONE profile section does this correction change? "
+                        'Reply JSON {"section": one of '
+                        "skills|experiences|aspirations|constraints|preferences|none}. "
+                        "Use 'none' if it does not clearly map to a section."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"[current profile]\n{profile.model_dump_json()}\n[correction]\n{reply}",
+                },
+            ],
+            json_schema=_ROUTE_SCHEMA,
+        )
+    except Exception:
+        return None
+    key = routed.get("section")
+    section = _SECTION_BY_KEY.get(key) if isinstance(key, str) else None
+    if section is None:
+        return None
+    # Re-extract the whole section from current data + the correction (extract_section
+    # OVERWRITES the section via session.merge's first-interview semantics).
+    context = (
+        f"The person's current {section.key} is: {profile.model_dump_json()}. "
+        f"They now correct it: {reply}. Produce the corrected {section.key}."
+    )
+    try:
+        return extract_section(client, section, context, language)
+    except Exception:
+        return None

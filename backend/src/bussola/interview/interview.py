@@ -9,7 +9,7 @@ from typing import Callable, Protocol
 from bussola.guardrails.pii import PiiRedactor
 from bussola.guardrails.refusal import RefusalCategory, refusal_message, unavailable_message
 from bussola.guardrails.scope import ScopeGuard
-from bussola.interview.clarify import find_section_clarification
+from bussola.interview.clarify import apply_recap_correction, find_section_clarification
 from bussola.interview.confirm import interpret_confirmation, summarize
 from bussola.interview.extraction import extract_section
 from bussola.interview.incongruence import find_incongruence
@@ -243,6 +243,36 @@ class Interview:
             return self._unavailable()
 
     def _submit(self, session: InterviewSession, answer: str) -> Step:
+        # Recap surfaced (§5, terminal state): the person is confirming or
+        # correcting the WHOLE saved profile. A confirmation completes the
+        # interview; anything else is a free-text correction, routed to the
+        # section it changes, re-extracted and re-shown as an updated recap
+        # (never re-asked as a section question, never lost — fail-closed to
+        # "keep the recap unchanged" if unroutable/on error).
+        if self._awaiting_recap:
+            if interpret_confirmation(self._client, answer, self._language):
+                self._awaiting_recap = False
+                return self._complete()
+            decision = self._guard.check(
+                answer, self._language, question=_recap_intro(self._language)
+            )
+            if not decision.allow:
+                return Step(
+                    "refusal",
+                    refusal_message(
+                        decision.category or RefusalCategory.OUT_OF_SCOPE, self._language
+                    ),
+                )
+            extracted = apply_recap_correction(
+                self._client, answer, session.profile, self._language
+            )
+            if extracted is None:
+                # not routable: keep the recap, ask to rephrase (static message)
+                return Step("recap", _recap_retry(self._language), recap=session.profile)
+            session.merge(extracted)
+            self._repo.save(session.profile)
+            return Step("recap", _recap_intro(self._language), recap=session.profile)
+
         # Final incongruence surfaced: the person is replying to the gentle
         # clarification. Guard the reply, then enter the recap (surfacing the
         # question and hearing the person is the Fase-1 contract; targeted
@@ -387,6 +417,17 @@ def _recap_intro(language: str) -> str:
         "fr": "Voici ce que j'ai compris de ton profil. Vérifie que c'est correct.",
         "es": "Esto es lo que he entendido de tu perfil. Comprueba que esté bien.",
         "ar": "هذا ما فهمته عن ملفك. تحقّق من أنه صحيح.",
+    }
+    return messages.get(language, messages["en"])
+
+
+def _recap_retry(language: str) -> str:
+    messages = {
+        "it": "Non ho capito la correzione. Puoi ridirla in modo semplice?",
+        "en": "I didn't catch that correction. Can you say it again simply?",
+        "fr": "Je n'ai pas compris la correction. Peux-tu la redire simplement ?",
+        "es": "No he entendido la corrección. ¿Puedes repetirla de forma sencilla?",
+        "ar": "لم أفهم التصحيح. هل يمكنك إعادته ببساطة؟",
     }
     return messages.get(language, messages["en"])
 

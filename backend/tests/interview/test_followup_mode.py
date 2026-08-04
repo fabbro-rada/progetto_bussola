@@ -323,12 +323,10 @@ EMPTY_ASPIRATION = {"fields_of_interest": [], "desired_training": []}
 
 def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_llm):
     """§7.3 accountability: an auditor must be able to tell a follow-up ran to
-    completion apart from "confirmed some sections and walked away". Drives
-    all three follow-up sections (empty answers, just to reach the recap)
-    then asserts NO `followup_completed` event yet: the interview now ends at
-    the RECAP step, and `_complete()` (where this audit fires) only runs once
-    the person confirms the recap -- that confirmation flow is Task 4, which
-    will extend this test to assert the event fires exactly once after it."""
+    completion apart from "confirmed some sections and walked away". Drives all
+    three follow-up sections (empty answers, just to reach the recap), then
+    confirms the recap too (Task 4's confirm path) and asserts the
+    `followup_completed` audit fires EXACTLY ONCE, at `_complete()`."""
     repo = FakeRepo({"P-x": _existing_profile()})
     json_responses = [
         EMPTY_EXPERIENCE,
@@ -341,6 +339,7 @@ def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_
         CLARITY_NO,
         CONFIRM,
         {"has_incongruence": False, "clarification": ""},
+        {"confirmed": True},  # recap confirm
     ]
     text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
     client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
@@ -354,8 +353,11 @@ def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_
         final = itw.submit("sì")
     assert final is not None and final.kind == "recap"
 
+    final = itw.submit("sì, confermo il riepilogo")
+    assert final.kind == "completed"
+
     completed = [e for e in audit.events if e["action"] == "followup_completed"]
-    assert len(completed) == 0  # not yet -- fires only once the recap is confirmed (Task 4)
+    assert len(completed) == 1  # fires exactly once, at recap confirmation
 
 
 def test_first_interview_completion_does_not_emit_followup_completed_audit(make_fake_json_llm):
