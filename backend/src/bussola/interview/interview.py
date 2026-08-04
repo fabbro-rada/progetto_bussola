@@ -263,6 +263,18 @@ class Interview:
                         decision.category or RefusalCategory.OUT_OF_SCOPE, self._language
                     ),
                 )
+            if isinstance(session, FollowupInterviewSession):
+                # Fail-closed (§3): `apply_recap_correction` re-extracts the
+                # WHOLE routed section, but a follow-up session's `merge()`
+                # uses APPEND/UPGRADE semantics. For experiences that is a
+                # plain concatenation onto the baseline with NO dedup, so a
+                # routed correction would silently duplicate the experience
+                # (skills/aspirations happen to dedup by name/string, but the
+                # risk is not section-specific and duplication must never
+                # happen, §5). So no recap correction is ever applied on a
+                # follow-up session: keep the recap unchanged and ask to
+                # rephrase, exactly like the unroutable case.
+                return Step("recap", _recap_retry(self._language), recap=session.profile)
             extracted = apply_recap_correction(
                 self._client, answer, session.profile, self._language
             )

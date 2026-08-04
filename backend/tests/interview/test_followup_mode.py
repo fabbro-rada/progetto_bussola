@@ -46,6 +46,7 @@ class FakeRepo:
 
 
 ALLOW = '{"allow": true, "category": null, "reason": "ok"}'
+REFUSE = '{"allow": false, "category": "out_of_scope", "reason": "off"}'
 
 # Section extraction payloads (reduced follow-up order: experiences, skills,
 # aspirations).
@@ -471,3 +472,69 @@ def test_followup_recap_correction_routed_to_unsupported_section_fails_closed(ma
     assert step.text != final.text  # the static retry message, not the recap intro again
     assert len(repo.saved) == saves_before  # fail-closed: nothing new persisted
     assert step.recap is final.recap  # session.profile untouched by the failed merge
+
+
+def test_followup_recap_correction_to_experiences_fails_closed_no_duplication(make_fake_json_llm):
+    """§3/§5-critical: unlike constraints/preferences (unsupported, raises
+    TypeError in merge()), "experiences" IS a section FollowupInterviewSession.
+    merge() understands -- but its append/upgrade semantics for experiences
+    are a plain `baseline + extracted` concatenation with NO dedup. If a recap
+    correction were routed there, the re-extracted (whole-section) result
+    would be appended on top of the baseline and silently DUPLICATE it --
+    corrupting the profile with no error raised. So a follow-up recap
+    correction must be rejected fail-closed BEFORE routing/re-extraction is
+    even attempted: the recap stays unchanged, nothing new is persisted, and
+    the person is asked to rephrase -- same observable outcome as the
+    unroutable/unsupported-section cases, but here to prevent silent
+    corruption rather than a crash.
+
+    The scope guard must still run FIRST (§9): an off-scope reply at the same
+    recap step is refused, not silently treated as an unroutable correction.
+    """
+    repo = FakeRepo({"P-x": _existing_profile()})
+    json_responses = [
+        EMPTY_EXPERIENCE,
+        CLARITY_NO,
+        CONFIRM,
+        SKILL_STATED,
+        CLARITY_NO,
+        CONFIRM,
+        EMPTY_ASPIRATION,
+        CLARITY_NO,
+        CONFIRM,
+        {"has_incongruence": False, "clarification": ""},
+        {"confirmed": False},  # off-scope reply: not a confirmation -> guard runs
+        {"confirmed": False},  # in-scope reply: not a confirmation -> follow-up fail-closed
+    ]
+    text_responses = [ALLOW, "Riepilogo. Giusto?"] * 3
+    client = make_fake_json_llm(
+        json_responses=json_responses, text_responses=[*text_responses, REFUSE, ALLOW]
+    )
+    itw = Interview(client, ScopeGuard(client), repo, language="it")
+
+    itw.start_followup("P-x")
+    final = None
+    for _ in range(3):
+        itw.submit("una risposta")
+        final = itw.submit("sì")
+    assert final is not None and final.kind == "recap"
+    baseline_experiences = list(final.recap.experiences)  # type: ignore[union-attr]
+
+    # An off-scope reply at the recap is refused -- the guard runs BEFORE the
+    # follow-up fail-closed check, so an off-topic message never reaches it.
+    off_scope_step = itw.submit("che tempo fa domani?")
+    assert off_scope_step.kind == "refusal"
+
+    # An in-scope free-text correction to experiences is rejected fail-closed:
+    # the recap is kept (retry text, not the intro again), nothing new is
+    # persisted, and the profile's experiences are UNCHANGED -- no
+    # duplication of the baseline experience.
+    saves_before = len(repo.saved)
+    step = itw.submit("in realtà ho fatto anche il cuoco per 8 mesi")
+    assert step.kind == "recap"
+    assert step.text != final.text  # the static retry message, not the recap intro again
+    assert len(repo.saved) == saves_before  # fail-closed: nothing new persisted
+    assert step.recap is final.recap  # session.profile untouched -- no merge attempted
+    assert step.recap.experiences == baseline_experiences  # unchanged, not duplicated
+    assert len(step.recap.experiences) == 1
+    assert step.recap.experiences[0].role == "magazziniere"

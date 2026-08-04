@@ -224,15 +224,21 @@ def test_llm_unavailable_yields_controlled_step(make_fake_json_llm):
 
 
 def test_summarize_failure_does_not_leave_awaiting_confirmation():
-    # guard ALLOW (text call #1), extract COMP (json call #1), then the
-    # summarize text call fails -> unavailable, and NO state must have been
-    # mutated: the next answer must be re-guarded from scratch, not treated
-    # as a confirmation reply (which would call interpret_confirmation/
-    # chat_json instead of the guard's chat).
+    # guard ALLOW (text call #1), extract COMP (json call #1), the per-section
+    # clarity check answers "no clarification needed" (json call #2, a valid
+    # response so `find_section_clarification`'s fail-open `except Exception`
+    # doesn't need to catch anything here -- it must stay free to act as a
+    # tripwire below), then the summarize text call fails -> unavailable, and
+    # NO state must have been mutated: the next answer must be re-guarded from
+    # scratch, not treated as a confirmation reply (which would call
+    # interpret_confirmation/chat_json instead of the guard's chat). The
+    # json queue is exhausted after that, so any FURTHER unscripted chat_json
+    # call (a sign that state was wrongly mutated) still trips the
+    # AssertionError tripwire below.
     class SummarizeDown:
         def __init__(self) -> None:
             self._chat_queue: list[str | None] = [ALLOW, None, REFUSE]
-            self._json_queue: list[dict] = [COMP]
+            self._json_queue: list[dict] = [COMP, {"needs_clarification": False, "question": ""}]
 
         def chat(self, messages, *, temperature=0.0, max_tokens=None):
             value = self._chat_queue.pop(0)
