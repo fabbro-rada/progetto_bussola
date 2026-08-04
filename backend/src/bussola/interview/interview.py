@@ -21,8 +21,9 @@ from bussola.profile.models import WorkProfile
 
 @dataclass(frozen=True)
 class Step:
-    kind: str  # question | summary | clarification | refusal | unavailable | completed
+    kind: str  # question | summary | clarification | refusal | unavailable | completed | recap
     text: str
+    recap: WorkProfile | None = None
 
 
 class ProfileStore(Protocol):
@@ -61,6 +62,11 @@ class Interview:
         self._session: InterviewSession | None = None
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        # Set once the interview has emitted the final RECAP step (§5): the
+        # person is reviewing the whole confirmed profile before completion.
+        # Confirming/correcting it is Task 4; this task only reaches and
+        # carries it.
+        self._awaiting_recap = False
         # The current section's answer text, accumulated across corrections: a
         # "not confirmed" reply is a correction to the SAME section, so we keep
         # the original answer plus each correction and re-extract from the whole
@@ -134,6 +140,7 @@ class Interview:
         self._session = InterviewSession(pseudonym, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        self._awaiting_recap = False
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
@@ -148,6 +155,7 @@ class Interview:
         self._session = InterviewSession(pseudonym_id, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        self._awaiting_recap = False
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
@@ -166,6 +174,7 @@ class Interview:
         self._session = InterviewSession.for_followup(profile, self._language)
         self._awaiting_confirmation = False
         self._awaiting_final_clarification = False
+        self._awaiting_recap = False
         self._section_answer = ""
         self._final_clarification = None
         self._last_summary = ""
@@ -176,20 +185,32 @@ class Interview:
     def _finalize(self, session: InterviewSession) -> Step:
         """All sections confirmed: run the incongruence check ONCE on the whole
         profile. A real cross-section contradiction surfaces a gentle
-        clarification; otherwise the interview completes."""
+        clarification; otherwise the interview enters the final recap (§5)."""
         clarification = find_incongruence(self._client, session.profile, self._language)
         if clarification is not None:
             shown = self._present(clarification)
             if shown is None:
                 # The generated clarification failed the outbound scope guard —
-                # never show it. It is an optional nicety, so skip it and finish
-                # rather than trap the person; the confirmed profile stands (§3
-                # degrado elegante).
-                return self._complete()
+                # never show it. It is an optional nicety, so skip it and go to
+                # the recap rather than trap the person; the confirmed profile
+                # stands (§3 degrado elegante).
+                return self._enter_recap()
             self._awaiting_final_clarification = True
             self._final_clarification = clarification
             return Step("clarification", shown)
-        return self._complete()
+        return self._enter_recap()
+
+    def _enter_recap(self) -> Step:
+        """All sections confirmed and the incongruence check cleared (or was
+        skipped/withheld): show the person a schematic recap of the whole
+        saved profile before completion (§5 "riepilogo ... alla fine del
+        colloquio"). Built directly from `session.profile` -- already
+        PII-filtered on each section save -- so no LLM call is needed here.
+        Confirming/correcting the recap is Task 4; this only reaches it."""
+        session = self._session
+        assert session is not None
+        self._awaiting_recap = True
+        return Step("recap", _recap_intro(self._language), recap=session.profile)
 
     def _complete(self) -> Step:
         """Common completion path (reached either directly from `_finalize`,
@@ -223,9 +244,9 @@ class Interview:
 
     def _submit(self, session: InterviewSession, answer: str) -> Step:
         # Final incongruence surfaced: the person is replying to the gentle
-        # clarification. Guard the reply, then complete (surfacing the question
-        # and hearing the person is the Fase-1 contract; targeted re-extraction
-        # from a final clarification is Fase 2).
+        # clarification. Guard the reply, then enter the recap (surfacing the
+        # question and hearing the person is the Fase-1 contract; targeted
+        # re-extraction from a final clarification is Fase 2).
         if self._awaiting_final_clarification:
             decision = self._guard.check(answer, self._language, question=self._final_clarification)
             if not decision.allow:
@@ -236,7 +257,7 @@ class Interview:
                     ),
                 )
             self._awaiting_final_clarification = False
-            return self._complete()
+            return self._enter_recap()
 
         # Open per-section clarification surfaced: the person is replying to
         # it. Guard the reply against THAT question, append it to the
@@ -357,6 +378,17 @@ class Interview:
         # Remember it so a correction reply is scope-judged against this summary.
         self._last_summary = summary_text
         return Step("summary", summary_text)
+
+
+def _recap_intro(language: str) -> str:
+    messages = {
+        "it": "Ecco cosa ho capito del tuo profilo. Controlla che sia giusto.",
+        "en": "Here's what I understood about your profile. Please check it's right.",
+        "fr": "Voici ce que j'ai compris de ton profil. Vérifie que c'est correct.",
+        "es": "Esto es lo que he entendido de tu perfil. Comprueba que esté bien.",
+        "ar": "هذا ما فهمته عن ملفك. تحقّق من أنه صحيح.",
+    }
+    return messages.get(language, messages["en"])
 
 
 def _final_summary(language: str) -> str:

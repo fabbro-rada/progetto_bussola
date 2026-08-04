@@ -280,6 +280,24 @@ def _confirm_all_sections(json_responses, text_responses):
         )
 
 
+def test_interview_ends_with_a_recap_carrying_the_profile(make_fake_json_llm):
+    repo = FakeRepo()
+    json_responses, text_responses = [], []
+    _confirm_all_sections(
+        json_responses, text_responses
+    )  # each section: extract + clarity(false) + confirm
+    json_responses.append({"has_incongruence": False, "clarification": ""})
+    client = make_fake_json_llm(json_responses=json_responses, text_responses=text_responses)
+    itw = Interview(client, ScopeGuard(client), repo, language="it", redactor=_FakeRedactor())
+    itw.start()
+    last = None
+    for _ in range(5):
+        assert itw.submit("una risposta di lavoro").kind == "summary"
+        last = itw.submit("sì, è corretto")
+    assert last is not None and last.kind == "recap"
+    assert last.recap is not None and last.recap.pseudonym_id  # carries the saved profile
+
+
 def test_full_interview_runs_incongruence_once_at_end(make_fake_json_llm):
     repo = FakeRepo()
     json_responses: list[dict] = []
@@ -296,7 +314,9 @@ def test_full_interview_runs_incongruence_once_at_end(make_fake_json_llm):
         s = itw.submit("una risposta di lavoro")
         assert s.kind == "summary"
         last = itw.submit("sì, è corretto")
-    assert last is not None and last.kind == "completed"
+    # The interview now ends at the RECAP step (not "completed"): completing
+    # requires confirming the recap, which is Task 4.
+    assert last is not None and last.kind == "recap"
     assert len(repo.saved) == 5  # one save per confirmed section
     # All json responses consumed: 5*(extraction+confirm) + 1 final incongruence.
     assert not client._json
@@ -321,9 +341,10 @@ def test_final_incongruence_surfaces_clarification_then_completes(make_fake_json
         clar = itw.submit("sì, è corretto")
     assert clar is not None and clar.kind == "clarification"
     assert "chiarire" in clar.text
-    # Replying to the clarification (in scope) completes the interview.
+    # Replying to the clarification (in scope) now yields the RECAP step (not
+    # "completed" directly) -- completing requires confirming the recap (Task 4).
     final = itw.submit("La durata è di due anni, chiarito.")
-    assert final.kind == "completed"
+    assert final.kind == "recap"
 
 
 def test_generated_summary_is_pii_redacted_before_display(make_fake_json_llm):
@@ -411,7 +432,9 @@ def test_final_clarification_failing_outbound_scope_guard_is_skipped_and_complet
     for _ in range(5):
         assert itw.submit("una risposta di lavoro").kind == "summary"
         last = itw.submit("sì, è corretto")
-    assert last is not None and last.kind == "completed"  # clarification skipped, not shown
+    # clarification skipped (not shown), so the interview falls straight through
+    # to the recap step (not "completed" -- Task 4 completes after confirmation).
+    assert last is not None and last.kind == "recap"
     # the clarification trip is audited too (§7.3), like the summary trip
     assert any(e["action"] == "output_guard_blocked" for e in events)
 

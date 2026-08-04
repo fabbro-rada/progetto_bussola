@@ -262,7 +262,10 @@ def test_followup_reject_and_reanswer_never_accumulates_or_leaks_rejected_data(m
     assert itw.submit("mi piacerebbe l'edilizia, corso di saldatura").kind == "summary"
     assert itw.submit("scusa, mi interessa il catering, corso HACCP").kind == "summary"
     final = itw.submit("sì, confermo")
-    assert final.kind == "completed"
+    # The interview now ends at the RECAP step, not "completed" directly --
+    # completing requires confirming the recap (Task 4). The merge assertions
+    # below are unaffected: each section was already saved on confirmation.
+    assert final.kind == "recap"
 
     saved = repo.get("P-x")
     assert saved is not None
@@ -321,9 +324,11 @@ EMPTY_ASPIRATION = {"fields_of_interest": [], "desired_training": []}
 def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_llm):
     """§7.3 accountability: an auditor must be able to tell a follow-up ran to
     completion apart from "confirmed some sections and walked away". Drives
-    all three follow-up sections (empty answers, just to reach completion)
-    then asserts exactly one `followup_completed` event, targeting the right
-    pseudonym."""
+    all three follow-up sections (empty answers, just to reach the recap)
+    then asserts NO `followup_completed` event yet: the interview now ends at
+    the RECAP step, and `_complete()` (where this audit fires) only runs once
+    the person confirms the recap -- that confirmation flow is Task 4, which
+    will extend this test to assert the event fires exactly once after it."""
     repo = FakeRepo({"P-x": _existing_profile()})
     json_responses = [
         EMPTY_EXPERIENCE,
@@ -347,11 +352,10 @@ def test_followup_completion_emits_followup_completed_audit_once(make_fake_json_
     for _ in range(3):
         itw.submit("una risposta")
         final = itw.submit("sì")
-    assert final is not None and final.kind == "completed"
+    assert final is not None and final.kind == "recap"
 
     completed = [e for e in audit.events if e["action"] == "followup_completed"]
-    assert len(completed) == 1
-    assert completed[0]["target_pseudonym"] == "P-x"
+    assert len(completed) == 0  # not yet -- fires only once the recap is confirmed (Task 4)
 
 
 def test_first_interview_completion_does_not_emit_followup_completed_audit(make_fake_json_llm):
@@ -382,7 +386,9 @@ def test_first_interview_completion_does_not_emit_followup_completed_audit(make_
     for _ in range(5):
         itw.submit("una risposta")
         final = itw.submit("sì")
-    assert final is not None and final.kind == "completed"
+    # The interview now ends at the RECAP step, not "completed" directly
+    # (Task 4 completes after the recap is confirmed).
+    assert final is not None and final.kind == "recap"
 
     assert not any(e["action"] == "followup_completed" for e in audit.events)
     assert len([e for e in audit.events if e["action"] == "interview_section_confirmed"]) == 5

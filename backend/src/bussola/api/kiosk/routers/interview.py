@@ -14,6 +14,7 @@ from bussola.api.kiosk.deps import (
 )
 from bussola.followup.service import FollowupTokenService
 from bussola.interview.interview import Interview
+from bussola.profile.models import WorkProfile
 from bussola.startcode.service import StartCodeService
 
 router = APIRouter(prefix="/kiosk/interview", tags=["kiosk"], dependencies=[Depends(require_kiosk)])
@@ -43,6 +44,7 @@ class SubmitRequest(BaseModel):
 class StepOut(BaseModel):
     kind: str
     text: str
+    recap: WorkProfile | None = None
 
 
 class StartResponse(BaseModel):
@@ -75,7 +77,9 @@ def start(body: StartRequest) -> StartResponse:
         conn.close()
         raise
     token = REGISTRY.create(interview, on_evict=conn.close)
-    return StartResponse(session_token=token, step=StepOut(kind=step.kind, text=step.text))
+    return StartResponse(
+        session_token=token, step=StepOut(kind=step.kind, text=step.text, recap=step.recap)
+    )
 
 
 @router.post("/start-followup", response_model=StartResponse)
@@ -103,7 +107,9 @@ def start_followup(body: StartFollowupRequest) -> StartResponse:
         conn.close()
         raise
     token = REGISTRY.create(interview, on_evict=conn.close)
-    return StartResponse(session_token=token, step=StepOut(kind=step.kind, text=step.text))
+    return StartResponse(
+        session_token=token, step=StepOut(kind=step.kind, text=step.text, recap=step.recap)
+    )
 
 
 @router.post("/submit", response_model=SubmitResponse)
@@ -115,4 +121,4 @@ def submit(body: SubmitRequest) -> SubmitResponse:
     step = interview.submit(body.answer)
     if step.kind == "completed":
         REGISTRY.discard(body.session_token)
-    return SubmitResponse(step=StepOut(kind=step.kind, text=step.text))
+    return SubmitResponse(step=StepOut(kind=step.kind, text=step.text, recap=step.recap))
